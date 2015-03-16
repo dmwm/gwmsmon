@@ -68,7 +68,7 @@ def subtask(basedir, interval, request, subtask):
             "DEF:Idle=%s:Idle:AVERAGE" % fname,
             "LINE1:Running#0000FF:Running",
             "LINE2:Idle#00FF00:Idle",
-            "COMMENT:%s" % site,
+            "COMMENT:%s" % subtask,
             "COMMENT:\\n",
             "COMMENT:            max     avg     cur\\n",
             "COMMENT:Running ",
@@ -112,6 +112,37 @@ def request(basedir, interval, request):
             "GPRINT:Idle:MAX:%-6.0lf",
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
+            )
+    return os.fdopen(fd).read()
+
+
+def request_starvation(basedir, interval, request):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, request, "request.rrd")
+    if not os.path.exists(fname):
+        raise ValueError("No starvation information present (request=%s)" % request)
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "250",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "Request %s Starvation" % request,
+            "DEF:LowerPrioRunning=%s:LowerPrioRunning:AVERAGE" % fname,
+            "DEF:HigherPrioIdle=%s:HigherPrioIdle:AVERAGE" % fname,
+            "LINE1:LowerPrioRunning#0000FF:LowerPrioRunning",
+            "LINE2:HigherPrioIdle#00FF00:HigherPrioIdle",
+            "COMMENT:\\n",
+            "COMMENT:            max     avg     cur\\n",
+            "COMMENT:LowerPrioRunning ",
+            "GPRINT:LowerPrioRunning:MAX:%-6.0lf",
+            "GPRINT:LowerPrioRunning:AVERAGE:%-6.0lf",
+            "GPRINT:LowerPrioRunning:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:HigherPrioIdle      ",
+            "GPRINT:HigherPrioIdle:MAX:%-6.0lf",
+            "GPRINT:HigherPrioIdle:AVERAGE:%-6.0lf",
+            "GPRINT:HigherPrioIdle:LAST:%-6.0lf\\n",
             )
     return os.fdopen(fd).read()
 
@@ -176,6 +207,38 @@ def site(basedir, interval, site):
             "GPRINT:MatchingIdle:MAX:%-6.0lf",
             "GPRINT:MatchingIdle:AVERAGE:%-6.0lf",
             "GPRINT:MatchingIdle:LAST:%-6.0lf\\n",
+            )
+    return os.fdopen(fd).read()
+
+
+def summary(basedir, interval):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, "summary.rrd")
+    if not os.path.exists(fname):
+        raise ValueError("No information present" % site)
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "250",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "Pool Summary",
+            "DEF:Running=%s:Running:AVERAGE" % fname,
+            "DEF:Idle=%s:Idle:AVERAGE" % fname,
+            "LINE1:Running#0000FF:Running",
+            "LINE2:Idle#00FF00:Idle",
+            "COMMENT:Pool Summary",
+            "COMMENT:\\n",
+            "COMMENT:            max     avg     cur\\n",
+            "COMMENT:Running ",
+            "GPRINT:Running:MAX:%-6.0lf",
+            "GPRINT:Running:AVERAGE:%-6.0lf",
+            "GPRINT:Running:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:Idle ",
+            "GPRINT:Idle:MAX:%-6.0lf",
+            "GPRINT:Idle:AVERAGE:%-6.0lf",
+            "GPRINT:Idle:LAST:%-6.0lf\\n",
             )
     return os.fdopen(fd).read()
 

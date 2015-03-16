@@ -3,4 +3,5 @@ include packaging/prodview-httpd.conf
 include packaging/prodview.wsgi
 include packaging/prodview.cron
 include templates/request.html
+include templates/site.html
 include templates/index.html

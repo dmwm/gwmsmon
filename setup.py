@@ -11,7 +11,7 @@ setup(name='prodview',
       package_dir = {'': 'src'},
       data_files=[('/etc', ['packaging/prodview.conf']),
                   ('/var/www/wsgi-scripts', ['packaging/prodview.wsgi']),
-                  ('/usr/share/prodview/templates', ['templates/index.html', 'templates/request.html']),
+                  ('/usr/share/prodview/templates', ['templates/index.html', 'templates/request.html', 'templates/site.html']),
                   ('/etc/httpd/conf.d/', ['packaging/prodview-httpd.conf']),
                   ('/etc/cron.d/', ['packaging/prodview.cron'])
                  ],

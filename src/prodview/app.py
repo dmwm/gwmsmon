@@ -70,6 +70,28 @@ _site_summary_json_re = re.compile(r'^/*json/site_summary$')
 site_summary_json = static_file_server("site_summary.json")
 
 
+_site_totals_json_re = re.compile(r'^/*json/+([-_A-Za-z0-9]+)/*$')
+def site_totals_json(environ, start_response):
+    path = environ.get('PATH_INFO', '')
+    m = _site_totals_json_re.match(path)
+    site = m.groups()[0]
+    fname = os.path.join(_cp.get("prodview", "basedir"), site, "totals.json")
+
+    for result in serve_static_file(fname, environ, start_response):
+        yield result
+
+
+_site_request_summary_json_re = re.compile(r'^/*json/+(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/summary/*$')
+def site_request_summary_json(environ, start_response):
+    path = environ.get('PATH_INFO', '')
+    m = _site_request_summary_json_re.match(path)
+    site = m.groups()[0]
+    fname = os.path.join(_cp.get("prodview", "basedir"), site, "summary.json")
+
+    for result in serve_static_file(fname, environ, start_response):
+        yield result
+
+
 _request_totals_json_re = re.compile(r'^/*json/+([-_A-Za-z0-9]+)/+totals$')
 def request_totals_json(environ, start_response):
     path = environ.get('PATH_INFO', '')
@@ -118,6 +140,23 @@ def request_graph(environ, start_response):
         interval=m.groups()[1]
 
     return [ rrd.request(_cp.get("prodview", "basedir"), interval, request) ]
+
+
+_request_starvation_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/starvation/?(hourly|weekly|daily|monthly|yearly)?/?$')
+def request_starvation_graph(environ, start_response):
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+
+    path = environ.get('PATH_INFO', '')
+    m = _request_starvation_graph_re.match(path)
+    interval = "daily"
+    request = m.groups()[0]
+    if m.groups()[1]:
+        interval=m.groups()[1]
+
+    return [ rrd.request_starvation(_cp.get("prodview", "basedir"), interval, request) ]
 
 
 _subtask_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/+([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -173,6 +212,22 @@ def request_site_graph(environ, start_response):
     return [ rrd.request_site(_cp.get("prodview", "basedir"), interval, request, site) ]
 
 
+_summary_graph_re = re.compile(r'^/*graphs/summary/?(hourly|weekly|daily|monthly|yearly)?/?$')
+def summary_graph(environ, start_response):
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+
+    path = environ.get('PATH_INFO', '')
+    m = _summary_graph_re.match(path)
+    interval = "daily"
+    if m.groups()[0]:
+        interval=m.groups()[0]
+
+    return [ rrd.summary(_cp.get("prodview", "basedir"), interval) ]
+
+
 _request_re = re.compile(r'^/*([-_A-Za-z0-9]+)/?$')
 def request(environ, start_response):
     status = '200 OK' # HTTP Status
@@ -187,6 +242,23 @@ def request(environ, start_response):
     tmpl = _loader.load('request.html')
 
     return [tmpl.generate(request=request).render('html', doctype='html')]
+
+
+_site_re = re.compile(r'^/*(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?$')
+def site(environ, start_response):
+    status = '200 OK' # HTTP Status
+    headers = [('Content-type', 'text/html'),
+              ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+
+    path = environ.get('PATH_INFO', '')
+    m = _request_re.match(path)
+    site = m.groups()[0]
+
+    tmpl = _loader.load('site.html')
+
+    return [tmpl.generate(site=site).render('html', doctype='html')]
+
 
 
 def index(environ, start_response):
@@ -219,15 +291,20 @@ urls = [
     (_totals_json_re, totals_json),
     (_summary_json_re, summary_json),
     (_site_summary_json_re, site_summary_json),
+    (_site_totals_json_re, site_totals_json),
+    (_site_request_summary_json_re, site_request_summary_json),
     (_request_totals_json_re, request_totals_json),
     (_request_summary_json_re, request_summary_json),
     (_request_site_summary_json_re, request_site_summary_json),
     #(re.compile(r'^graphs/([-_A-Za-z0-9]+)/prio/?$'), request_prio_graph),
     (_site_graph_re, site_graph),
+    (_summary_graph_re, summary_graph),
+    (_request_starvation_graph_re, request_starvation_graph),
     (_request_graph_re, request_graph),
     (_request_site_graph_re, request_site_graph),
     (_subtask_graph_re, subtask_graph),
     (re.compile(r'^graphs/([-_A-Za-z0-9]+)/([-_A-Za-z0-9]+)/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?$'), subtask_site_graph),
+    (_site_re, site),
     (_request_re, request),
     (re.compile(r'^([-_A-Za-z0-9]+)/([-_A-Za-z0-9]+)/?$'), subtask),
 ]

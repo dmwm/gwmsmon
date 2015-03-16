@@ -71,7 +71,8 @@ def query_schedd(ad, workflows):
             site_dict = subtask_dict.setdefault(site, {})
             prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
             prio_dict.setdefault(status, 0)
-            prio_dict[status] += 1
+            if status != "Running":
+                prio_dict[status] += 1
         if running_site:
             site_dict = subtask_dict.setdefault(running_site, {})
             prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
@@ -117,7 +118,7 @@ def analyze_prios(workflows):
                     prio_dict["HigherPrioIdle"] = higher_idle
 
 
-def summarize(workflows):
+def summarize(workflows, gsites):
     for request, request_dict in workflows.items():
         for subtask, subtask_dict in request_dict.items():
             min_prio = min([min(site_dict.keys()) for site_dict in subtask_dict.values()])
@@ -153,6 +154,12 @@ def summarize(workflows):
                 request_sites[site]["Running"] += sum([prio_dict["Running"] for prio_dict in site_dict.values()])
                 request_sites[site]["MatchingIdle"] += sum([prio_dict["MatchingIdle"] for prio_dict in site_dict.values()])
 
+        for site, site_dict in request_sites.items():
+            gsites_dict = gsites.setdefault(site, {})
+            gsites_dict.setdefault(request, {"Running": 0, "MatchingIdle": 0, "BasePrio": min_prio})
+            for status, count in site_dict.items():
+                gsites_dict[request][status] += site_dict[status]
+
 
 def drop_obj(obj, dirname, fname):
     if not os.path.exists(dirname):
@@ -163,7 +170,7 @@ def drop_obj(obj, dirname, fname):
     os.rename(fname_tmp, fname)
 
 
-def write_json(workflows, output):
+def write_json(workflows, gsites, output):
 
     sites = {}
     running = 0
@@ -182,6 +189,13 @@ def write_json(workflows, output):
 
     drop_obj(sites, output, "site_summary.json")
     drop_obj({"Running": running, "Idle": idle, "RequestCount": requests, "UpdateTime": now}, output, "totals.json")
+
+    for site, site_dict in gsites.items():
+        site_dir = os.path.join(output, site)
+        final_obj = dict(sites[site])
+        final_obj["UpdateTime"] = now
+        drop_obj(final_obj, site_dir, "totals.json")
+        drop_obj(site_dict, site_dir, "summary.json")
 
     final_obj = {}
     for request, request_dict in workflows.items():
@@ -217,13 +231,14 @@ def write_json(workflows, output):
                 request_sites.setdefault(site, {"Running": 0, "MatchingIdle": 0})
                 for status, count in site_dict.items():
                     request_sites[site][status] += count
+            subtask_dict["Summary"]["SiteCount"] = len(sites)
             drop_obj(subtask_dict["Summary"], subtask_dir, "summary.json")
         request_dir = os.path.join(output, request)
         drop_obj(request_sites, request_dir, "site_summary.json")
         drop_obj(final_obj, request_dir, "summary.json")
 
 
-def write_rrds(workflows, output):
+def write_rrds(workflows, gsites, output):
 
     sites = {}
     running = 0
@@ -260,6 +275,22 @@ def write_rrds(workflows, output):
                 "RRA:AVERAGE:0.5:20:2000",
             )   
         rrdtool.update(fname, "N:%d:%d" % (site_dict["Running"], site_dict["MatchingIdle"]))
+
+    for site, site_dict in gsites.items():
+        site_dir = os.path.join(output, site)
+        for request, request_dict in site_dict.items():
+            fname = os.path.join(site_dir, "%s.rrd" % request)
+            if not os.path.exists(fname):
+                rrdtool.create(fname,
+                    "--step", "180",
+                    "DS:Running:GAUGE:360:U:U",
+                    "DS:MatchingIdle:GAUGE:360:U:U",
+                    "RRA:AVERAGE:0.5:1:1000",
+                    "RRA:MIN:0.5:20:2000",
+                    "RRA:MAX:0.5:20:2000",
+                    "RRA:AVERAGE:0.5:20:2000",
+                )
+            rrdtool.update(fname, "N:%d:%d" % (request_dict["Running"], request_dict["MatchingIdle"]))
 
     for request, request_dict in workflows.items():
         request_dir = os.path.join(output, request)
@@ -350,13 +381,14 @@ def main():
 
     schedd_ads = coll.query(htcondor.AdTypes.Schedd, 'CMSGWMS_Type=?="prodschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'])
 
+    sites = {}
     workflows = {}
     for ad in schedd_ads:
         print "Querying schedd", ad['Name']
         query_schedd(ad, workflows)
 
     analyze_prios(workflows)
-    summarize(workflows)
+    summarize(workflows, sites)
 
     for request, request_dict in workflows.items():
         print "- Info for request", request
@@ -377,8 +409,8 @@ def main():
                         print "\t\t\t\t- %s: %d" % (status, count)
 
     if opts.output:
-        write_json(workflows, opts.output)
-        write_rrds(workflows, opts.output)
+        write_json(workflows, sites, opts.output)
+        write_rrds(workflows, sites, opts.output)
 
 if __name__ == "__main__":
     main()
