@@ -1,4 +1,5 @@
 
+import os
 import tempfile
 
 import rrdtool
@@ -87,10 +88,10 @@ def request(basedir, interval, request):
     fd, pngpath = tempfile.mkstemp(".png")
     fname = os.path.join(basedir, request, "request.rrd")
     if not os.path.exists(fname):
-        raise ValueError("No information present (request=%s)" % (request, subtask))
+        raise ValueError("No information present (request=%s)" % request)
     rrdtool.graph(pngpath,
             "--imgformat", "PNG",
-            "--width", "400",
+            "--width", "250",
             "--start", "-1%s" % get_rrd_interval(interval),
             "--vertical-label", "Jobs",
             "--lower-limit", "0",
@@ -99,7 +100,7 @@ def request(basedir, interval, request):
             "DEF:Idle=%s:Idle:AVERAGE" % fname,
             "LINE1:Running#0000FF:Running",
             "LINE2:Idle#00FF00:Idle",
-            "COMMENT:%s" % site,
+            "COMMENT:Request Statistics",
             "COMMENT:\\n",
             "COMMENT:            max     avg     cur\\n",
             "COMMENT:Running ",
@@ -107,7 +108,7 @@ def request(basedir, interval, request):
             "GPRINT:Running:AVERAGE:%-6.0lf",
             "GPRINT:Running:LAST:%-6.0lf",
             "COMMENT:\\n",
-            "COMMENT:Idle ",
+            "COMMENT:Idle      ",
             "GPRINT:Idle:MAX:%-6.0lf",
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
@@ -123,6 +124,38 @@ def request_site(basedir, interval, request, site):
     rrdtool.graph(pngpath,
             "--imgformat", "PNG",
             "--width", "400",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "%s Job Counts" % site,
+            "DEF:Running=%s:Running:AVERAGE" % fname,
+            "DEF:MatchingIdle=%s:MatchingIdle:AVERAGE" % fname,
+            "LINE1:Running#0000FF:Running",
+            "LINE2:MatchingIdle#00FF00:MatchingIdle",
+            "COMMENT:%s" % site,
+            "COMMENT:\\n",
+            "COMMENT:            max     avg     cur\\n",
+            "COMMENT:Running ",
+            "GPRINT:Running:MAX:%-6.0lf",
+            "GPRINT:Running:AVERAGE:%-6.0lf",
+            "GPRINT:Running:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:MatchingIdle ",
+            "GPRINT:MatchingIdle:MAX:%-6.0lf",
+            "GPRINT:MatchingIdle:AVERAGE:%-6.0lf",
+            "GPRINT:MatchingIdle:LAST:%-6.0lf\\n",
+            )
+    return os.fdopen(fd).read()
+
+
+def site(basedir, interval, site):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, "%s.rrd" % site)
+    if not os.path.exists(fname):
+        raise ValueError("No information present (site=%s)" % site)
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "250",
             "--start", "-1%s" % get_rrd_interval(interval),
             "--vertical-label", "Jobs",
             "--lower-limit", "0",

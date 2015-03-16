@@ -17,8 +17,8 @@ BuildArch:	noarch
 #
 
 # Github source0
-# https://github.com/bbockelm/prodview/archive/v0.1.tar.gz
-Source0:	https://github.com/bbockelm/prodview/archive/v%{version}.tar.gz
+# https://github.com/bbockelm/prodview/archive/prodview-0.1.tar.gz
+Source0:	https://github.com/bbockelm/prodview/archive/prodview-%{version}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 BuildRequires:	python-genshi
@@ -42,7 +42,7 @@ python setup.py build
 %install
 rm -rf %{buildroot}
 python setup.py install -O1 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
-mkdir -p $RPM_BUILD_ROOT/var/lib/prodview
+mkdir -p $RPM_BUILD_ROOT/var/www/prodview
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -53,7 +53,7 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %_sysconfdir/prodview.conf
 %config(noreplace) %_sysconfdir/httpd/conf.d/prodview-httpd.conf
 %verify(not group user) %config(noreplace) %_sysconfdir/cron.d/prodview.cron
-%attr(0755,apache,apache) %dir /var/lib/prodview
+%attr(0755,apache,apache) %dir /var/www/prodview
 
 
 %changelog

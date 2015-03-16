@@ -1,17 +1,42 @@
 #!/usr/bin/python
 
 import os
+import sys
 import json
+import time
 import optparse
+import ConfigParser
 
 import rrdtool
 import htcondor
 
 def parse_args():
     parser = optparse.OptionParser()
+    parser.add_option("-c", "--config", help="Prodview configuration file", dest="config", default=None)
     parser.add_option("-p", "--pool", help="HTCondor pool to analyze", dest="pool")
     parser.add_option("-o", "--output", help="Top-level output dir", dest="output")
-    return parser.parse_args()
+    opts, args = parser.parse_args()
+
+    if args:
+        parser.print_help()
+        print >> sys.stderr, "%s takes no arguments." % sys.args[0]
+        sys.exit(1)
+
+    cp = ConfigParser.ConfigParser()
+    if opts.config:
+        if not os.path.exists(opts.config):
+            print >> sys.stderr, "Config file %s does not exist." % opts.config
+            sys.exit(1)
+        cp.read(opts.config)
+    elif os.path.exists("/etc/prodview.conf"):
+        cp.read("/etc/prodview.conf")
+
+    if not opts.pool and cp.has_option("htcondor", "pool"):
+        opts.pool = cp.get("htcondor", "pool")
+    if not opts.output and cp.has_option("prodview", "basedir"):
+        opts.output = cp.get("prodview", "basedir")
+
+    return opts, args
 
 
 def query_schedd(ad, workflows):
@@ -153,13 +178,20 @@ def write_json(workflows, output):
         idle += request_dict["Summary"]["Idle"]
     requests = len(workflows)
 
+    now = int(time.time())
+
     drop_obj(sites, output, "site_summary.json")
-    drop_obj({"Running": running, "Idle": idle, "RequestCount": requests}, output, "totals.json")
+    drop_obj({"Running": running, "Idle": idle, "RequestCount": requests, "UpdateTime": now}, output, "totals.json")
 
     final_obj = {}
     for request, request_dict in workflows.items():
         final_obj[request] = dict(request_dict["Summary"])
         final_obj[request]["SiteCount"] = len(final_obj[request]["Sites"])
+        del final_obj[request]["Sites"]
+        request_summary = dict(final_obj[request])
+        request_summary['UpdateTime'] = now
+        request_summary['SubtaskCount'] = len(request_dict)-1
+        drop_obj(request_summary, os.path.join(output, request), "totals.json")
     drop_obj(final_obj, output, "summary.json")
 
     for request, request_dict in workflows.items():
@@ -171,7 +203,7 @@ def write_json(workflows, output):
             final_obj[subtask] = subtask_dict["Summary"]
             sites = subtask_dict.keys()
             sites.remove("Summary")
-            final_obj["SiteCount"] = len(sites)
+            #final_obj["SiteCount"] = len(sites)
 
             sites = {}
             for site, site_dict in subtask_dict.items():
@@ -210,9 +242,9 @@ def write_rrds(workflows, output):
             "DS:Running:GAUGE:360:U:U",
             "DS:Idle:GAUGE:360:U:U",
             "RRA:AVERAGE:0.5:1:1000",
-            "RRA:MIN:0.5:20:8760",
-            "RRA:MAX:0.5:20:8760",
-            "RRA:AVERAGE:0.5:20:8760",
+            "RRA:MIN:0.5:20:2000",
+            "RRA:MAX:0.5:20:2000",
+            "RRA:AVERAGE:0.5:20:2000",
         )
     rrdtool.update(fname, "N:%d:%d" % (running, idle))
     for site, site_dict in sites.items():
@@ -223,9 +255,9 @@ def write_rrds(workflows, output):
                 "DS:Running:GAUGE:360:U:U",
                 "DS:MatchingIdle:GAUGE:360:U:U",
                 "RRA:AVERAGE:0.5:1:1000",
-                "RRA:MIN:0.5:20:8760",
-                "RRA:MAX:0.5:20:8760",
-                "RRA:AVERAGE:0.5:20:8760",
+                "RRA:MIN:0.5:20:2000",
+                "RRA:MAX:0.5:20:2000",
+                "RRA:AVERAGE:0.5:20:2000",
             )   
         rrdtool.update(fname, "N:%d:%d" % (site_dict["Running"], site_dict["MatchingIdle"]))
 
@@ -242,9 +274,9 @@ def write_rrds(workflows, output):
                 "DS:HigherPrioIdle:GAUGE:360:U:U",
                 "DS:LowerPrioRunning:GAUGE:360:U:U",
                 "RRA:AVERAGE:0.5:1:1000",
-                "RRA:MIN:0.5:20:8760",
-                "RRA:MAX:0.5:20:8760",
-                "RRA:AVERAGE:0.5:20:8760",
+                "RRA:MIN:0.5:20:2000",
+                "RRA:MAX:0.5:20:2000",
+                "RRA:AVERAGE:0.5:20:2000",
                 )
         stats = request_dict["Summary"]["Running"], request_dict["Summary"]["Idle"], request_dict["Summary"]["HigherPrioIdle"], request_dict["Summary"]["LowerPrioRunning"]
         rrdtool.update(fname, ("N:" + ":".join(["%d"]*len(stats))) % stats)
@@ -257,9 +289,9 @@ def write_rrds(workflows, output):
                     "DS:Running:GAUGE:360:U:U",
                     "DS:MatchingIdle:GAUGE:360:U:U",
                     "RRA:AVERAGE:0.5:1:1000",
-                    "RRA:MIN:0.5:20:8760",
-                    "RRA:MAX:0.5:20:8760",
-                    "RRA:AVERAGE:0.5:20:8760",
+                    "RRA:MIN:0.5:20:2000",
+                    "RRA:MAX:0.5:20:2000",
+                    "RRA:AVERAGE:0.5:20:2000",
                 )
             rrdtool.update(fname, "N:%d:%d" % (site_dict["Running"], site_dict["MatchingIdle"]))
 
@@ -278,9 +310,9 @@ def write_rrds(workflows, output):
                     "DS:HigherPrioIdle:GAUGE:360:U:U",
                     "DS:LowerPrioRunning:GAUGE:360:U:U",
                     "RRA:AVERAGE:0.5:1:1000",
-                    "RRA:MIN:0.5:20:8760",
-                    "RRA:MAX:0.5:20:8760",
-                    "RRA:AVERAGE:0.5:20:8760",
+                    "RRA:MIN:0.5:20:2000",
+                    "RRA:MAX:0.5:20:2000",
+                    "RRA:AVERAGE:0.5:20:2000",
                     )
             stats = subtask_dict["Summary"]["Running"], subtask_dict["Summary"]["Idle"], subtask_dict["Summary"]["HigherPrioIdle"], subtask_dict["Summary"]["LowerPrioRunning"]
             rrdtool.update(fname, ("N:" + ":".join(["%d"]*len(stats))) % stats)
@@ -297,9 +329,9 @@ def write_rrds(workflows, output):
                         "DS:HigherPrioIdle:GAUGE:360:U:U",
                         "DS:LowerPrioRunning:GAUGE:360:U:U",
                         "RRA:AVERAGE:0.5:1:1000",
-                        "RRA:MIN:0.5:20:8760",
-                        "RRA:MAX:0.5:20:8760",
-                        "RRA:AVERAGE:0.5:20:8760",
+                        "RRA:MIN:0.5:20:2000",
+                        "RRA:MAX:0.5:20:2000",
+                        "RRA:AVERAGE:0.5:20:2000",
                         )
                 stats = sum(prio_dict["Running"] for prio_dict in site_dict.values()), \
                         sum(prio_dict["MatchingIdle"] for prio_dict in site_dict.values()), \

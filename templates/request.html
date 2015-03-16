@@ -1,0 +1,164 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:py="http://genshi.edgewall.org/">
+    <head>
+        <title>
+            Request $request Overview
+        </title>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
+        <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.0/css/bootstrap-combined.min.css" rel="stylesheet" type="text/css" />
+        <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.0/js/bootstrap.min.js" type="text/javascript"></script>
+        <script type='text/javascript' src='https://www.google.com/jsapi'></script>
+        <script type='text/javascript'>
+//<![CDATA[
+        google.load('visualization', '1', {packages:['table', 'controls']});
+        $(document).ready(function() {
+            load_data();
+            setInterval(load_data, 300000);
+        });
+
+        function load_data() {
+            // First, get the CMS-wide totals
+            $.get('json/$request/totals', gotTotals);
+
+            // Next get the workflow summaries
+            $.get('json/$request/summary', gotSummary);
+
+            // Finally, get the site summaries
+            $.get('json/$request/site_summary', gotSiteSummary);
+            
+            // Set the loading button
+            $("#loading-btn").button('loading');
+            
+        }
+
+        function gotSummary(data) {
+            var table_data = new google.visualization.DataTable();
+            table_data.addColumn("string", "Workflow");
+            table_data.addColumn("number", "Running");
+            table_data.addColumn("number", "Idle");
+            table_data.addColumn("number", "Priority");
+            table_data.addColumn("number", "Matching Site Count");
+            table_data.addColumn("number", "Higher Prio Workflow Jobs Idle");
+            table_data.addColumn("number", "Lower Prio Workflow Jobs Running");
+            table_data.addColumn("string", 'Workflow History');
+
+            for (workflow_key in data) {
+                workflow_data = data[workflow_key];
+                var image_html = '<img src="/prodview/graphs/$request/' + workflow_key + '"/>';
+                var workflow_html = workflow_key;
+                table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.BasePrio, workflow_data.SiteCount, workflow_data.HigherPrioIdle, workflow_data.LowerPrioRunning, image_html]);
+            }
+
+            var dashboard = new google.visualization.Dashboard(document.getElementById('running_subtasks'));
+            var table = new google.visualization.ChartWrapper({
+                chartType: 'Table',
+                containerId: 'running_subtasks_table',
+                options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable'}
+            });
+            var control = new google.visualization.ControlWrapper({
+                controlType: 'StringFilter',
+                containerId: 'running_subtasks_control',
+                options: {filterColumnIndex: 0, matchType: 'any'}
+            });
+
+            dashboard.bind([control], [table]);
+            dashboard.draw(table_data);
+        }
+
+        function gotSiteSummary(data) {
+
+            var table_data = new google.visualization.DataTable();
+            table_data.addColumn("string", "Site");
+            table_data.addColumn("number", "Running");
+            table_data.addColumn("number", "Matching Idle");
+            table_data.addColumn("number", "Workflow Count");
+            table_data.addColumn("string", "Site History");
+
+            for (site_key in data) {
+                site = data[site_key];
+                var site_img = '<img src="graphs/$request/' + site_key + '"/>';
+                table_data.addRow([site_key, site.Running, site.MatchingIdle, site.RequestCount, site_img]);
+            }
+
+            var dashboard = new google.visualization.Dashboard(document.getElementById('sites_summary'));
+            var table = new google.visualization.ChartWrapper({
+                chartType: 'Table',
+                containerId: 'sites_summary_table',
+                options: {sortColumn: 0, sortAscending: true, allowHtml: true, page: 'enable', pageSize: 20}
+            });
+            var control = new google.visualization.ControlWrapper({
+                controlType: 'StringFilter',
+                containerId: 'sites_summary_control',
+                options: {filterColumnIndex: 0, matchType: 'any'}
+            });
+
+            dashboard.bind([control], [table]);
+            dashboard.draw(table_data);
+
+            // Reset the reload button
+            $("#loading-btn").button('reset');
+            // Set the last updated
+            current_date = new Date();
+            $("#updated-time").html("Page Last Updated: " + current_date.toLocaleString());
+        }
+
+        var pool_stats = new Array();
+        function gotTotals(data) {
+            pool_stats['Running'] = data.Running;
+            pool_stats['SubtaskCount'] = data.SubtaskCount;
+            pool_stats['Idle'] = data.Idle;
+            pool_stats['UpdateDate'] = new Date(data.UpdateTime*1000);
+            drawPoolStats();
+        }
+
+        function drawPoolStats() {
+            $('#overall_stats_table').detach();
+            pool_stats_table = $("<table></table>");
+            pool_stats_table.addClass("table");
+            pool_stats_table.attr('id', 'overall_stats_table');
+            pool_stats_table.append("<tr><th>Running Jobs</th><th>Idle Jobs</th><th>Subtask Count</th><th>Last Data Update</th>");
+            pool_stats_table.append("<tr><td>" + pool_stats.Running + "</td><td>" + pool_stats.Idle + "</td><td>" + pool_stats.SubtaskCount + "</td><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
+            $("#request_slots_table").append(pool_stats_table);
+        }
+//]]>
+        </script>
+    </head>
+    <body class="index">
+        <div class="container">
+            <div class="row-fluid">
+                <div id="header" class="page-header span12">
+                    <h1>Request $request Overview</h1>
+                </div>
+                <div id="request_slots_table"></div>
+                <div id="updated-time"></div>
+                <button class='btn btn-info' id='loading-btn' data-loading-text='Loading...' onClick='load_data()'>Reload</button>
+            </div>
+            <div class="row-fluid">
+                <div id="subtasks" class="span12">
+                    <h2>
+                        Running Subtasks
+                    </h2>
+                    <div id="running_subtasks">
+                        <div id="running_subtasks_control"></div>
+                        <div id="running_subtasks_table"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row-fluid">
+                <div id="sites" class="span12">
+                    <h2>
+                        Site Summary
+                    </h2>
+                    <div id="sites_summary">
+                        <div id="sites_summary_control"></div>
+                        <div id="sites_summary_table"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br/>
+        <a href="/prodview">Return to index.</a>
+    </body>
+</html>
+
