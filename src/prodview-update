@@ -42,7 +42,7 @@ def parse_args():
 def query_schedd(ad, workflows):
     schedd = htcondor.Schedd(ad)
     try:
-        jobs = schedd.query("WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null", ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite", "JobPrio", "JobStatus"])
+        jobs = schedd.xquery("WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null", ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite", "JobPrio", "JobStatus"])
     except Exception, e:
         print "Failed querying", ad["Name"]
         print e
@@ -58,6 +58,8 @@ def query_schedd(ad, workflows):
             status = "MatchingIdle"
         elif job["JobStatus"] == 2:
             status = "Running"
+        else:
+            continue
         prio = job["JobPrio"]
         request_dict = workflows.setdefault(request, {})
         subtask_dict = request_dict.setdefault(sub_task, {})
@@ -131,7 +133,7 @@ def summarize(workflows, gsites):
                     running += prio_dict.get("Running", 0)
             subtask_dict["Summary"].update({"BasePrio": min_prio, "Running": running, "Idle": idle, "HigherPrioIdle": higher_idle, "LowerPrioRunning": lower_running})
 
-        min_prio = min([subtask_dict["Summary"]["BasePrio"] for subtask_dict in request_dict.values()])
+        min_prio = int(min([float(subtask_dict["Summary"]["BasePrio"]) for subtask_dict in request_dict.values()]))
         min_prio = min_prio % 10000000
         sites = set()
         for subtask_dict in request_dict.values():
@@ -156,7 +158,7 @@ def summarize(workflows, gsites):
 
         for site, site_dict in request_sites.items():
             gsites_dict = gsites.setdefault(site, {})
-            gsites_dict.setdefault(request, {"Running": 0, "MatchingIdle": 0, "BasePrio": min_prio})
+            gsites_dict.setdefault(request, {"Running": 0, "MatchingIdle": 0, "BasePrio": min_prio, 'MatchingSites': len(request_sites)})
             for status, count in site_dict.items():
                 gsites_dict[request][status] += site_dict[status]
 

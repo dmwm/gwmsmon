@@ -2,7 +2,7 @@
 from distutils.core import setup
 
 setup(name='prodview',
-      version='0.1',
+      version='0.3',
       description='Simple monitoring page for CMS production',
       author='Brian Bockelman',
       author_email='bbockelm@cse.unl.edu',

@@ -34,6 +34,7 @@
             table_data.addColumn("string", "Workflow");
             table_data.addColumn("number", "Running");
             table_data.addColumn("number", "Matching Idle");
+            table_data.addColumn("number", "Matching Sites");
             table_data.addColumn("number", "Priority");
             table_data.addColumn("string", 'Workflow History');
 
@@ -41,7 +42,7 @@
                 workflow_data = data[workflow_key];
                 var image_html = '<img src="/prodview/graphs/' + workflow_key + '/$site"/>';
                 var workflow_html = '<a href="/prodview/' + workflow_key + '">' + workflow_key + '</a>';
-                table_data.addRow([workflow_html, workflow_data.Running, workflow_data.MatchingIdle, workflow_data.BasePrio, image_html]);
+                table_data.addRow([workflow_html, workflow_data.Running, workflow_data.MatchingIdle, workflow_data.MatchingSites, workflow_data.BasePrio, image_html]);
             }
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));
@@ -80,7 +81,7 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table");
             pool_stats_table.attr('id', 'overall_stats_table');
-            pool_stats_table.append("<tr><th>Running Jobs</th><th>Idle Jobs</th><th>Request Count</th><th>Last Data Update</th>");
+            pool_stats_table.append("<tr><th>Running Jobs</th><th>Matching Idle Jobs</th><th>Request Count</th><th>Last Data Update</th>");
             pool_stats_table.append("<tr><td>" + pool_stats.Running + "</td><td>" + pool_stats.MatchingIdle + "</td><td>" + pool_stats.RequestCount + "</td><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#site_slots_table").append(pool_stats_table);
 

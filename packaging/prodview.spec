@@ -1,6 +1,6 @@
 
 Name:		prodview
-Version:	0.1
+Version:	0.3
 Release:	1%{?dist}
 Summary:	A simple monitoring page for CMS production
 
@@ -57,6 +57,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Apr 10 2015 Brian Bockelman <bbockelm@cse.unl.edu> - 0.3-1
+- Adding a few extra columns to plots.
+
+* Mon Mar 16 2015 Brian Bockelman <bbockelm@cse.unl.edu> - 0.2-1
+- Finished prototype.
+
 * Sat Mar 14 2015 Brian Bockelman <bbockelm@cse.unl.edu> - 0.1-1
 - Initial prototype of prodview.
 
