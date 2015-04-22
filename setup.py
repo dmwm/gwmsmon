@@ -9,12 +9,12 @@ setup(name='prodview',
       url='https://github.com/bbockelm/prodview',
       packages=['prodview'],
       package_dir = {'': 'src'},
-      data_files=[('/etc', ['packaging/prodview.conf']),
-                  ('/var/www/wsgi-scripts', ['packaging/prodview.wsgi']),
-                  ('/usr/share/prodview/templates', ['templates/index.html', 'templates/request.html', 'templates/site.html']),
-                  ('/etc/httpd/conf.d/', ['packaging/prodview-httpd.conf']),
-                  ('/etc/cron.d/', ['packaging/prodview.cron'])
+      data_files=[('/etc/', ['packaging/prodview.conf']),
+                  ('/var/www/wsgi-scripts/', ['packaging/prodview.wsgi']),
+                  ('/usr/share/prodview/templates/', ['templates/views/index.html', 'templates/views/request.html', 'templates/views/site.html']),
+                  ('/etc/httpd/conf.d/', ['packaging/prodview-httpd.conf', 'packaging/welcome.conf']),
+                  ('/etc/cron.d/', ['packaging/prodview.cron', 'packaging/analysisview.cron']),
+                  ('/var/www/html/', ['templates/index.html']),
                  ],
-      scripts=["src/prodview-update"]
+      scripts=["src/prodview-update", "src/analysisview-update"]
      )
-
