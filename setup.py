@@ -10,7 +10,7 @@ setup(name='prodview',
       packages=['prodview'],
       package_dir = {'': 'src'},
       data_files=[('/etc/', ['packaging/prodview.conf']),
-                  ('/etc/prodview/', ['packaging/cleanup.sh'])
+                  ('/etc/prodview/', ['packaging/cleanup.sh']),
                   ('/var/www/wsgi-scripts/', ['packaging/prodview.wsgi']),
                   ('/usr/share/prodview/templates/', ['templates/views/index.html', 'templates/views/request.html', 'templates/views/site.html']),
                   ('/etc/httpd/conf.d/', ['packaging/prodview-httpd.conf', 'packaging/welcome.conf']),
