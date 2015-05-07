@@ -42,7 +42,7 @@ def parse_args():
 def query_schedd(ad, workflows):
     schedd = htcondor.Schedd(ad)
     try:
-        jobs = schedd.xquery("WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null", ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite", "JobPrio", "JobStatus"])
+        jobs = schedd.query("WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null", ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite", "JobPrio", "JobStatus"])
     except Exception, e:
         print "Failed querying", ad["Name"]
         print e
