@@ -25,6 +25,8 @@
                 }
             else if (currentview == "/analysisview/"){
                 document.getElementById("brand").innerHTML = "Analysis Overview";
+                document.getElementById("first_column").innerHTML = "Last Hour";
+                document.getElementById("second_column").innerHTML = "Last Day";
                 }
             // currentview will be /analysisview/ or /prodview/
 
@@ -64,9 +66,8 @@
             table_data.addColumn("string", 'Workflow History');
             for (workflow_key in data) {
                 workflow_data = data[workflow_key];
-                var key_temp = workflow_key.replace(':','');
-                var image_html = '<img src="/analysisview/graphs/$request/' + key_temp + '"/>';
-                var workflow_html = workflow_key;
+                var image_html = '<img src="/analysisview/graphs/$request/' + workflow_key + '"/>';
+                var workflow_html = workflow_data.TaskInfo.TaskName;
                 var taskInfo = "";
                 taskInfo = workflow_html + '<br/>';
                 taskInfo += '<a href="' + workflow_data.TaskInfo.CRAB_UserWebDir + '">User Web Directory</a><br/>';
@@ -177,22 +178,29 @@
 
 
         function drawPoolStatsImgs(currentview){
+            //First
             $('#request_daily_img').detach();
             pool_hourly_img = $("<img></img>");
             pool_hourly_img.addClass("img");
             pool_hourly_img.attr('id', 'request_daily_img');
-            pool_hourly_img.attr('src', currentview + 'graphs/$request/daily');
+            if (currentview == "/prodview/")
+                pool_hourly_img.attr('src', currentview + 'graphs/$request/daily');
+            else
+                pool_hourly_img.attr('src', currentview + 'graphs/$request/hourly');
             $("#overall_daily_img").append(pool_hourly_img);
 
-            if (currentview == "/production/"){
-                $('#request_daily_img').detach();
-                pool_daily_img = $("<img></img>");
-                pool_daily_img.addClass("img");
-                pool_daily_img.attr('id', 'request_dailys_img');
+            //Second
+            $('#request_dailys_img').detach();
+            pool_daily_img = $("<img></img>");
+            pool_daily_img.addClass("img");
+            pool_daily_img.attr('id', 'request_dailys_img');
+            if (currentview == "/prodview/")
                 pool_daily_img.attr('src', currentview + 'graphs/$request/starvation/daily');
-                $("#overall_dailys_img").append(pool_daily_img);
-            }
+            else
+                pool_daily_img.attr('src', currentview + 'graphs/$request/daily');
+            $("#overall_dailys_img").append(pool_daily_img);
 
+            //Third
             $('#request_weekly_img').detach();
             pool_weekly_img = $("<img></img>");
             pool_weekly_img.addClass("img");
@@ -229,19 +237,19 @@
                     <div class="span3" style="padding-top:60px"><div id="request_slots_table"></div></div>
                     <div class="span3">
                     <div class="row-fluid">
-                        <h2>Last Day</h2>
+                        <h2 id="first_column">Last Day</h2>
                         <div id="overall_daily_img"></div>
                     </div>
                     </div>
                     <div class="span3">
-                        <div class="row-fluid">
-                            <h2>Last Day Starvation</h2>
+                        <div id="starvation_prod" class="row-fluid">
+                            <h2 id="second_column">Last Day Starvation</h2>
                             <div id="overall_dailys_img"></div>
                         </div>
                     </div>
                     <div class="span3">
                     <div class="row-fluid">
-                        <h2>Last Week</h2>
+                        <h2 id="third_column">Last Week</h2>
                         <div id="overall_weekly_img"></div>
                     </div></div><div class="span2"></div></div>
             </div>

@@ -52,6 +52,7 @@ def query_schedd(ad, workflows, taskInfo):
         request = job['CRAB_UserHN']
         request = re.sub('[:]', '', request)
         sub_task = job['CRAB_ReqName']
+        main_task_name = sub_task
         sub_task = re.sub('[:]', '', sub_task)
         if 'DESIRED_Sites' not in job.keys():
             #means main task.
@@ -59,6 +60,7 @@ def query_schedd(ad, workflows, taskInfo):
             mainUserTask = mainUserInfo.setdefault(sub_task, {})
             mainUserTask['Schedd'] = ad['Name']
             mainUserTask['QDate'] = job['QDate']
+            mainUserTask['TaskName'] = main_task_name
             if 'CRAB_UserWebDir' in job.keys():
                 mainUserTask['CRAB_UserWebDir'] = job['CRAB_UserWebDir']
             if 'DAG_NodesTotal' in job.keys():
