@@ -19,11 +19,16 @@
 
         function load_data() {
             $.get('/prodview/json/totals', gotTotalsP);
-            $.get('/analysisview/json/totals', gotTotals);
-        }
+            $.get('/analysisview/json/totals', function(data){
+                  gotTotals(data, '/analysisview/', 'a')});
+            
+            $.get('/analysiscrab2view/json/totals', function(data){
+                  gotTotals(data, '/analysiscrab2view/', 'ac2')});
+            }
+        
 
         var pool_stats1 = new Array();
-        function gotTotals(data) {
+        function gotTotals(data, view, addition) {
             pool_stats1['Running'] = data.Running;
             pool_stats1['RequestCount'] = data.RequestCount;
             pool_stats1['Idle'] = data.Idle;
@@ -31,14 +36,14 @@
             pool_stats1['TaskCountR'] = data.TaskCountR;
             pool_stats1['TaskCountH'] = data.TaskCountH;
             pool_stats1['UpdateDate'] = new Date(data.UpdateTime*1000);
-            drawPoolStats1();
+            drawPoolStats1(view, addition);
         }
 
-        function drawPoolStats1() {
-            $('#overall_stats_tablea').detach();
+        function drawPoolStats1(view, addition) {
+            $('#overall_stats_table' + addition).detach();
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table");
-            pool_stats_table.attr('id', 'overall_stats_tablea');
+            pool_stats_table.attr('id', 'overall_stats_table' + addition);
             pool_stats_table.append("<tr><td>Idle Jobs</td><td>" + pool_stats1.Idle + "</td></tr>");
             pool_stats_table.append("<tr><td>Running Jobs</td><td>" + pool_stats1.Running + "</td></tr>");
             pool_stats_table.append("<tr><td>Not Queued Jobs</td><td>" + pool_stats1.NotQueued + "</td></tr>");
@@ -46,28 +51,28 @@
             pool_stats_table.append("<tr><td>Tasks Running</td><td>" + pool_stats1.TaskCountR + "</td></tr>");
             pool_stats_table.append("<tr><td>Tasks Held</td><td>" + pool_stats1.TaskCountH + "</td></tr>");
             pool_stats_table.append("<tr><td>Update Time</td><td>" + pool_stats1.UpdateDate.toLocaleString() + "</td></tr>");
-            $("#request_slots_tablea").append(pool_stats_table);
+            $("#request_slots_table" + addition).append(pool_stats_table);
 
-            $('#overall_hourly_imga').detach();
+            $('#overall_hourly_img' + addition).detach();
             pool_hourly_img = $("<img></img>");
             pool_hourly_img.addClass("img");
-            pool_hourly_img.attr('id', 'overall_hourly_imga');
-            pool_hourly_img.attr('src', '/analysisview/graphs/summary/hourly');
-            $("#pool_hourly_imga").append(pool_hourly_img);
+            pool_hourly_img.attr('id', 'overall_hourly_img' + addition);
+            pool_hourly_img.attr('src', view + 'graphs/summary/hourly');
+            $("#pool_hourly_img" + addition).append(pool_hourly_img);
 
-            $('#overall_daily_imga').detach();
+            $('#overall_daily_img' + addition).detach();
             pool_daily_img = $("<img></img>");
             pool_daily_img.addClass("img");
-            pool_daily_img.attr('id', 'overall_daily_imga');
-            pool_daily_img.attr('src', '/analysisview/graphs/summary/daily');
-            $("#pool_daily_imga").append(pool_daily_img);
+            pool_daily_img.attr('id', 'overall_daily_img' + addition);
+            pool_daily_img.attr('src', view + 'graphs/summary/daily');
+            $("#pool_daily_img" + addition).append(pool_daily_img);
 
-            $('#overall_weekly_imga').detach();
+            $('#overall_weekly_img' + addition).detach();
             pool_weekly_img = $("<img></img>");
             pool_weekly_img.addClass("img");
-            pool_weekly_img.attr('id', 'overall_weekly_imga');
-            pool_weekly_img.attr('src', '/analysisview/graphs/summary/weekly');
-            $("#pool_weekly_imga").append(pool_weekly_img);
+            pool_weekly_img.attr('id', 'overall_weekly_img' + addition);
+            pool_weekly_img.attr('src', view + 'graphs/summary/weekly');
+            $("#pool_weekly_img" + addition).append(pool_weekly_img);
         }
 
         var pool_stats = new Array();
@@ -129,6 +134,7 @@
               <li><a href="/">Main Page</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
+              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview (BETA)</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>
@@ -136,9 +142,8 @@
     </div>
        <div class="container-fluid" style="padding-top:60px">
             <div class="row-fluid hero-unit" style="padding:0px">
-                <h2><a href="/prodview">Production</a></h2>
                 <div class="span12">
-                    <div class="span3" style="padding-top:40px"><div id="request_slots_tablep"></div></div>
+                    <div class="span3" style="padding-bottom:20px;"><h2><a href="/prodview">Production</a></h2><div id="request_slots_tablep"></div></div>
                     <div class="span3">
                     <div class="row-fluid">
                         <h2>Last Hour</h2>
@@ -157,10 +162,10 @@
                         <div id="pool_weekly_imgp"></div>
                     </div></div></div>
             </div>
-<div class="row-fluid hero-unit" style="padding:0px">
-                <h2><a href="/analysisview">Analysis</a></h2>
+        <div class="row-fluid hero-unit" style="padding:0px">
                 <div class="span12">
-                    <div class="span3" style="padding-top:40px"><div id="request_slots_tablea"></div></div>
+                    <div class="span3"><h2><a href="/analysisview">Analysis</a></h2>
+                    <div id="request_slots_tablea"></div></div>
                     <div class="span3">
                     <div class="row-fluid">
                         <h2>Last Hour</h2>
@@ -179,6 +184,28 @@
                         <div id="pool_weekly_imga"></div>
                     </div></div></div>
         </div>
+                <div class="row-fluid hero-unit" style="padding:0px">
+                    <div class="span12">
+                         <div class="span3"><h2><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></h2>
+                         <div id="request_slots_tableac2"></div></div>
+                         <div class="span3">
+                         <div class="row-fluid">
+                             <h2>Last Hour</h2>
+                             <div id="pool_hourly_imgac2"></div>
+                         </div>
+                         </div>
+                        <div class="span3">
+                        <div class="row-fluid">
+                        <h2>Last Day</h2>
+                       <div id="pool_daily_imgac2"></div>
+                       </div>
+                       </div>
+                       <div class="span3">
+                       <div class="row-fluid">
+                       <h2>Last Week</h2>
+                       <div id="pool_weekly_imgac2"></div>
+                       </div></div></div>
+                       </div>
         </div>
     </body>
 </html>

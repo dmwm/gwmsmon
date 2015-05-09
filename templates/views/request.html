@@ -20,15 +20,24 @@
         function load_data() {
             var currentview = window.location['pathname'].split("/")[1];
             var currentview = "/".concat(currentview, "/");
+            document.getElementById('brand').setAttribute('href', currentview);
             if (currentview == "/prodview/"){
+                document.title = "CMS Production Overview";
                 document.getElementById("brand").innerHTML = "Production Overview";
                 }
             else if (currentview == "/analysisview/"){
+                document.title = "CMS Analysis Overview";
                 document.getElementById("brand").innerHTML = "Analysis Overview";
                 document.getElementById("first_column").innerHTML = "Last Hour";
                 document.getElementById("second_column").innerHTML = "Last Day";
                 }
-            // currentview will be /analysisview/ or /prodview/
+            else if (currentview == "/analysiscrab2view/"){
+                document.title = "CMS Analysis Overview (CRAB2)";
+                document.getElementById("first_column").innerHTML = "Last Hour";
+                document.getElementById("second_column").innerHTML = "Last Day";
+                document.getElementById("brand").innerHTML = "Analysis Overview (CRAB2)";
+                }
+            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view
 
             // First, get the CMS-wide totals
             $.get('json/$request/totals', function(data){
@@ -61,8 +70,16 @@
                     var workflow_html = workflow_key;
                     table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.BasePrio, workflow_data.SiteCount, workflow_data.HigherPrioIdle, workflow_data.LowerPrioRunning, image_html]);
                 }}
-            else if (currentview == "/analysisview/"){
+            else if (currentview == "/analysisview/" ){
             table_data.addColumn("string", "Task Info")
+            table_data.addColumn("number", "Total");
+            table_data.addColumn("number", "Not Queued");
+            table_data.addColumn("number", "Idle");
+            table_data.addColumn("number", "Running");
+            table_data.addColumn("number", "Done");
+            table_data.addColumn("number", "Failed");
+            table_data.addColumn("number", "Matching Site Count");
+
             table_data.addColumn("string", 'Workflow History');
             for (workflow_key in data) {
                 workflow_data = data[workflow_key];
@@ -72,16 +89,6 @@
                 taskInfo = workflow_html + '<br/>';
                 taskInfo += '<a href="' + workflow_data.TaskInfo.CRAB_UserWebDir + '">User Web Directory</a><br/>';
                 taskInfo += '<a href="http://glidemon.web.cern.ch/glidemon/jobs.php?taskname=' + workflow_html + '">Glidemon link</a>';
-                taskInfo += '<table border="1"><tr>';
-                taskInfo += '<th>Total</th><th>Not Queued</th> <th>Idle</th> <th>Run</th> <th>Done</th> <th>Failed</th> <th>Matching Site Count</th></tr><tr>';
-                taskInfo += '<td>'+ workflow_data.TaskInfo.DAG_NodesTotal +'</td>';
-                taskInfo += '<td>'+ workflow_data.TaskInfo.DAG_NodesReady +'</td>';
-                taskInfo += '<td>'+ workflow_data.Idle +'</td>';
-                taskInfo += '<td>'+ workflow_data.Running +'</td>';
-                taskInfo += '<td>'+ workflow_data.TaskInfo.DAG_NodesDone +'</td>';
-                taskInfo += '<td>'+ workflow_data.TaskInfo.DAG_NodesFailed +'</td>';
-                taskInfo += '<td>'+ workflow_data.SiteCount +'</td>';
-                taskInfo += '</tr></table>';
                 taskInfo += '<br/>';
                 taskInfo += '<table border="1"><tr><th>Task Status</th><th>WallTime</th><th>Memory</th></tr>';
                 taskInfo += '<tr>';
@@ -90,7 +97,19 @@
                 taskInfo += '<td>' + workflow_data.TaskInfo.RequestMemory + '</td>';
                 taskInfo += '</tr></table>';
 
-                table_data.addRow([taskInfo, image_html]);
+                table_data.addRow([taskInfo, workflow_data.TaskInfo.DAG_NodesTotal, workflow_data.TaskInfo.DAG_NodesReady, workflow_data.Idle, workflow_data.Running, workflow_data.TaskInfo.DAG_NodesDone, workflow_data.TaskInfo.DAG_NodesFailed, workflow_data.SiteCount, image_html]);
+                }}
+            else if (currentview == "/analysiscrab2view/"){
+                table_data.addColumn("string", "Workflow");
+                table_data.addColumn("number", "Running");
+                table_data.addColumn("number", "Idle");
+                table_data.addColumn("number", "Matching Site Count");
+                table_data.addColumn("string", 'Workflow History');
+                for (workflow_key in data) {
+                    workflow_data = data[workflow_key];
+                    var image_html = '<img src="/analysiscrab2view/graphs/$request/' + workflow_key + '"/>';
+                    var workflow_html = workflow_key;
+                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.SiteCount, image_html]);
                 }}
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('running_subtasks'));
@@ -126,7 +145,7 @@
                     table_data.addRow([site_html, site.Running, site.MatchingIdle, site.RequestCount, site_img]);
                 }
             }
-            else if (currentview = "/analysisview/"){
+            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
                 for (site_key in data) {
                     site = data[site_key];
                     var site_img = '<img src="'+ currentview +'graphs/' + site_key + '"/>';
@@ -226,6 +245,8 @@
               <li><a href="/">Main Page</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
+              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview (BETA)</a></li>
+
             </ul>
           </div><!--/.nav-collapse -->
         </div>

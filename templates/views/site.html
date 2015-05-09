@@ -20,12 +20,16 @@
         function load_data() {
             var currentview = window.location['pathname'].split("/")[1];
             var currentview = "/".concat(currentview, "/");
+            document.getElementById('brand').setAttribute('href', currentview);
             if (currentview == "/prodview/"){
                 document.getElementById("brand").innerHTML = "Production Overview";
             }
             else if (currentview == "/analysisview/"){
                 document.getElementById("brand").innerHTML = "Analysis Overview";
-            }                                                                                                                
+            }
+            else if (currentview == "/analysiscrab2view/"){
+                document.getElementById("brand").innerHTML = "Analysis CRAB2 Overview (BETA)";
+            }
             // First, get the site-wide totals
             $.get('json/$site', function(data){
                  gotTotals(data, currentview)});
@@ -44,7 +48,7 @@
                 table_data.addColumn("number", "Matching Sites");
                 table_data.addColumn("number", "Priority");
             }
-            else if (currentview == "/analysisview/"){
+            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
                 table_data.addColumn("string", "User");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Matching Idle");
@@ -136,6 +140,7 @@
               <li><a href="/">Main Page</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
+              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview (BETA)</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>

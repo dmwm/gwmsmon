@@ -30,7 +30,12 @@
                 document.getElementById("pagetitle").innerHTML = "Summary of analysis";
                 document.getElementById("brand").innerHTML = "Analysis Overview";
                 }
-            // currentview will be /analysisview/ or /prodview/
+            else if (currentview == "/analysiscrab2view/"){
+                document.title = "CMS Analysis Overview (CRAB2)";
+                document.getElementById("pagetitle").innerHTML = "Summary of analysis";
+                document.getElementById("brand").innerHTML = "Analysis Overview (CRAB2)";
+            }
+            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view/
 
             // First, get the CMS-wide totals
             $.get(currentview.concat('/json/totals'), function(data){
@@ -64,7 +69,7 @@
                     var workflow_html = '<a href="/prodview/' + workflow_key + '">' + workflow_key + '</a>';
                     table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.BasePrio, workflow_data.SiteCount, workflow_data.HigherPrioIdle, workflow_data.LowerPrioRunning, image_html]);
                 }}
-            else if (currentview == "/analysisview/"){
+            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
                 table_data.addColumn("string", "Username");
                 table_data.addColumn("number", "Total");
                 table_data.addColumn("number", "Running");
@@ -74,8 +79,8 @@
 
                 for (workflow_key in data) {
                     workflow_data = data[workflow_key];
-                    var image_html = '<img src="/analysisview/graphs/' + workflow_key + '"/>';
-                    var workflow_html = '<a href="/analysisview/' + workflow_key + '">' + workflow_key + '</a>';
+                    var image_html = '<img src="'+ currentview +'graphs/' + workflow_key + '"/>';
+                    var workflow_html = '<a href="'+ currentview + workflow_key + '">' + workflow_key + '</a>';
                     table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.SiteCount, image_html]);
                 }}
 
@@ -103,7 +108,7 @@
             table_data.addColumn("number", "Matching Idle");
             if (currentview == "/prodview/")
                 table_data.addColumn("number", "Workflow Count");
-            else if (currentview == "/analysisview/")
+            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/")
                 table_data.addColumn("number", "User Count");
             table_data.addColumn("string", "Site History");
 
@@ -146,7 +151,7 @@
             if (currentview == "/prodview/"){
                 drawPoolStatsProd();
             }
-            else if (currentview == "/analysisview/"){
+            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
                 pool_stats['NotQueued'] = data.NotQueued;
                 pool_stats['TaskCountR'] = data.TaskCountR;
                 pool_stats['TaskCountH'] = data.TaskCountH;
@@ -220,6 +225,7 @@
               <li><a href="/">Main Page</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
+              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview (Beta)</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>
