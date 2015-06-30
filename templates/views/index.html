@@ -35,15 +35,21 @@
                 document.getElementById("pagetitle").innerHTML = "Summary of analysis";
                 document.getElementById("brand").innerHTML = "Analysis Overview (CRAB2)";
             }
-            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view/
+            else if (currentview == "/totalview/"){
+                document.getElementById("pagetitle").innerHTML = "";
+                document.getElementById("brand").innerHTML = "Total Overview";
+            }
+            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view/ or /totalview/
 
             // First, get the CMS-wide totals
             $.get(currentview.concat('/json/totals'), function(data){
                 gotTotals(data, currentview)});
 
             // Next get the workflow summaries
+            if (currentview != "/totalview/"){
             $.get(currentview.concat('/json/summary'), function(data){
                 gotSummary(data, currentview)});
+            }
 
             // Finally, get the site summaries
             $.get(currentview.concat('/json/site_summary'), function(data){
@@ -111,12 +117,26 @@
             else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/")
                 table_data.addColumn("number", "User Count");
             table_data.addColumn("string", "Site History");
+            if (currentview == "/totalview/"){
+                 table_data.addColumn("string", "Production History");
+                 table_data.addColumn("string", "Analysis History");
+                 table_data.addColumn("string", "Analysis(CRAB2) History");
+            }
+
+
 
             for (site_key in data) {
                 site = data[site_key];
                 var site_img = '<img src="'+ currentview +'graphs/' + site_key + '"/>';
                 var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
-                table_data.addRow([site_html, site.Running, site.MatchingIdle, site.RequestCount, site_img]);
+                if (currentview != "/totalview/")
+                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.RequestCount, site_img]);
+                else{
+                    var prod_img = '<img src="/prodview/graphs/' + site_key + '"/>';
+                    var anal_img = '<img src="/analysisview/graphs/' + site_key + '"/>';
+                    var acr2_img = '<img src="/analysiscrab2view/graphs/' + site_key + '"/>';
+                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site_img, prod_img, anal_img, acr2_img]);
+                }
             }
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('sites_summary'));
@@ -157,6 +177,25 @@
                 pool_stats['TaskCountH'] = data.TaskCountH;
                 drawPoolStatsAna();
                 }
+            else if (currentview == "/totalview/"){
+                pool_stats['AnalysisRunning'] = data.analysisview.Running;
+                pool_stats['AnalysisTRunning'] = data.analysisview.TaskCountR;
+                pool_stats['UpdateDate'] = new Date(data.analysisview.UpdateTime);
+                pool_stats['AnalysisIdle'] = data.analysisview.Idle;
+
+                pool_stats['ProdRunning'] = data.prodview.Running;
+                pool_stats['ProdTRunning'] = data.prodview.RequestCount;
+                pool_stats['ProdIdle'] = data.prodview.Idle;
+
+                pool_stats['CRAB2Running'] = data.analysiscrab2view.Running;
+                pool_stats['CRAB2TRunning'] = data.analysiscrab2view.TaskCountR;
+                pool_stats['CRAB2Idle'] = data.analysiscrab2view.Idle;
+
+                pool_stats['TotalRunning'] = data.Summary.Running;
+                pool_stats['TotalIdle'] = data.Summary.Idle;
+                pool_stats['TotalTRunning'] = pool_stats['AnalysisTRunning'] + pool_stats['ProdTRunning'] + pool_stats['CRAB2TRunning'];
+                drawPoolStatsTotal();
+            }
             drawPoolStatsImgs(currentview);
         }
 
@@ -183,6 +222,21 @@
             pool_stats_table.append("<tr><td>Tasks Held</td><td>" + pool_stats.TaskCountH + "</td></tr>");
             pool_stats_table.append("<tr><td>Update Time</td><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#request_slots_table").append(pool_stats_table);
+        }
+
+        function drawPoolStatsTotal() {
+            $('#overall_stats_table').detach();
+            pool_stats_table = $("<table></table>");
+            pool_stats_table.addClass("table");
+            pool_stats_table.attr('id', 'overall_stats_table');
+            pool_stats_table.append("<tr><td></td><td>Running</td><td>Idle</td><td>Tasks</td></tr>");
+            pool_stats_table.append("<tr><td>Total</td><td>" + pool_stats.TotalRunning + "</td><td>"+ pool_stats.TotalIdle +"</td><td>"+ pool_stats.TotalTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><td>Production</td><td>" + pool_stats.ProdRunning + "</td><td>"+ pool_stats.ProdIdle +"</td><td>"+ pool_stats.ProdTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><td>Analysis</td><td>" + pool_stats.AnalysisRunning + "</td><td>"+ pool_stats.AnalysisIdle +"</td><td>"+ pool_stats.AnalysisTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><td>CRAB2</td><td>" + pool_stats.CRAB2Running + "</td><td>"+ pool_stats.CRAB2Idle +"</td><td>"+ pool_stats.CRAB2TRunning +"</td></tr>");
+            pool_stats_table.append("<tr><td>Update Time</td><td colspan=\"3\">" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
+            $("#request_slots_table").append(pool_stats_table);
+
         }
 
         function drawPoolStatsImgs(currentview){
@@ -223,9 +277,10 @@
           <div class="nav-collapse collapse">
             <ul class="nav">
               <li><a href="/">Main Page</a></li>
+              <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
-              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview (Beta)</a></li>
+              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>
@@ -267,8 +322,7 @@
                 <div class="span1"></div>
             </div>
             <div class="row-fluid">
-                <div class="span1"></div>
-                <div id="sites" class="span10">
+                <div id="sites" class="span12">
                     <h2>
                         Site Summary
                     </h2>
@@ -277,7 +331,6 @@
                         <div id="sites_summary_table"></div>
                     </div>
                 </div>
-                <div class="span1"></div>
             </div>
         </div>
     </body>

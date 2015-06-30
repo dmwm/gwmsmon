@@ -28,16 +28,123 @@
                 document.getElementById("brand").innerHTML = "Analysis Overview";
             }
             else if (currentview == "/analysiscrab2view/"){
-                document.getElementById("brand").innerHTML = "Analysis CRAB2 Overview (BETA)";
+                document.getElementById("brand").innerHTML = "Analysis CRAB2 Overview";
             }
+            else if (currentview == "/totalview/"){
+                document.getElementById("brand").innerHTML = "Total Overview";
+                document.getElementById("title").innerHTML = "Total Overview";
+            }
+            if (currentview != "/totalview/"){
             // First, get the site-wide totals
             $.get('json/$site', function(data){
                  gotTotals(data, currentview)});
-
+            
             // Next get the site summaries
             $.get('json/$site/summary', function(data){
                  gotSummary(data, currentview)});
+            }
+            else {
+            $.get('json/$site/summary', function(data){
+                             gotSummaryT(data, currentview)});
+
+            }
         }
+
+        function gotSummaryT(data, currentview){
+            $('#overall_stats_table').detach();
+            pool_stats_table = $("<table></table>");
+            pool_stats_table.addClass("table");
+            pool_stats_table.attr('id', 'overall_stats_table');
+            var total_tasks = 0;
+            if ('analysisview' in data)
+                total_tasks += data.analysisview.RequestCount;
+            if ('prodview' in data)
+                total_tasks += data.prodview.RequestCount;
+            if ('analysiscrab2view' in data)
+                total_tasks += data.analysiscrab2view.RequestCount;
+
+            pool_stats_table.append("<tr><th></th><th>Running</th><th>Idle</th><th>Tasks</th></tr>");
+            pool_stats_table.append("<tr><td>Total</td><td>" + data.Running + "</td><td>"+ data.MatchingIdle +"</td><td>"+ total_tasks +"</td></tr>");
+            if ('prodview' in data)
+                pool_stats_table.append("<tr><td>Production</td><td>" + data.prodview.Running + "</td><td>"+ data.prodview.MatchingIdle +"</td><td>"+ data.prodview.RequestCount +"</td></tr>");
+            else
+                pool_stats_table.append("<tr><td>Production</td><td>0</td><td>0</td><td>0</td></tr>");
+            if ('analysisview' in data)
+                pool_stats_table.append("<tr><td>Analysis</td><td>" + data.analysisview.Running + "</td><td>"+ data.analysisview.MatchingIdle +"</td><td>"+ data.analysisview.RequestCount +"</td></tr>");
+            else
+                pool_stats_table.append("<tr><td>Analysis</td><td>0</td><td>0</td><td>0</td></tr>");
+            if ('analysiscrab2view' in data)
+                pool_stats_table.append("<tr><td>CRAB2</td><td>" + data.analysiscrab2view.Running + "</td><td>"+ data.analysiscrab2view.MatchingIdle +"</td><td>"+ data.analysiscrab2view.RequestCount +"</td></tr>");
+            else
+                pool_stats_table.append("<tr><td>CRAB2</td><td>0</td><td>0</td><td>0</td></tr>");
+
+            $("#site_slots_table").append(pool_stats_table);
+
+            $('#overall_hourly_img').detach();
+            pool_hourly_img = $("<img></img>");
+            pool_hourly_img.addClass("img");
+            pool_hourly_img.attr('id', 'overall_hourly_img');
+            pool_hourly_img.attr('src', currentview + 'graphs/$site/hourly');
+            $("#site_hourly_img").append(pool_hourly_img);
+
+            $('#overall_daily_img').detach();
+            pool_daily_img = $("<img></img>");
+            pool_daily_img.addClass("img");
+            pool_daily_img.attr('id', 'overall_daily_img');
+            pool_daily_img.attr('src', currentview + 'graphs/$site/daily');
+            $("#site_daily_img").append(pool_daily_img);
+
+            $('#overall_weekly_img').detach();
+            pool_weekly_img = $("<img></img>");
+            pool_weekly_img.addClass("img");
+            pool_weekly_img.attr('id', 'overall_weekly_img');
+            pool_weekly_img.attr('src', currentview + 'graphs/$site/weekly');
+            $("#site_weekly_img").append(pool_weekly_img);
+
+            var table_data = new google.visualization.DataTable();
+            table_data.addColumn("string", "Type");
+            table_data.addColumn("string", 'Last Hour');
+            table_data.addColumn("string", 'Last Day');
+            table_data.addColumn("string", 'Last Week');
+
+            if ('prodview' in data){
+                var image_html_hourly = '<img src="/prodview/graphs/$site/hourly"/>';
+                var image_html_daily = '<img src="/prodview/graphs/$site/daily"/>';
+                var image_html_weekly = '<img src="/prodview/graphs/$site/weekly"/>';
+                var type_html = '<a href="/prodview/$site">Production</a>';
+                table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
+            }
+            if ('analysisview' in data){
+                var image_html_hourly = '<img src="/analysisview/graphs/$site/hourly"/>';
+                var image_html_daily = '<img src="/analysisview/graphs/$site/daily"/>';
+                var image_html_weekly = '<img src="/analysisview/graphs/$site/weekly"/>';
+                var type_html = '<a href="/analysisview/$site">Analysis</a>';
+                table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
+            }
+            if ('analysiscrab2view' in data){
+                var image_html_hourly = '<img src="/analysiscrab2view/graphs/$site/hourly"/>';
+                var image_html_daily = '<img src="/analysiscrab2view/graphs/$site/daily"/>';
+                var image_html_weekly = '<img src="/analysiscrab2view/graphs/$site/weekly"/>';
+                var type_html = '<a href="/analysiscrab2view/$site">CRAB2</a>';
+                table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
+            }
+
+            var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));
+            var table = new google.visualization.ChartWrapper({
+                chartType: 'Table',
+                containerId: 'running_workflows_table',
+                options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable'}
+            });
+            var control = new google.visualization.ControlWrapper({
+                controlType: 'StringFilter',
+                containerId: 'running_workflows_control',
+                options: {filterColumnIndex: 0, matchType: 'any'}
+            });
+
+            dashboard.bind([control], [table]);
+            dashboard.draw(table_data);
+        }
+
 
         function gotSummary(data, currentview) {
             var table_data = new google.visualization.DataTable();
@@ -138,9 +245,10 @@
           <div class="nav-collapse collapse">
             <ul class="nav">
               <li><a href="/">Main Page</a></li>
+              <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
-              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview (BETA)</a></li>
+              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>
@@ -171,7 +279,7 @@
             <div class="row-fluid">
                 <div class="span1"></div>
                 <div id="workflows" class="span10">
-                    <h2>
+                    <h2 id="title">
                         Running Requests 
                     </h2>
                     <div id="running_workflows">

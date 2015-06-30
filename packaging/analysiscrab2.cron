@@ -1,2 +1,2 @@
-MAILTO=
-*/5 * * * * apache analysisviewcrab2-update
+MAILTO=""
+*/5 * * * * apache analysisviewcrab2-update > /dev/null

@@ -140,7 +140,7 @@
             if (currentview == "/prodview/"){
                 for (site_key in data) {
                     site = data[site_key];
-                    var site_img = '<img src="'+ currentview +'graphs/' + site_key + '"/>';
+                    var site_img = '<img src="'+ currentview +'graphs/$request/' + site_key + '"/>';
                     var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
                     table_data.addRow([site_html, site.Running, site.MatchingIdle, site.RequestCount, site_img]);
                 }
@@ -148,7 +148,7 @@
             else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
                 for (site_key in data) {
                     site = data[site_key];
-                    var site_img = '<img src="'+ currentview +'graphs/' + site_key + '"/>';
+                    var site_img = '<img src="'+ currentview +'graphs/$request/' + site_key + '"/>';
                     var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
                     table_data.addRow([site_html, site.Running, site.MatchingIdle, site_img]);
                 }
@@ -243,9 +243,10 @@
           <div class="nav-collapse collapse">
             <ul class="nav">
               <li><a href="/">Main Page</a></li>
+              <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
-              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview (BETA)</a></li>
+              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
 
             </ul>
           </div><!--/.nav-collapse -->

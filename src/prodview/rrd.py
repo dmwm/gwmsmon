@@ -183,7 +183,9 @@ def site(basedir, interval, site):
     fd, pngpath = tempfile.mkstemp(".png")
     fname = os.path.join(basedir, "%s.rrd" % site)
     if not os.path.exists(fname):
-        raise ValueError("No information present (site=%s)" % site)
+        fname = os.path.join(basedir, "empty.rrd")
+        if not os.path.exists(fname):
+            raise ValueError("No information present (site=%s)" % site)
     rrdtool.graph(pngpath,
             "--imgformat", "PNG",
             "--width", "250",
