@@ -111,6 +111,8 @@ def drop_obj(obj, dirname, fname):
 
 def write_json(totals, sites, output):
 
+    now = int(time.time())
+    totals['Summary']['UpdateTime'] = now
     drop_obj(totals['Summary'], output, 'summary.json')
     drop_obj(totals, output, 'totals.json')
     sitesT = sites.get('Summary', {})
