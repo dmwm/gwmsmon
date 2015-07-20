@@ -166,7 +166,7 @@
             pool_stats['Running'] = data.Running;
             pool_stats['RequestCount'] = data.RequestCount;
             pool_stats['Idle'] = data.Idle;
-            pool_stats['UpdateDate'] = new Date(data.UpdateTime*1000);
+            pool_stats['UpdateDate'] = new Date(data.Summary.UpdateTime*1000);
 
             if (currentview == "/prodview/"){
                 drawPoolStatsProd();
@@ -180,7 +180,6 @@
             else if (currentview == "/totalview/"){
                 pool_stats['AnalysisRunning'] = data.analysisview.Running;
                 pool_stats['AnalysisTRunning'] = data.analysisview.TaskCountR;
-                pool_stats['UpdateDate'] = new Date(data.analysisview.UpdateTime);
                 pool_stats['AnalysisIdle'] = data.analysisview.Idle;
 
                 pool_stats['ProdRunning'] = data.prodview.Running;
