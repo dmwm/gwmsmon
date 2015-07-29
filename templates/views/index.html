@@ -39,22 +39,76 @@
                 document.getElementById("pagetitle").innerHTML = "";
                 document.getElementById("brand").innerHTML = "Total Overview";
             }
-            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view/ or /totalview/
+            else if (currentview == "/scheddview/"){
+                document.getElementById("pagetitle").innerHTML = "Scheduler Overview";
+                document.getElementById("sitetitle").innerHTML = "";
+                document.getElementById("top_summary").style.display = 'none';
+                document.getElementById("brand").innerHTML = "Scheduler Overview";
+            }
+
+            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view/ or /totalview/ or /scheddview/
 
             // First, get the CMS-wide totals
-            $.get(currentview.concat('/json/totals'), function(data){
-                gotTotals(data, currentview)});
-
+            if (currentview !== "/scheddview/"){
+                $.get(currentview.concat('/json/totals'), function(data){
+                    gotTotals(data, currentview)});
+            }
             // Next get the workflow summaries
             if (currentview != "/totalview/"){
-            $.get(currentview.concat('/json/summary'), function(data){
-                gotSummary(data, currentview)});
+                if (currentview != "/scheddview/"){
+                    $.get(currentview.concat('/json/summary'), function(data){
+                        gotSummary(data, currentview)});
+                }
+                else {
+                    $.get(currentview.concat('/json/summary'), function(data){
+                        gotSummarySchedd(data, currentview)});
+		}
             }
 
             // Finally, get the site summaries
-            $.get(currentview.concat('/json/site_summary'), function(data){
-                 gotSiteSummary(data, currentview)});
+            if (currentview !== "/scheddview/"){
+                $.get(currentview.concat('/json/site_summary'), function(data){
+                    gotSiteSummary(data, currentview)});
+            }
             
+        }
+
+        function gotSummarySchedd(data, currentview) {
+        var table_data = new google.visualization.DataTable();
+        table_data.addColumn("string", "Name");
+        table_data.addColumn("string", "Machine");
+        table_data.addColumn("string", "Type");
+        table_data.addColumn("number", "Total Running");
+        table_data.addColumn("number", "Total Idle");
+        table_data.addColumn("number", "Total Held");
+        table_data.addColumn("number", "Max Running");
+        table_data.addColumn("string", "Hourly History");
+        table_data.addColumn("string", "Daily History");
+        table_data.addColumn("string", "Weekly History");
+        for (schedd_key in data){
+            if (schedd_key !== "Summary"){
+	        schedd_data = data[schedd_key];
+                var image_htmlh = '<img src="/scheddview/graphs/' + schedd_key + '/hourly"/>';
+                var image_htmld = '<img src="/scheddview/graphs/' + schedd_key + '/daily"/>';
+                var image_htmlw = '<img src="/scheddview/graphs/' + schedd_key + '/weekly"/>';
+
+                var schedd_html = schedd_data.Name;
+                table_data.addRow([schedd_html, schedd_data.Machine, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.TotalHeldJobs, schedd_data.MaxJobsRunning, image_htmlh, image_htmld, image_htmlw]);
+	    }
+	}
+        var dashboard = new google.visualization.Dashboard(document.getElementById('sites_summary'));
+        var table = new google.visualization.ChartWrapper({
+            chartType: 'Table',
+            containerId: 'sites_summary_table',
+            options: {sortColumn: 1, sortAscending: false, allowHtml: true}
+        });
+        var control = new google.visualization.ControlWrapper({
+            controlType: 'StringFilter',
+            containerId: 'sites_summary_control',
+            options: {filterColumnIndex: 0, matchType: 'any'}
+        });
+        dashboard.bind([control], [table]);
+        dashboard.draw(table_data);
         }
 
         function gotSummary(data, currentview) {
@@ -166,7 +220,12 @@
             pool_stats['Running'] = data.Running;
             pool_stats['RequestCount'] = data.RequestCount;
             pool_stats['Idle'] = data.Idle;
-            pool_stats['UpdateDate'] = new Date(data.Summary.UpdateTime*1000);
+            if (currentview == "/totalview/"){
+                pool_stats['UpdateDate'] = new Date(data.Summary.UpdateTime*1000);
+            }
+            else {
+                pool_stats['UpdateDate'] = new Date(data.UpdateTime*1000);
+	    }
 
             if (currentview == "/prodview/"){
                 drawPoolStatsProd();
@@ -280,13 +339,14 @@
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
               <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
+              <li><a href="/scheddview">Schedd Overview</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>
       </div>
     </div>
        <div class="container-fluid" style="padding-top:60px">
-            <div class="row-fluid">
+            <div class="row-fluid" id="top_summary">
                 <div class="span12">
                     <div class="span3" style="padding-top:40px"><div id="request_slots_table"></div></div>
                     <div class="span3">
@@ -322,7 +382,7 @@
             </div>
             <div class="row-fluid">
                 <div id="sites" class="span12">
-                    <h2>
+                    <h2 id="sitetitle">
                         Site Summary
                     </h2>
                     <div id="sites_summary">
