@@ -68,7 +68,15 @@
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="/prodview/graphs/$request/' + workflow_key + '"/>';
                     var workflow_html = workflow_key;
-                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.BasePrio, workflow_data.SiteCount, workflow_data.HigherPrioIdle, workflow_data.LowerPrioRunning, image_html]);
+                    var taksInfo = "";
+                    taskInfo = workflow_html + '<br/>';
+                    taskInfo += '<table border="1"><tr><th>WallTime</th><th>Memory</th></tr>';
+                    taskInfo += '<tr>';
+                    taskInfo += '<td>' + workflow_data.TaskInfo.MaxWallTimeMins + '</td>';
+                    taskInfo += '<td>' + workflow_data.TaskInfo.RequestMemory + '</td>';
+                    taskInfo += '</tr></table><br/>';
+                    taskInfo += 'Scheduler: ' + workflow_data.TaskInfo.Schedd;                                                                                    
+                    table_data.addRow([taskInfo, workflow_data.Running, workflow_data.Idle, workflow_data.BasePrio, workflow_data.SiteCount, workflow_data.HigherPrioIdle, workflow_data.LowerPrioRunning, image_html]);
                 }}
             else if (currentview == "/analysisview/" ){
             table_data.addColumn("string", "Task Info")
@@ -95,7 +103,8 @@
                 taskInfo += '<td>' + workflow_data.TaskInfo.JobStatus + '</td>';
                 taskInfo += '<td>' + workflow_data.TaskInfo.MaxWallTimeMins + '</td>';
                 taskInfo += '<td>' + workflow_data.TaskInfo.RequestMemory + '</td>';
-                taskInfo += '</tr></table>';
+                taskInfo += '</tr></table><br/>';
+                taskInfo += 'Scheduler: ' + workflow_data.TaskInfo.Schedd;
 
                 table_data.addRow([taskInfo, workflow_data.TaskInfo.DAG_NodesTotal, workflow_data.TaskInfo.DAG_NodesReady, workflow_data.Idle, workflow_data.Running, workflow_data.TaskInfo.DAG_NodesDone, workflow_data.TaskInfo.DAG_NodesFailed, workflow_data.SiteCount, image_html]);
                 }}

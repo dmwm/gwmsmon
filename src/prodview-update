@@ -39,10 +39,10 @@ def parse_args():
     return opts, args
 
 
-def query_schedd(ad, workflows):
+def query_schedd(ad, workflows, taskInfo):
     schedd = htcondor.Schedd(ad)
     try:
-        jobs = schedd.xquery("WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null", ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite", "JobPrio", "JobStatus"])
+        jobs = schedd.xquery("WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null", ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite", "JobPrio", "JobStatus", "RequestMemory", "MaxWallTimeMins"])
     except Exception, e:
         print "Failed querying", ad["Name"]
         print e
@@ -65,6 +65,15 @@ def query_schedd(ad, workflows):
         subtask_dict = request_dict.setdefault(sub_task, {})
         summary_dict = subtask_dict.setdefault('Summary', {})
         summary_internal = summary_dict.setdefault("Internal", {})
+
+        mainTaskInfo = taskInfo.setdefault(request, {})
+        mainSubTask = mainTaskInfo.setdefault(sub_task, {})
+        if 'RequestMemory' in job.keys():
+            mainSubTask['RequestMemory'] = job['RequestMemory']
+        if 'MaxWallTimeMins' in job.keys():
+            mainSubTask['MaxWallTimeMins'] = job['MaxWallTimeMins']
+        mainSubTask['Schedd'] = ad['Name']
+
         jobinfo = (prio, desired_sites)
         if not running_site:
             summary_internal.setdefault(jobinfo, 0)
@@ -120,18 +129,19 @@ def analyze_prios(workflows):
                     prio_dict["HigherPrioIdle"] = higher_idle
 
 
-def summarize(workflows, gsites):
+def summarize(workflows, gsites, tasks):
     for request, request_dict in workflows.items():
         for subtask, subtask_dict in request_dict.items():
             min_prio = min([min(site_dict.keys()) for site_dict in subtask_dict.values()])
             sites = subtask_dict.keys()
+            taskinfo = tasks.get(request, {}).get(subtask, {})
             higher_idle, lower_running = analyze_prios_inner(workflows, sites, min_prio)
             idle = sum(subtask_dict.get("Summary", {}).get("Internal", {}).values())
             running = 0
             for site_dict in subtask_dict.values():
                 for prio_dict in site_dict.values():
                     running += prio_dict.get("Running", 0)
-            subtask_dict["Summary"].update({"BasePrio": min_prio, "Running": running, "Idle": idle, "HigherPrioIdle": higher_idle, "LowerPrioRunning": lower_running})
+            subtask_dict["Summary"].update({"BasePrio": min_prio, "Running": running, "Idle": idle, "HigherPrioIdle": higher_idle, "LowerPrioRunning": lower_running, "TaskInfo": taskinfo})
 
         min_prio = int(min([float(subtask_dict["Summary"]["BasePrio"]) for subtask_dict in request_dict.values()]))
         min_prio = min_prio % 10000000
@@ -234,7 +244,9 @@ def write_json(workflows, gsites, output):
                 for status, count in site_dict.items():
                     request_sites[site][status] += count
             subtask_dict["Summary"]["SiteCount"] = len(sites)
-            drop_obj(subtask_dict["Summary"], subtask_dir, "summary.json")
+            out = subtask_dict["Summary"]
+            out["Internal"] = {}
+            drop_obj(out, subtask_dir, "summary.json")
         request_dir = os.path.join(output, request)
         drop_obj(request_sites, request_dir, "site_summary.json")
         drop_obj(final_obj, request_dir, "summary.json")
@@ -385,30 +397,13 @@ def main():
 
     sites = {}
     workflows = {}
+    taskInfo = {}
     for ad in schedd_ads:
         print "Querying schedd", ad['Name']
-        query_schedd(ad, workflows)
+        query_schedd(ad, workflows, taskInfo)
 
     analyze_prios(workflows)
-    summarize(workflows, sites)
-
-    for request, request_dict in workflows.items():
-        print "- Info for request", request
-        print request_dict["Summary"]
-        for subtask, subtask_dict in request_dict.items():
-            if subtask == "Summary":
-                continue
-            print "\t- Info for subtask", subtask
-            del subtask_dict["Summary"]["Internal"]
-            print "\t", subtask_dict["Summary"]
-            for site, site_dict in subtask_dict.items():
-                if site == "Summary":
-                    continue
-                print "\t\t- Site", site
-                for prio, prio_dict in site_dict.items():
-                    print "\t\t\t- Prio", prio
-                    for status, count in prio_dict.items():
-                        print "\t\t\t\t- %s: %d" % (status, count)
+    summarize(workflows, sites, taskInfo)
 
     if opts.output:
         write_json(workflows, sites, opts.output)
