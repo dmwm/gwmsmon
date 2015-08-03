@@ -246,6 +246,7 @@ def write_json(workflows, gsites, output):
             subtask_dict["Summary"]["SiteCount"] = len(sites)
             out = subtask_dict["Summary"]
             out["Internal"] = {}
+            out["Sites"] = sites.keys()
             drop_obj(out, subtask_dir, "summary.json")
         request_dir = os.path.join(output, request)
         drop_obj(request_sites, request_dir, "site_summary.json")

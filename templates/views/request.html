@@ -17,6 +17,7 @@
             setInterval(load_data, 300000);
         });
 
+        var factory_data = "";
         function load_data() {
             var currentview = window.location['pathname'].split("/")[1];
             var currentview = "/".concat(currentview, "/");
@@ -39,6 +40,9 @@
                 }
             // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view
 
+            $.get('/scheddview/json/totals', function(data){
+                factory_data = data;
+            })
             // First, get the CMS-wide totals
             $.get('json/$request/totals', function(data){
                 gotTotals(data, currentview)});
@@ -151,6 +155,19 @@
                     site = data[site_key];
                     var site_img = '<img src="'+ currentview +'graphs/$request/' + site_key + '"/>';
                     var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
+                    if (site_key in factory_data){
+                       var entries = factory_data[site_key];
+                       site_html += '<table border="1"><tr><th>Num</th><th>MaxWallTime</th><th>MaxMemory</th></tr>'
+                       for (i = 0; i< entries.length; i++){
+                           site_html += '<tr><td>'+ i + '</td>';
+                           site_html += '<td>' + entries[i]['MaxWallTime'] + '</td>';
+                           site_html += '<td>' + entries[i]['MaxMemMB'] + '</td></tr>';
+                       }
+                       site_html += '</table><br/>';
+                    }
+                    else {
+                       site_html += "PROBLEM. Not in the factory.";
+                    }
                     table_data.addRow([site_html, site.Running, site.MatchingIdle, site.RequestCount, site_img]);
                 }
             }
@@ -159,6 +176,19 @@
                     site = data[site_key];
                     var site_img = '<img src="'+ currentview +'graphs/$request/' + site_key + '"/>';
                     var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
+                    if (site_key in factory_data){
+                        var entries = factory_data[site_key];
+                        site_html += '<table border="1"><tr><th>Num</th><th>MaxWallTime</th><th>MaxMemory</th></tr>'
+                        for (i = 0; i< entries.length; i++){
+                            site_html += '<tr><td>'+ i + '</td>';
+                            site_html += '<td>' + entries[i]['MaxWallTime'] + '</td>';
+                            site_html += '<td>' + entries[i]['MaxMemMB'] + '</td></tr>';
+                        }
+                        site_html += '</table><br/>';
+                    }
+                    else {
+                    site_html += "PROBLEM. Not in the factory.";
+		    }
                     table_data.addRow([site_html, site.Running, site.MatchingIdle, site_img]);
                 }
             }

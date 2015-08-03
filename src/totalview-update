@@ -44,6 +44,19 @@ def parse_args():
 
     return opts, args
 
+def query_factory(coll, output):
+    entries = coll.query(htcondor.AdTypes.Any, 'MyType=?="glidefactory" && GLIDEIN_CMSSite isnt undefined',['GLIDEIN_CMSSite', 'GLIDEIN_MaxMemMBs', 'GLIDEIN_Max_Walltime'])
+    for entry in entries:
+        #So far it requires to -30minutes from Walltime request. TODO
+        dataAppend = {'MaxMemMB': entry['GLIDEIN_MaxMemMBs'], 'MaxWallTime': int(entry['GLIDEIN_Max_Walltime']/60)}
+        if entry['GLIDEIN_CMSSite'] not in output:
+            output[entry['GLIDEIN_CMSSite']] = []
+        InDict = False
+        for item in output[entry['GLIDEIN_CMSSite']]:
+            if cmp(item, dataAppend) == 0:
+                InDict = True
+        if not InDict:
+            output[entry['GLIDEIN_CMSSite']].append(dataAppend)
 
 def summarize_schedds(schedds_info, schedd_ads):
     for ad in schedd_ads:
@@ -63,9 +76,7 @@ def summarize_schedds(schedds_info, schedd_ads):
         schedds_info[name]['TotalHeldJobs'] = ad['TotalHeldJobs']
         schedds_info[name]['MaxJobsRunning'] = ad['MaxJobsRunning']
 
-def write_schedd_info(basedir, schedds_info):
-    print basedir
-    print schedds_info
+def write_schedd_info(basedir, schedds_info, fact_info):
     now = int(time.time())
     schedds_info['Summary'] = {}
     schedds_info['Summary']['UpdateTime'] = now
@@ -87,8 +98,8 @@ def write_schedd_info(basedir, schedds_info):
                 "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )
-        print schedd_dict
         rrdtool.update(fname, "N:%d:%d" % (schedd_dict["TotalRunningJobs"], schedd_dict["TotalIdleJobs"]))
+    drop_obj(fact_info, basedir, 'totals.json')
     return
 
 def load_pool_data(totals, sites, basedir, name):
@@ -210,12 +221,18 @@ def main():
     else:
         coll = htcondor.Collector()
 
+    # Has to be moved below
+    fact_out = {}
+    for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0305.cern.ch']:
+        print 'Query %s factory' % factory
+        collF = htcondor.Collector(factory)
+        query_factory(collF, fact_out)
     #Get schedulers information
     schedds_info = {}
     schedd_ads = coll.query(htcondor.AdTypes.Schedd, 'True',['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning'])
     if schedd_ads:
         summarize_schedds(schedds_info, schedd_ads)
-    write_schedd_info(opts.scheddview, schedds_info)
+    write_schedd_info(opts.scheddview, schedds_info, fact_out)
     totals = {}
     sites = {}
 
