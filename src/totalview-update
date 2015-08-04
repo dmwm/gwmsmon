@@ -1,0 +1,253 @@
+#!/usr/bin/python
+
+import re
+import os
+import sys
+import json
+import time
+import optparse
+import ConfigParser
+
+import rrdtool
+import htcondor
+
+
+def parse_args():
+    parser = optparse.OptionParser()
+    parser.add_option("-c", "--config", help="Prodview configuration file", dest="config", default=None)
+    parser.add_option("-p", "--pool", help="HTCondor pool to analyze", dest="pool")
+    parser.add_option("-o", "--output", help="Top-level output dir", dest="output")
+    opts, args = parser.parse_args()
+
+    if args:
+        parser.print_help()
+        print >> sys.stderr, "%s takes no arguments." % sys.args[0]
+        sys.exit(1)
+
+    cp = ConfigParser.ConfigParser()
+    if opts.config:
+        if not os.path.exists(opts.config):
+            print >> sys.stderr, "Config file %s does not exist." % opts.config
+            sys.exit(1)
+        cp.read(opts.config)
+    elif os.path.exists("/etc/prodview.conf"):
+        cp.read("/etc/prodview.conf")
+
+    if not opts.pool and cp.has_option("htcondor", "pool"):
+        opts.pool = cp.get("htcondor", "pool")
+    if not opts.output and cp.has_option("totalview", "basedir"):
+        opts.output = cp.get("totalview", "basedir")
+    opts.analysisview = cp.get("analysisview", "basedir")
+    opts.prodview = cp.get("prodview", "basedir")
+    opts.analysiscrab2view = cp.get("analysiscrab2view", "basedir")
+    opts.scheddview = cp.get("scheddview", "basedir")
+
+    return opts, args
+
+def query_factory(coll, output):
+    entries = coll.query(htcondor.AdTypes.Any, 'MyType=?="glidefactory" && GLIDEIN_CMSSite isnt undefined',['GLIDEIN_CMSSite', 'GLIDEIN_MaxMemMBs', 'GLIDEIN_Max_Walltime'])
+    for entry in entries:
+        #So far it requires to -30minutes from Walltime request. TODO
+        dataAppend = {'MaxMemMB': entry['GLIDEIN_MaxMemMBs'], 'MaxWallTime': int(entry['GLIDEIN_Max_Walltime']/60)}
+        if entry['GLIDEIN_CMSSite'] not in output:
+            output[entry['GLIDEIN_CMSSite']] = []
+        InDict = False
+        for item in output[entry['GLIDEIN_CMSSite']]:
+            if cmp(item, dataAppend) == 0:
+                InDict = True
+        if not InDict:
+            output[entry['GLIDEIN_CMSSite']].append(dataAppend)
+
+def summarize_schedds(schedds_info, schedd_ads):
+    for ad in schedd_ads:
+        #['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning']
+        name = ad['Name'].replace("@", "-")
+        name = name.replace(".", "-")
+        schedds_info[name] = {}
+        schedds_info[name]['Name'] = ad['Name']
+        schedds_info[name]['FileName'] = name
+        if 'CMSGWMS_Type' in ad:
+            schedds_info[name]['CMSGWMS_Type'] = ad['CMSGWMS_Type']
+        else:
+            schedds_info[name]['CMSGWMS_Type'] = 'CRAB2'
+        schedds_info[name]['Machine'] = ad['Machine']
+        schedds_info[name]['TotalRunningJobs'] = ad['TotalRunningJobs']
+        schedds_info[name]['TotalIdleJobs'] = ad['TotalIdleJobs']
+        schedds_info[name]['TotalHeldJobs'] = ad['TotalHeldJobs']
+        schedds_info[name]['MaxJobsRunning'] = ad['MaxJobsRunning']
+
+def write_schedd_info(basedir, schedds_info, fact_info):
+    now = int(time.time())
+    schedds_info['Summary'] = {}
+    schedds_info['Summary']['UpdateTime'] = now
+    drop_obj(schedds_info, basedir, 'summary.json')
+    for schedd_name, schedd_dict in schedds_info.items():
+        if 'Name' not in schedd_dict:
+            continue
+        request_dir = os.path.join(basedir, schedd_name)
+        if not os.path.exists(request_dir):
+            os.makedirs(request_dir)
+        fname = str(os.path.join(request_dir, "request.rrd"))
+        if not os.path.exists(fname):
+            rrdtool.create(fname,
+                "--step", "180",
+                "DS:Running:GAUGE:360:U:U",
+                "DS:Idle:GAUGE:360:U:U",
+                "RRA:AVERAGE:0.5:1:1000",
+                "RRA:MIN:0.5:20:2000",
+                "RRA:MAX:0.5:20:2000",
+                "RRA:AVERAGE:0.5:20:2000",
+            )
+        rrdtool.update(fname, "N:%d:%d" % (schedd_dict["TotalRunningJobs"], schedd_dict["TotalIdleJobs"]))
+    drop_obj(fact_info, basedir, 'totals.json')
+    return
+
+def load_pool_data(totals, sites, basedir, name):
+    totals[name] = {}
+    sites[name] = {}
+    fname = os.path.join(basedir, 'totals.json')
+    try:
+        totalsSummary = json.load(open(fname))
+        totals[name] = totalsSummary
+    except:
+        print 'Got Error loading file'
+    fname = os.path.join(basedir, 'site_summary.json')
+    try:
+        sitesSummary = json.load(open(fname))
+        sites[name] = sitesSummary
+    except:
+        print 'Got error loading file'
+    return
+
+
+def summarize(totals, sites):
+    totalR = 0
+    totalI = 0
+    for type, type_dict in totals.items():
+        if 'Running' in type_dict.keys():
+            totalR += type_dict['Running']
+        if 'Idle' in type_dict.keys():
+            totalI += type_dict['Idle']
+    totals['Summary'] = {}
+    totals['Summary']['Running'] = totalR
+    totals['Summary']['Idle'] = totalI
+    
+    sites['Summary'] = {}
+    for type, type_dict in sites.items():
+        if not type == 'Summary':
+            for site, site_dict in type_dict.items():
+                if site and site != "Summary":
+                    if site not in sites['Summary'].keys():
+                        sites['Summary'][site] = {"Running": 0, "MatchingIdle": 0}
+                    sites['Summary'][site]['Running'] += site_dict['Running']
+                    sites['Summary'][site]['MatchingIdle'] += site_dict['MatchingIdle']
+                    sites['Summary'][site][type] = site_dict
+
+
+def drop_obj(obj, dirname, fname):
+    dirname = re.sub('[:]', '', dirname)
+    fname = re.sub('[:]', '', fname)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    fname_tmp = os.path.join(dirname, fname + ".tmp")
+    fname = os.path.join(dirname, fname)
+    json.dump(obj, open(fname_tmp, "w"))
+    os.rename(fname_tmp, fname)
+
+
+def write_json(totals, sites, output):
+
+    now = int(time.time())
+    totals['Summary']['UpdateTime'] = now
+    drop_obj(totals['Summary'], output, 'summary.json')
+    drop_obj(totals, output, 'totals.json')
+    sitesT = sites.get('Summary', {})
+    drop_obj(sitesT, output, 'site_summary.json')
+    for site, site_dict in sitesT.items():
+        site_dir = os.path.join(output, site)
+        drop_obj(site_dict, site_dir, "summary.json")
+
+
+def write_rrds(totals, sites, output):
+
+    running = totals['Summary']['Running']
+    idle = totals['Summary']['Idle']
+    fname = str(os.path.join(output, "summary.rrd"))
+    if not os.path.exists(fname):
+        rrdtool.create(fname,
+            "--step", "180",
+            "DS:Running:GAUGE:360:U:U",
+            "DS:Idle:GAUGE:360:U:U",
+            "RRA:AVERAGE:0.5:1:1000",
+            "RRA:MIN:0.5:20:2000",
+            "RRA:MAX:0.5:20:2000",
+            "RRA:AVERAGE:0.5:20:2000",
+        )
+    rrdtool.update(fname, "N:%d:%d" % (running, idle))
+
+    for site, site_dict in sites['Summary'].items():
+        fname = str(os.path.join(output, "%s.rrd" % site))
+        if not os.path.exists(fname):
+            rrdtool.create(fname,
+                "--step", "180",
+                "DS:Running:GAUGE:360:U:U",
+                "DS:MatchingIdle:GAUGE:360:U:U",
+                "RRA:AVERAGE:0.5:1:1000",
+                "RRA:MIN:0.5:20:2000",
+                "RRA:MAX:0.5:20:2000",
+                "RRA:AVERAGE:0.5:20:2000",
+            )   
+        rrdtool.update(fname, "N:%d:%d" % (site_dict["Running"], site_dict["MatchingIdle"]))
+
+    #Create fake empty.rrd for sites which have no data.
+    fname = str(os.path.join(output, "empty.rrd"))
+    if not os.path.exists(fname):
+        rrdtool.create(fname,
+                "--step", "180",
+                "DS:Running:GAUGE:360:U:U",
+                "DS:MatchingIdle:GAUGE:360:U:U",
+                "RRA:AVERAGE:0.5:1:1000",
+                "RRA:MIN:0.5:20:2000",
+                "RRA:MAX:0.5:20:2000",
+                "RRA:AVERAGE:0.5:20:2000",
+            )
+        rrdtool.update(fname, "N:0:0")
+
+def main():
+    opts, args = parse_args()
+
+    if opts.pool:
+        coll = htcondor.Collector(opts.pool)
+    else:
+        coll = htcondor.Collector()
+
+    # Has to be moved below
+    fact_out = {}
+    for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0305.cern.ch']:
+        print 'Query %s factory' % factory
+        collF = htcondor.Collector(factory)
+        query_factory(collF, fact_out)
+    #Get schedulers information
+    schedds_info = {}
+    schedd_ads = coll.query(htcondor.AdTypes.Schedd, 'True',['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning'])
+    if schedd_ads:
+        summarize_schedds(schedds_info, schedd_ads)
+    write_schedd_info(opts.scheddview, schedds_info, fact_out)
+    totals = {}
+    sites = {}
+
+    load_pool_data(totals, sites, opts.analysisview, "analysisview")
+    load_pool_data(totals, sites, opts.prodview, "prodview")
+    load_pool_data(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
+    #load all total jsons.
+    #load sites json create final json and rrds
+
+    summarize(totals, sites)
+
+    if opts.output:
+        write_json(totals, sites, opts.output)
+        write_rrds(totals, sites, opts.output)
+
+if __name__ == "__main__":
+    main()
+
