@@ -1,6 +1,6 @@
 
 Name:		prodview
-Version:	0.3
+Version:	0.5
 Release:	1%{?dist}
 Summary:	A simple monitoring page for CMS production
 
@@ -57,6 +57,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Aug 04 2015 Brian Bockelman <bbockelm@cse.unl.edu> - 0.5-1
+- Cleanup file leaks.
+
 * Fri May  8 2015 Justas Balcas <justas.balcas@cern.ch>  - 0.4-1
 - Added analysis view
 

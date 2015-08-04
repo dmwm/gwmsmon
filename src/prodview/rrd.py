@@ -19,6 +19,11 @@ def get_rrd_interval(interval):
         raise ValueError("Unknown interval: %s" % interval)
     return rrd_interval
 
+def clean_and_return(fd, pngpath):
+    try:
+        os.unlink(pngpath)
+    finally:
+        return os.fdopen(fd).read()
 
 def subtask_site(basedir, interval, request, subtask, site):
     fd, pngpath = tempfile.mkstemp(".png")
@@ -49,7 +54,7 @@ def subtask_site(basedir, interval, request, subtask, site):
             "GPRINT:MatchingIdle:AVERAGE:%-6.0lf",
             "GPRINT:MatchingIdle:LAST:%-6.0lf\\n",
             )
-    return os.fdopen(fd).read()
+    return clean_and_return(fd, pngpath)
 
 
 def subtask(basedir, interval, request, subtask):
@@ -81,7 +86,7 @@ def subtask(basedir, interval, request, subtask):
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
             )
-    return os.fdopen(fd).read()
+    return clean_and_return(fd, pngpath)
 
 
 def request(basedir, interval, request):
@@ -113,7 +118,7 @@ def request(basedir, interval, request):
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
             )
-    return os.fdopen(fd).read()
+    return clean_and_return(fd, pngpath)
 
 
 def request_starvation(basedir, interval, request):
@@ -144,7 +149,7 @@ def request_starvation(basedir, interval, request):
             "GPRINT:HigherPrioIdle:AVERAGE:%-6.0lf",
             "GPRINT:HigherPrioIdle:LAST:%-6.0lf\\n",
             )
-    return os.fdopen(fd).read()
+    return clean_and_return(fd, pngpath)
 
 
 def request_site(basedir, interval, request, site):
@@ -176,7 +181,7 @@ def request_site(basedir, interval, request, site):
             "GPRINT:MatchingIdle:AVERAGE:%-6.0lf",
             "GPRINT:MatchingIdle:LAST:%-6.0lf\\n",
             )
-    return os.fdopen(fd).read()
+    return clean_and_return(fd, pngpath)
 
 
 def site(basedir, interval, site):
@@ -210,7 +215,7 @@ def site(basedir, interval, site):
             "GPRINT:MatchingIdle:AVERAGE:%-6.0lf",
             "GPRINT:MatchingIdle:LAST:%-6.0lf\\n",
             )
-    return os.fdopen(fd).read()
+    return clean_and_return(fd, pngpath)
 
 
 def summary(basedir, interval):
@@ -242,6 +247,6 @@ def summary(basedir, interval):
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
             )
-    return os.fdopen(fd).read()
+    return clean_and_return(fd, pngpath)
 
 
