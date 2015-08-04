@@ -10,6 +10,7 @@ import rrd
 _initialized = None
 _loader = None
 _cp = None
+_view = None
 
 def check_initialized(environ):
     global _initialized
@@ -37,7 +38,7 @@ def static_file_server(fname):
 
 
 def serve_static_file(fname, environ, start_response):
-    static_file = os.path.join(_cp.get("prodview", "basedir"), fname)
+    static_file = os.path.join(_cp.get(_view, "basedir"), fname)
 
     try:
         fp = open(static_file, "r")
@@ -75,7 +76,7 @@ def site_totals_json(environ, start_response):
     path = environ.get('PATH_INFO', '')
     m = _site_totals_json_re.match(path)
     site = m.groups()[0]
-    fname = os.path.join(_cp.get("prodview", "basedir"), site, "totals.json")
+    fname = os.path.join(_cp.get(_view, "basedir"), site, "totals.json")
 
     for result in serve_static_file(fname, environ, start_response):
         yield result
@@ -86,7 +87,7 @@ def site_request_summary_json(environ, start_response):
     path = environ.get('PATH_INFO', '')
     m = _site_request_summary_json_re.match(path)
     site = m.groups()[0]
-    fname = os.path.join(_cp.get("prodview", "basedir"), site, "summary.json")
+    fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
 
     for result in serve_static_file(fname, environ, start_response):
         yield result
@@ -97,7 +98,7 @@ def request_totals_json(environ, start_response):
     path = environ.get('PATH_INFO', '')
     m = _request_totals_json_re.match(path)
     request = m.groups()[0]
-    fname = os.path.join(_cp.get("prodview", "basedir"), request, "totals.json")
+    fname = os.path.join(_cp.get(_view, "basedir"), request, "totals.json")
     
     for result in serve_static_file(fname, environ, start_response):
         yield result
@@ -108,7 +109,7 @@ def request_summary_json(environ, start_response):
     path = environ.get('PATH_INFO', '')
     m = _request_summary_json_re.match(path)
     request = m.groups()[0]
-    fname = os.path.join(_cp.get("prodview", "basedir"), request, "summary.json")
+    fname = os.path.join(_cp.get(_view, "basedir"), request, "summary.json")
 
     for result in serve_static_file(fname, environ, start_response):
         yield result
@@ -119,7 +120,7 @@ def request_site_summary_json(environ, start_response):
     path = environ.get('PATH_INFO', '')
     m = _request_site_summary_json_re.match(path)
     request = m.groups()[0]
-    fname = os.path.join(_cp.get("prodview", "basedir"), request, "site_summary.json")
+    fname = os.path.join(_cp.get(_view, "basedir"), request, "site_summary.json")
 
     for result in serve_static_file(fname, environ, start_response):
         yield result
@@ -139,7 +140,7 @@ def request_graph(environ, start_response):
     if m.groups()[1]:
         interval=m.groups()[1]
 
-    return [ rrd.request(_cp.get("prodview", "basedir"), interval, request) ]
+    return [ rrd.request(_cp.get(_view, "basedir"), interval, request) ]
 
 
 _request_starvation_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/starvation/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -156,7 +157,7 @@ def request_starvation_graph(environ, start_response):
     if m.groups()[1]:
         interval=m.groups()[1]
 
-    return [ rrd.request_starvation(_cp.get("prodview", "basedir"), interval, request) ]
+    return [ rrd.request_starvation(_cp.get(_view, "basedir"), interval, request) ]
 
 
 _subtask_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/+([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -174,7 +175,7 @@ def subtask_graph(environ, start_response):
     if m.groups()[2]:
         interval=m.groups()[2]
 
-    return [ rrd.subtask(_cp.get("prodview", "basedir"), interval, request, subtask) ]
+    return [ rrd.subtask(_cp.get(_view, "basedir"), interval, request, subtask) ]
 
 
 _site_graph_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -191,7 +192,7 @@ def site_graph(environ, start_response):
     if m.groups()[1]:
         interval=m.groups()[1]
 
-    return [ rrd.site(_cp.get("prodview", "basedir"), interval, site) ]
+    return [ rrd.site(_cp.get(_view, "basedir"), interval, site) ]
 
 
 _request_site_graph_re = re.compile(r'^/*graphs/([-_A-Za-z0-9]+)/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -209,7 +210,7 @@ def request_site_graph(environ, start_response):
     if m.groups()[2]:
         interval=m.groups()[2]
 
-    return [ rrd.request_site(_cp.get("prodview", "basedir"), interval, request, site) ]
+    return [ rrd.request_site(_cp.get(_view, "basedir"), interval, request, site) ]
 
 
 _summary_graph_re = re.compile(r'^/*graphs/summary/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -225,7 +226,7 @@ def summary_graph(environ, start_response):
     if m.groups()[0]:
         interval=m.groups()[0]
 
-    return [ rrd.summary(_cp.get("prodview", "basedir"), interval) ]
+    return [ rrd.summary(_cp.get(_view, "basedir"), interval) ]
 
 
 _request_re = re.compile(r'^/*([-_A-Za-z0-9]+)/?$')
@@ -311,9 +312,11 @@ urls = [
 
 
 def application(environ, start_response):
+    global _view
     check_initialized(environ)
 
     path = environ.get('PATH_INFO', '').lstrip('/')
+    _view = environ.get('REQUEST_URI', '').split('/')[1]
     for regex, callback in urls:
         match = regex.match(path)
         if match:

@@ -1,2 +1,2 @@
-MAILTO=
-*/3 * * * * apache prodview-update
+MAILTO=""
+*/3 * * * * apache prodview-update > /dev/null
