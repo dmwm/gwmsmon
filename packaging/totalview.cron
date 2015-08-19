@@ -1,2 +1,2 @@
 MAILTO=""
-*/3 * * * * apache totalview-update > /dev/null
+*/3 * * * * root totalview-update > /dev/null

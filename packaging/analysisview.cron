@@ -1,2 +1,2 @@
 MAILTO=""
-*/3 * * * * apache analysisview-update > /dev/null
+*/3 * * * * root analysisview-update > /dev/null
