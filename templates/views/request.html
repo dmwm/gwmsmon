@@ -99,8 +99,9 @@
                 var workflow_html = workflow_data.TaskInfo.TaskName;
                 var taskInfo = "";
                 taskInfo = workflow_html + '<br/>';
-                taskInfo += '<a href="' + workflow_data.TaskInfo.CRAB_UserWebDir + '">User Web Directory</a><br/>';
-                taskInfo += '<a href="http://glidemon.web.cern.ch/glidemon/jobs.php?taskname=' + workflow_html + '">Glidemon link</a>';
+                taskInfo += '<a target="_blank" href="' + workflow_data.TaskInfo.CRAB_UserWebDir + '">User Web Directory</a><br/>';
+                taskInfo += '<a target="_blank" href="http://glidemon.web.cern.ch/glidemon/jobs.php?taskname=' + workflow_html + '">Glidemon link</a><br/>';
+                taskInfo += '<a target="_blank" href="http://dashb-cms-job.cern.ch/dashboard/templates/task-analysis/#user=default&table=Jobs&tid=' +workflow_html+ '">Dashboard link</a>';
                 taskInfo += '<br/>';
                 taskInfo += '<table border="1"><tr><th>Task Status</th><th>WallTime</th><th>Memory</th></tr>';
                 taskInfo += '<tr>';

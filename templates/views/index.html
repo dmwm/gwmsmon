@@ -76,12 +76,12 @@
         function gotSummarySchedd(data, currentview) {
         var table_data = new google.visualization.DataTable();
         table_data.addColumn("string", "Name");
-        table_data.addColumn("string", "Machine");
+        table_data.addColumn("string", "Status");
         table_data.addColumn("string", "Type");
         table_data.addColumn("number", "Total Running");
         table_data.addColumn("number", "Total Idle");
         table_data.addColumn("number", "Total Held");
-        table_data.addColumn("number", "Max Running");
+        table_data.addColumn("number", "Percentage in use");
         table_data.addColumn("string", "Hourly History");
         table_data.addColumn("string", "Daily History");
         table_data.addColumn("string", "Weekly History");
@@ -93,7 +93,14 @@
                 var image_htmlw = '<img src="/scheddview/graphs/' + schedd_key + '/weekly"/>';
 
                 var schedd_html = schedd_data.Name;
-                table_data.addRow([schedd_html, schedd_data.Machine, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.TotalHeldJobs, schedd_data.MaxJobsRunning, image_htmlh, image_htmld, image_htmlw]);
+                schedd_html += '<br/>';
+                if (schedd_data.Machine !== schedd_data.Name){
+                    schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Machine + '">Machine Metrics</a><br/>';
+                    schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Name.replace("@", ".") + '">Condor Metrics</a>';
+                }
+                else
+                    schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Machine + '">Machine & Condor Metrics</a><br/>';
+                table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.TotalHeldJobs, schedd_data.PercentageUse, image_htmlh, image_htmld, image_htmlw]);
 	    }
 	}
         var dashboard = new google.visualization.Dashboard(document.getElementById('sites_summary'));

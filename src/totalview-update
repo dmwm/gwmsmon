@@ -10,7 +10,7 @@ import ConfigParser
 
 import rrdtool
 import htcondor
-
+import classad
 g_startup = int(time.time())
 
 def parse_args():
@@ -88,6 +88,16 @@ def summarize_schedds(schedds_info, schedd_ads):
         schedds_info[name]['TotalIdleJobs'] = ad['TotalIdleJobs']
         schedds_info[name]['TotalHeldJobs'] = ad['TotalHeldJobs']
         schedds_info[name]['MaxJobsRunning'] = ad['MaxJobsRunning']
+        schedds_info[name]['PercentageUse'] = 0 if ad['TotalRunningJobs'] == 0 else int((ad['TotalRunningJobs']*100)/ad['MaxJobsRunning'])
+        schedds_info[name]['Status'] = 'UNKNOWN'
+        schedd_status = "UNKNOWN"
+        try:
+            status_expr = classad.ExprTree('ifThenElse(IsOK is undefined, "UNKNOWN", ifThenElse(IsOK, "OK", ifThenElse(IsWarning, "WARNING", "CRITICAL")))');
+            schedd_status = status_expr.eval(ad)
+        except:
+            print 'Strange. wrong expression...', ad
+            continue
+        schedds_info[name]['Status'] = schedd_status
 
 def write_schedd_info(basedir, schedds_info, fact_info):
     now = int(time.time())
@@ -242,7 +252,7 @@ def main():
         query_factory(collF, fact_out)
     #Get schedulers information
     schedds_info = {}
-    schedd_ads = coll.query(htcondor.AdTypes.Schedd, 'True',['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning'])
+    schedd_ads = coll.query(htcondor.AdTypes.Schedd, 'True',['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical'])
     if schedd_ads:
         summarize_schedds(schedds_info, schedd_ads)
     write_schedd_info(opts.scheddview, schedds_info, fact_out)
