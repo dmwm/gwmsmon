@@ -99,7 +99,11 @@ def query_schedd(ad, workflows, taskInfo):
             if 'MaxWallTimeMins' in job.keys():
                 mainUserTask['MaxWallTimeMins'] = job['MaxWallTimeMins']
             continue
-        desired_sites = job['DESIRED_Sites'].split(",")
+        desired_sites = []
+        try:
+            desired_sites = job['DESIRED_Sites'].split(",")
+        except:
+            desired_sites = []
         desired_sites.sort()
         desired_sites = tuple(desired_sites)
         running_site = job.get("MATCH_EXP_JOBGLIDEIN_CMSSite")

@@ -139,7 +139,6 @@ def request_graph(environ, start_response):
     request = m.groups()[0]
     if m.groups()[1]:
         interval=m.groups()[1]
-
     return [ rrd.request(_cp.get(_view, "basedir"), interval, request) ]
 
 
@@ -276,10 +275,11 @@ def index(environ, start_response):
 def not_found(environ, start_response):
     status = '404 Not Found'
     headers = [('Content-type', 'text/html'),
-              ('Cache-Control', 'max-age=60, public')]
+              ('Cache-Control', 'max-age=60, public'),
+              ('Location', '/')]
     start_response(status, headers)
     path = environ.get('PATH_INFO', '').lstrip('/')
-    return ["Resource %s not found" % path]
+    return # ["Resource %s not found" % path]
 
 
 subtask = not_found

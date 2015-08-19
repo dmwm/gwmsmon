@@ -45,7 +45,11 @@ def parse_args():
     return opts, args
 
 def query_factory(coll, output):
-    entries = coll.query(htcondor.AdTypes.Any, 'MyType=?="glidefactory" && GLIDEIN_CMSSite isnt undefined',['GLIDEIN_CMSSite', 'GLIDEIN_MaxMemMBs', 'GLIDEIN_Max_Walltime'])
+    try:
+        entries = coll.query(htcondor.AdTypes.Any, 'MyType=?="glidefactory" && GLIDEIN_CMSSite isnt undefined',['GLIDEIN_CMSSite', 'GLIDEIN_MaxMemMBs', 'GLIDEIN_Max_Walltime'])
+    except IOError as er:
+        print 'Failed to query factory. Error: %s' % er
+        return
     for entry in entries:
         #So far it requires to -30minutes from Walltime request. TODO
         dataAppend = {'MaxMemMB': entry['GLIDEIN_MaxMemMBs'], 'MaxWallTime': int(entry['GLIDEIN_Max_Walltime']/60)}
