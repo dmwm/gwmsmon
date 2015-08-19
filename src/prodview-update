@@ -10,6 +10,8 @@ import ConfigParser
 import rrdtool
 import htcondor
 
+g_startup = int(time.time())
+
 def parse_args():
     parser = optparse.OptionParser()
     parser.add_option("-c", "--config", help="Prodview configuration file", dest="config", default=None)
@@ -38,6 +40,13 @@ def parse_args():
 
     return opts, args
 
+def update_rrd(fname, line):
+    try:
+        rrdtool.update(fname, line)
+    except rrdtool.error as e:
+        print e
+        print fname
+        print line
 
 def query_schedd(ad, workflows, taskInfo):
     schedd = htcondor.Schedd(ad)
@@ -276,7 +285,7 @@ def write_rrds(workflows, gsites, output):
             "RRA:MAX:0.5:20:2000",
             "RRA:AVERAGE:0.5:20:2000",
         )
-    rrdtool.update(fname, "N:%d:%d" % (running, idle))
+    update_rrd(fname, "%d:%d:%d" % (g_startup, running, idle))
     for site, site_dict in sites.items():
         fname = os.path.join(output, "%s.rrd" % site)
         if not os.path.exists(fname):
@@ -289,7 +298,7 @@ def write_rrds(workflows, gsites, output):
                 "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )   
-        rrdtool.update(fname, "N:%d:%d" % (site_dict["Running"], site_dict["MatchingIdle"]))
+        update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
 
     for site, site_dict in gsites.items():
         site_dir = os.path.join(output, site)
@@ -305,7 +314,7 @@ def write_rrds(workflows, gsites, output):
                     "RRA:MAX:0.5:20:2000",
                     "RRA:AVERAGE:0.5:20:2000",
                 )
-            rrdtool.update(fname, "N:%d:%d" % (request_dict["Running"], request_dict["MatchingIdle"]))
+            update_rrd(fname, "%d:%d:%d" % (g_startup, request_dict["Running"], request_dict["MatchingIdle"]))
 
     for request, request_dict in workflows.items():
         request_dir = os.path.join(output, request)
@@ -325,7 +334,7 @@ def write_rrds(workflows, gsites, output):
                 "RRA:AVERAGE:0.5:20:2000",
                 )
         stats = request_dict["Summary"]["Running"], request_dict["Summary"]["Idle"], request_dict["Summary"]["HigherPrioIdle"], request_dict["Summary"]["LowerPrioRunning"]
-        rrdtool.update(fname, ("N:" + ":".join(["%d"]*len(stats))) % stats)
+        update_rrd(fname, (("%d:" % g_startup) + ":".join(["%d"]*len(stats))) % stats)
 
         for site, site_dict in request_dict["Summary"]["Sites"].items():
             fname = os.path.join(request_dir, "%s.rrd" % site)
@@ -339,7 +348,7 @@ def write_rrds(workflows, gsites, output):
                     "RRA:MAX:0.5:20:2000",
                     "RRA:AVERAGE:0.5:20:2000",
                 )
-            rrdtool.update(fname, "N:%d:%d" % (site_dict["Running"], site_dict["MatchingIdle"]))
+            update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
 
         for subtask, subtask_dict in request_dict.items():
             if subtask == "Summary":
@@ -361,7 +370,7 @@ def write_rrds(workflows, gsites, output):
                     "RRA:AVERAGE:0.5:20:2000",
                     )
             stats = subtask_dict["Summary"]["Running"], subtask_dict["Summary"]["Idle"], subtask_dict["Summary"]["HigherPrioIdle"], subtask_dict["Summary"]["LowerPrioRunning"]
-            rrdtool.update(fname, ("N:" + ":".join(["%d"]*len(stats))) % stats)
+            update_rrd(fname, (("%d:" % g_startup) + ":".join(["%d"]*len(stats))) % stats)
 
             for site, site_dict in subtask_dict.items():
                 if site == "Summary":
@@ -383,7 +392,7 @@ def write_rrds(workflows, gsites, output):
                         sum(prio_dict["MatchingIdle"] for prio_dict in site_dict.values()), \
                         sum(prio_dict["HigherPrioIdle"] for prio_dict in site_dict.values()), \
                         sum(prio_dict["LowerPrioRunning"] for prio_dict in site_dict.values())
-                rrdtool.update(fname, ("N:" + ":".join(["%d"]*len(stats))) % stats)
+                update_rrd(fname, (("%d:" % g_startup) + ":".join(["%d"]*len(stats))) % stats)
 
 
 def main():

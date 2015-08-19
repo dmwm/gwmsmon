@@ -11,6 +11,7 @@ import ConfigParser
 import rrdtool
 import htcondor
 
+g_startup = int(time.time())
 
 def parse_args():
     parser = optparse.OptionParser()
@@ -43,6 +44,14 @@ def parse_args():
     opts.scheddview = cp.get("scheddview", "basedir")
 
     return opts, args
+
+def update_rrd(fname, line):
+    try:
+        rrdtool.update(fname, line)
+    except rrdtool.error as e:
+        print e
+        print fname
+        print line
 
 def query_factory(coll, output):
     try:
@@ -102,7 +111,7 @@ def write_schedd_info(basedir, schedds_info, fact_info):
                 "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )
-        rrdtool.update(fname, "N:%d:%d" % (schedd_dict["TotalRunningJobs"], schedd_dict["TotalIdleJobs"]))
+        update_rrd(fname, "%d:%d:%d" % (g_startup, schedd_dict["TotalRunningJobs"], schedd_dict["TotalIdleJobs"]))
     drop_obj(fact_info, basedir, 'totals.json')
     return
 
@@ -187,7 +196,7 @@ def write_rrds(totals, sites, output):
             "RRA:MAX:0.5:20:2000",
             "RRA:AVERAGE:0.5:20:2000",
         )
-    rrdtool.update(fname, "N:%d:%d" % (running, idle))
+    update_rrd(fname, "%d:%d:%d" % (g_startup, running, idle))
 
     for site, site_dict in sites['Summary'].items():
         fname = str(os.path.join(output, "%s.rrd" % site))
@@ -201,7 +210,7 @@ def write_rrds(totals, sites, output):
                 "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )   
-        rrdtool.update(fname, "N:%d:%d" % (site_dict["Running"], site_dict["MatchingIdle"]))
+        update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
 
     #Create fake empty.rrd for sites which have no data.
     fname = str(os.path.join(output, "empty.rrd"))
@@ -215,7 +224,7 @@ def write_rrds(totals, sites, output):
                 "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )
-        rrdtool.update(fname, "N:0:0")
+        update_rrd(fname, "%d:0:0" % g_startup)
 
 def main():
     opts, args = parse_args()

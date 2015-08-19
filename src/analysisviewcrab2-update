@@ -10,6 +10,7 @@ import ConfigParser
 import rrdtool
 import htcondor
 
+g_startup = int(time.time())
 
 def parse_args():
     parser = optparse.OptionParser()
@@ -257,7 +258,7 @@ def write_rrds(workflows, gsites, output):
             "RRA:AVERAGE:0.5:1:1000",
             "RRA:AVERAGE:0.5:20:2000",
         )
-    update_rrd(fname, "N:%d:%d" % (running, idle))
+    update_rrd(fname, "%d:%d:%d" % (g_startup, running, idle))
     for site, site_dict in sites.items():
         fname = os.path.join(output, "%s.rrd" % site)
         if not os.path.exists(fname):
@@ -270,7 +271,7 @@ def write_rrds(workflows, gsites, output):
                 "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )   
-        update_rrd(fname, "N:%d:%d" % (site_dict["Running"], site_dict["MatchingIdle"]))
+        update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
 
     for site, site_dict in gsites.items():
         site_dir = os.path.join(output, site)
@@ -286,7 +287,7 @@ def write_rrds(workflows, gsites, output):
                     "RRA:MAX:0.5:20:2000",
                     "RRA:AVERAGE:0.5:20:2000",
                 )
-            update_rrd(fname, "N:%d:%d" % (request_dict["Running"], request_dict["MatchingIdle"]))
+            update_rrd(fname, "%d:%d:%d" % (g_startup, request_dict["Running"], request_dict["MatchingIdle"]))
 
     for request, request_dict in workflows.items():
         request_dir = os.path.join(output, request)
@@ -301,7 +302,7 @@ def write_rrds(workflows, gsites, output):
                 "RRA:AVERAGE:0.5:1:1000",
                 "RRA:AVERAGE:0.5:20:2000",
                 )
-        update_rrd(fname, ("N:%d:%d" % (request_dict["Summary"]["Running"], request_dict["Summary"]["Idle"])))
+        update_rrd(fname, ("%d:%d:%d" % (g_startup, request_dict["Summary"]["Running"], request_dict["Summary"]["Idle"])))
 
         for site, site_dict in request_dict["Summary"]["Sites"].items():
             fname = os.path.join(request_dir, "%s.rrd" % site)
@@ -313,7 +314,7 @@ def write_rrds(workflows, gsites, output):
                     "RRA:AVERAGE:0.5:1:1000",
                     "RRA:AVERAGE:0.5:20:2000",
                 )
-            update_rrd(fname, "N:%d:%d" % (site_dict["Running"], site_dict["MatchingIdle"]))
+            update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
 
         for subtask, subtask_dict in request_dict.items():
             if subtask == "Summary":
@@ -331,7 +332,7 @@ def write_rrds(workflows, gsites, output):
                     "RRA:AVERAGE:0.5:20:2000",
                     )
             stats = subtask_dict["Summary"]["Running"], subtask_dict["Summary"]["Idle"]
-            update_rrd(fname, ("N:" + ":".join(["%d"]*len(stats))) % stats)
+            update_rrd(fname, (("%d:" % g_startup) + ":".join(["%d"]*len(stats))) % stats)
 
             for site, site_dict in subtask_dict.items():
                 if site == "Summary":
@@ -347,7 +348,7 @@ def write_rrds(workflows, gsites, output):
                         )
                 stats = sum(prio_dict["Running"] for prio_dict in site_dict.values()), \
                         sum(prio_dict["MatchingIdle"] for prio_dict in site_dict.values())
-                update_rrd(fname, ("N:" + ":".join(["%d"]*len(stats))) % stats)
+                update_rrd(fname, (("%d:" % g_startup) + ":".join(["%d"]*len(stats))) % stats)
 
 
 def main():
