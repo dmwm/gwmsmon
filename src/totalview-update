@@ -117,8 +117,6 @@ def write_schedd_info(basedir, schedds_info, fact_info):
                 "DS:Running:GAUGE:360:U:U",
                 "DS:Idle:GAUGE:360:U:U",
                 "RRA:AVERAGE:0.5:1:1000",
-                "RRA:MIN:0.5:20:2000",
-                "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )
         update_rrd(fname, "%d:%d:%d" % (g_startup, schedd_dict["TotalRunningJobs"], schedd_dict["TotalIdleJobs"]))
@@ -202,8 +200,6 @@ def write_rrds(totals, sites, output):
             "DS:Running:GAUGE:360:U:U",
             "DS:Idle:GAUGE:360:U:U",
             "RRA:AVERAGE:0.5:1:1000",
-            "RRA:MIN:0.5:20:2000",
-            "RRA:MAX:0.5:20:2000",
             "RRA:AVERAGE:0.5:20:2000",
         )
     update_rrd(fname, "%d:%d:%d" % (g_startup, running, idle))
@@ -230,8 +226,6 @@ def write_rrds(totals, sites, output):
                 "DS:Running:GAUGE:360:U:U",
                 "DS:MatchingIdle:GAUGE:360:U:U",
                 "RRA:AVERAGE:0.5:1:1000",
-                "RRA:MIN:0.5:20:2000",
-                "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )
         update_rrd(fname, "%d:0:0" % g_startup)

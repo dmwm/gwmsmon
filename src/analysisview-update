@@ -303,8 +303,6 @@ def write_rrds(workflows, gsites, output):
             "DS:Running:GAUGE:360:U:U",
             "DS:Idle:GAUGE:360:U:U",
             "RRA:AVERAGE:0.5:1:1000",
-            "RRA:MIN:0.5:20:2000",
-            "RRA:MAX:0.5:20:2000",
             "RRA:AVERAGE:0.5:20:2000",
         )
     update_rrd(fname, "%d:%d:%d" % (g_startup, running, idle))
@@ -316,8 +314,6 @@ def write_rrds(workflows, gsites, output):
                 "DS:Running:GAUGE:360:U:U",
                 "DS:MatchingIdle:GAUGE:360:U:U",
                 "RRA:AVERAGE:0.5:1:1000",
-                "RRA:MIN:0.5:20:2000",
-                "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )   
         update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
@@ -332,8 +328,6 @@ def write_rrds(workflows, gsites, output):
                     "DS:Running:GAUGE:360:U:U",
                     "DS:MatchingIdle:GAUGE:360:U:U",
                     "RRA:AVERAGE:0.5:1:1000",
-                    "RRA:MIN:0.5:20:2000",
-                    "RRA:MAX:0.5:20:2000",
                     "RRA:AVERAGE:0.5:20:2000",
                 )
             update_rrd(fname, "%d:%d:%d" % (g_startup, request_dict["Running"], request_dict["MatchingIdle"]))
@@ -349,8 +343,6 @@ def write_rrds(workflows, gsites, output):
                 "DS:Running:GAUGE:360:U:U",
                 "DS:Idle:GAUGE:360:U:U",
                 "RRA:AVERAGE:0.5:1:1000",
-                "RRA:MIN:0.5:20:2000",
-                "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
                 )
         update_rrd(fname, ("%d:%d:%d" % (g_startup, request_dict["Summary"]["Running"], request_dict["Summary"]["Idle"])))
@@ -363,8 +355,6 @@ def write_rrds(workflows, gsites, output):
                     "DS:Running:GAUGE:360:U:U",
                     "DS:MatchingIdle:GAUGE:360:U:U",
                     "RRA:AVERAGE:0.5:1:1000",
-                    "RRA:MIN:0.5:20:2000",
-                    "RRA:MAX:0.5:20:2000",
                     "RRA:AVERAGE:0.5:20:2000",
                 )
             update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
@@ -382,8 +372,6 @@ def write_rrds(workflows, gsites, output):
                     "DS:Running:GAUGE:360:U:U",
                     "DS:Idle:GAUGE:360:U:U",
                     "RRA:AVERAGE:0.5:1:1000",
-                    "RRA:MIN:0.5:20:2000",
-                    "RRA:MAX:0.5:20:2000",
                     "RRA:AVERAGE:0.5:20:2000",
                     )
             stats = subtask_dict["Summary"]["Running"], subtask_dict["Summary"]["Idle"]
@@ -399,8 +387,6 @@ def write_rrds(workflows, gsites, output):
                         "DS:Running:GAUGE:360:U:U",
                         "DS:MatchingIdle:GAUGE:360:U:U",
                         "RRA:AVERAGE:0.5:1:1000",
-                        "RRA:MIN:0.5:20:2000",
-                        "RRA:MAX:0.5:20:2000",
                         "RRA:AVERAGE:0.5:20:2000",
                         )
                 stats = sum(prio_dict["Running"] for prio_dict in site_dict.values()), \
