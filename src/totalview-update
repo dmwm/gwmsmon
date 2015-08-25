@@ -92,7 +92,7 @@ def summarize_schedds(schedds_info, schedd_ads):
         schedds_info[name]['Status'] = 'UNKNOWN'
         schedd_status = "UNKNOWN"
         try:
-            status_expr = classad.ExprTree('ifThenElse(IsOK is undefined, "UNKNOWN", ifThenElse(IsOK, "OK", ifThenElse(IsWarning, "WARNING", "CRITICAL")))');
+            status_expr = classad.ExprTree('ifThenElse(IsOK is undefined, "UNKNOWN", ifThenElse(IsOK,"OK", ifThenElse(IsCritical, "CRITICAL", "WARNING")))');
             schedd_status = status_expr.eval(ad)
         except:
             print 'Strange. wrong expression...', ad
