@@ -7,7 +7,8 @@ import json
 import time
 import optparse
 import ConfigParser
-
+import urllib2
+import xml.etree.ElementTree as ET
 import rrdtool
 import htcondor
 import classad
@@ -42,8 +43,19 @@ def parse_args():
     opts.prodview = cp.get("prodview", "basedir")
     opts.analysiscrab2view = cp.get("analysiscrab2view", "basedir")
     opts.scheddview = cp.get("scheddview", "basedir")
+    opts.factoryview = cp.get("factoryview", "basedir")
 
     return opts, args
+
+def getFromURL(url):
+    try:
+        req = urllib2.Request(url)
+        opener = urllib2.build_opener()
+        f = opener.open(req)
+        return f.read()
+    except urllib2.URLError as er:
+        print er
+        return None
 
 def update_rrd(fname, line):
     try:
@@ -99,6 +111,92 @@ def summarize_schedds(schedds_info, schedd_ads):
             continue
         schedds_info[name]['Status'] = schedd_status
 
+def parseConfigXML(entries, output, factoryName, entryMappings):
+    for entry in entries:
+        entryName = entry.get('name')
+        attr = entry.find('attributes')
+        ettr = entry.find('descript')
+        siteName = attr.get('GLIDEIN_CMSSite')
+        maxHeld = ettr.get('DefaultPerFrontendMaxHeld')
+        maxIdle = ettr.get('DefaultPerFrontendMaxIdle')
+        if siteName and entryName and maxHeld and maxIdle:
+            try:
+                maxHeld = int(maxHeld)
+                maxIdle = int(maxIdle)
+            except:
+                print 'Failed to parse value to int %s or %s' % (maxHeld, maxIdle)
+                continue
+            if entryName not in entryMappings:
+                entryMappings[entryName] = siteName
+            siteInfo = output.setdefault(siteName, {})
+            entryInfo = siteInfo.setdefault(entryName, {})
+            factoryInfo = entryInfo.setdefault(factoryName, {})
+            factoryInfo['maxIdle'] = maxIdle
+            factoryInfo['maxHeld'] = maxHeld
+
+
+def appendtoOutput(output, siteName, Entry, factory, held, idle, run, err = None, warning = None):
+    if siteName:
+        mapped = output.setdefault(siteName, {}).setdefault(Entry, {}).setdefault(factory, {})
+        mapped['nowHeld'] = int(float(held))
+        mapped['nowIdle'] = int(float(idle))
+        mapped['nowRunn'] = int(float(run))
+        if err:
+            errors = mapped.setdefault('Error', [])
+            errors.append(err)
+        if warning:
+            warnings = mapped.setdefault('Warning', [])
+            warnings.append(warning)
+
+
+def parseRRDsData(entries, output, factoryName, entryMappings):
+    for entry in entries:
+        entryName = entry.get('name')
+        frontends = entry.find('frontends')
+        foundCMSpilot = False
+        foundPeriod = False
+        previousEntry = None
+        previousSiteName = None
+        if len(frontends) == 0:
+            foundCMSpilot = False
+            if entryName in entryMappings:
+                previousSiteName = entryMappings[entryName]
+                previousEntry = entryName
+            err = 'This entry does not have any pool defined. Check it with factory ops.'
+            appendtoOutput(output, previousSiteName, previousEntry, factoryName, 0, 0, 0, err)
+            continue
+        for frontend in frontends:
+            frontendName = frontend.get('name')
+            if entryName in entryMappings:
+                previousSiteName = entryMappings[entryName]
+                previousEntry = entryName
+            if frontendName not in ['frontend_CMSG-v1_0_cmspilot', 'frontend_CMS_T0-Frontend_cmspilot']:
+                continue
+            foundCMSpilot = True
+            periods = frontend.find('periods')
+            for period in periods:
+                pname = period.get('name')
+                if int(pname) != 7200:
+                    continue
+                foundPeriod = True
+                NowHeld = period.get('StatusHeld')
+                NowIdle = period.get('StatusIdle')
+                NowRunn = period.get('StatusRunning')
+                if not NowHeld and not NowIdle and not NowRunn:
+                    warning = 'There is no data for last 2h about running/idle/held. Maybe no one is requesting?'
+                    appendtoOutput(output, previousSiteName, previousEntry, factoryName, 0, 0, 0, None, warning)
+                    continue
+                if entryName in entryMappings:
+                    siteName = entryMappings[entryName]
+                appendtoOutput(output, previousSiteName, previousEntry, factoryName, NowHeld, NowIdle, NowRunn)
+        if not foundPeriod and previousEntry and previousSiteName:
+            error = 'There is no data for last 2h about running/idle/held. Maybe no one is requesting?'
+            appendtoOutput(output, previousSiteName, previousEntry, factoryName, 0, 0, 0, error)
+        if not foundCMSpilot and previousEntry and previousSiteName:
+            error = 'This factory or frontend is not requesting pilots for this entry. Or entry is in downtime. Check it with factory ops.'
+            appendtoOutput(output, previousSiteName, previousEntry, factoryName, 0, 0, 0, error)
+
+
 def write_schedd_info(basedir, schedds_info, fact_info):
     now = int(time.time())
     schedds_info['Summary'] = {}
@@ -140,8 +238,17 @@ def load_pool_data(totals, sites, basedir, name):
         print 'Got error loading file'
     return
 
+def writeToVar(out, entry_info):
+    out['Summary']['Held'] += entry_info['nowHeld']
+    out['Summary']['Run'] += entry_info['nowRunn']
+    out['Summary']['Idle'] += entry_info['nowIdle']
+    out['Summary']['MIdle'] += entry_info['maxIdle']
+    out['Summary']['MHeld'] += entry_info['maxHeld']
+    out['Summary']['Errors'] += 0 if 'Error' not in entry_info else len(entry_info['Error'])
+    out['Summary']['Warnings'] += 0 if 'Warning' not in entry_info else len(entry_info['Warning'])
 
-def summarize(totals, sites):
+
+def summarize(totals, sites, xmlout):
     totalR = 0
     totalI = 0
     for type, type_dict in totals.items():
@@ -163,6 +270,36 @@ def summarize(totals, sites):
                     sites['Summary'][site]['Running'] += site_dict['Running']
                     sites['Summary'][site]['MatchingIdle'] += site_dict['MatchingIdle']
                     sites['Summary'][site][type] = site_dict
+    xmlout['Summary'] = {'Held': 0, 'Idle': 0, 'Run': 0, 'MHeld': 0, 'MIdle': 0, 'Errors': 0, 'Warnings': 0}
+    for siteName, entries_dict in xmlout.items():
+        if siteName not in ['Summary', 'Errors']:
+            entries_dict["Summary"] = {'Held': 0, 'Idle': 0, 'Run': 0, 'MHeld': 0, 'MIdle': 0, 'Errors': 0, 'Warnings': 0}
+            for entry, factory_dict in entries_dict.items():
+                if entry in ['Summary']:
+                    continue
+                for factory, entry_info in factory_dict.items():
+                    #fix the mess in the factory!!!
+                    # Until factory will move all their xmls to somewhere where you can track history
+                    # who did changes than, we need to track this down.
+                    # The problem is that same entry name points to different cms sites on diff factories
+                    # And one entry is on, another is off. Who forgot to update ?!
+                    messedUp = False
+                    for key in ['nowHeld', 'nowRunn', 'nowIdle', 'maxIdle', 'maxHeld']:
+                        if key not in entry_info:
+                            entry_info[key] = 0
+                            messedUp = True
+                    if messedUp:
+                        errors = entry_info.setdefault('Error', [])
+                        errors.append("Messed up! Please contact factory ops.")
+                    elif entry_info['nowHeld'] > 0 and entry_info['nowHeld'] >= entry_info['maxHeld']:
+                        # Everything is held and there will not be any progress until it is cleaned
+                        errors = entry_info.setdefault('Error', [])
+                        errors.append("Held pilots reached limit. Factory/Frontend will not request any new pilot to run until they are cleaned. Contact Factory ops to know the held reason.")
+                    elif entry_info['nowIdle'] > 0 and entry_info['nowIdle'] >= entry_info['maxIdle'] and entry_info['nowRunn'] == 0:
+                        warnings = entry_info.setdefault('Warning', [])
+                        warnings.append("Idle pilots reached its limit and there is 0 running. Something is wrong.")
+                    writeToVar(xmlout, entry_info)
+                    writeToVar(entries_dict, entry_info)
 
 
 def drop_obj(obj, dirname, fname):
@@ -176,20 +313,27 @@ def drop_obj(obj, dirname, fname):
     os.rename(fname_tmp, fname)
 
 
-def write_json(totals, sites, output):
+def write_json(totals, sites, xmlout, output, factoryout):
 
     now = int(time.time())
     totals['Summary']['UpdateTime'] = now
     drop_obj(totals['Summary'], output, 'summary.json')
     drop_obj(totals, output, 'totals.json')
-    sitesT = sites.get('Summary', {})
+    sitesT = sites.setdefault('Summary', {})
     drop_obj(sitesT, output, 'site_summary.json')
     for site, site_dict in sitesT.items():
         site_dir = os.path.join(output, site)
         drop_obj(site_dict, site_dir, "summary.json")
+    drop_obj(xmlout['Summary'], factoryout, 'summary.json')
+    for site, site_dict in xmlout.items():
+        if site in ['Errors', 'Summary']:
+            continue
+        site_dir = os.path.join(factoryout, site)
+        drop_obj(site_dict, site_dir, 'summary.json')
+    drop_obj(xmlout, factoryout, 'totals.json')
 
 
-def write_rrds(totals, sites, output):
+def write_rrds(totals, sites, xmlout, output, factoryout):
 
     running = totals['Summary']['Running']
     idle = totals['Summary']['Idle']
@@ -212,8 +356,6 @@ def write_rrds(totals, sites, output):
                 "DS:Running:GAUGE:360:U:U",
                 "DS:MatchingIdle:GAUGE:360:U:U",
                 "RRA:AVERAGE:0.5:1:1000",
-                "RRA:MIN:0.5:20:2000",
-                "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
             )   
         update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
@@ -230,6 +372,59 @@ def write_rrds(totals, sites, output):
             )
         update_rrd(fname, "%d:0:0" % g_startup)
 
+    fname = str(os.path.join(factoryout, 'summary.rrd'))
+    summary = xmlout['Summary']
+    if not os.path.exists(fname):
+        rrdtool.create(fname,
+                "--step", "180",
+                "DS:Running:GAUGE:360:U:U",
+                "DS:Idle:GAUGE:360:U:U",
+                "DS:Held:GAUGE:360:U:U",
+                "DS:MaxIdle:GAUGE:360:U:U",
+                "DS:MaxHeld:GAUGE:360:U:U",
+                "RRA:AVERAGE:0.5:1:1000",
+                "RRA:AVERAGE:0.5:20:2000",
+                )
+    update_rrd(fname, "%d:%d:%d:%d:%d:%d" % (g_startup, summary['Run'], summary['Idle'], summary['Held'], summary['MIdle'], summary['MHeld']))
+    for site, site_dict in xmlout.items():
+        if site in ['FactoryUrls', 'Errors', 'Summary']:
+            continue
+        for entry, entry_dict in site_dict.items():
+            if entry == 'Summary':
+                fname = str(os.path.join(factoryout, '%s.rrd' % site))
+                if not os.path.exists(fname):
+                    rrdtool.create(fname,
+                            "--step", "180",
+                            "DS:Running:GAUGE:360:U:U",
+                            "DS:Idle:GAUGE:360:U:U",
+                            "DS:Held:GAUGE:360:U:U",
+                            "DS:MaxIdle:GAUGE:360:U:U",
+                            "DS:MaxHeld:GAUGE:360:U:U",
+                            "RRA:AVERAGE:0.5:1:1000",
+                            "RRA:AVERAGE:0.5:20:2000",
+                            )
+                update_rrd(fname, "%d:%d:%d:%d:%d:%d" % (g_startup, entry_dict['Run'], entry_dict['Idle'], entry_dict['Held'], entry_dict['MIdle'], entry_dict['MHeld']))
+                continue
+            else:
+                subsite_dir = os.path.join(factoryout, site)
+                if not os.path.exists(subsite_dir):
+                    os.makedirs(subsite_dir)
+                for factory, factory_info in entry_dict.items():
+                    newName = str(re.sub('[ ]', '', factory.lower()) + (re.sub('[ ]', '', entry)))
+                    fname = os.path.join(subsite_dir, '%s.rrd' % newName)
+                    if not os.path.exists(fname):
+                        rrdtool.create(fname,
+                                "--step", "180",
+                                "DS:Running:GAUGE:360:U:U",
+                                "DS:Idle:GAUGE:360:U:U",
+                                "DS:Held:GAUGE:360:U:U",
+                                "DS:MaxIdle:GAUGE:360:U:U",
+                                "DS:MaxHeld:GAUGE:360:U:U",
+                                "RRA:AVERAGE:0.5:1:1000",
+                                "RRA:AVERAGE:0.5:20:2000",
+                                )
+                    update_rrd(fname, "%d:%d:%d:%d:%d:%d" % (g_startup, factory_info['nowRunn'], factory_info['nowIdle'], factory_info['nowHeld'], factory_info['maxIdle'], factory_info['maxHeld']))
+
 def main():
     opts, args = parse_args()
 
@@ -239,7 +434,10 @@ def main():
         coll = htcondor.Collector()
 
     # Has to be moved below
-    fact_out = {}
+    fact_out = {} # Used from condor
+    xml_out = {} # Used from parsing xmls
+    entryMappings = {} # Used for entries mapping from factory xmls
+    #Move this list to configuration
     for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0305.cern.ch']:
         print 'Query %s factory' % factory
         collF = htcondor.Collector(factory)
@@ -256,14 +454,38 @@ def main():
     load_pool_data(totals, sites, opts.analysisview, "analysisview")
     load_pool_data(totals, sites, opts.prodview, "prodview")
     load_pool_data(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
-    #load all total jsons.
-    #load sites json create final json and rrds
 
-    summarize(totals, sites)
-
+    #Move this list to configuration also
+    urls = [{"FNAL Factory" :"http://cmsgwms-factory.fnal.gov:8319/factory/monitor/"},
+            {"GOC Factory" : "http://glidein.grid.iu.edu/factory/monitor/"},
+            {"UCSD Factory" : "http://gfactory-1.t2.ucsd.edu/factory/monitor/"},
+            {"CERN Factory" : "http://vocms0305.cern.ch/monitor/"}]
+    appends = ['descript.xml', 'rrd_Status_Attributes.xml']
+    errors = xml_out.setdefault("Errors", [])
+    for appendId in [0, 1]:
+        for url_ in urls:
+            factoryName, url = url_.items()[0]
+            urlD = url + appends[appendId]
+            factory_xml = getFromURL(urlD)
+            if not factory_xml:
+                errors.append("Failed to parse %s info from %s url" % (factoryName, urlD))
+                continue
+            root = ET.fromstring(factory_xml)
+            entries = root.find('entries')
+            if appendId == 0:
+                parseConfigXML(entries, xml_out, factoryName, entryMappings)
+            else:
+                parseRRDsData(entries, xml_out, factoryName, entryMappings)
+    import pprint
+    summarize(totals, sites, xml_out)
+    xml_out["Summary"]["FactoryUrls"] = {}
+    for url_ in urls:
+        factoryName, url = url_.items()[0]
+        xml_out["Summary"]["FactoryUrls"][factoryName] = url
+    pprint.pprint(xml_out)
     if opts.output:
-        write_json(totals, sites, opts.output)
-        write_rrds(totals, sites, opts.output)
+        write_json(totals, sites, xml_out, opts.output, opts.factoryview)
+        write_rrds(totals, sites, xml_out, opts.output, opts.factoryview)
 
 if __name__ == "__main__":
     main()

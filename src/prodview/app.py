@@ -158,6 +158,43 @@ def request_starvation_graph(environ, start_response):
 
     return [ rrd.request_starvation(_cp.get(_view, "basedir"), interval, request) ]
 
+def validate_request(path, request_re):
+        m = request_re.match(path)
+        grouped = m.groups()
+        site = grouped[0]
+        request = None if not grouped[1] else grouped[1]
+        interval = 'daily' if not grouped[2] else grouped[2]
+        return site, request, interval
+
+_request_held_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/held/?(hourly|weekly|daily|monthly|yearly)?/?$')
+def request_held_graph(environ, start_response):
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+    path = environ.get('PATH_INFO', '')
+    site, request, interval = validate_request(path, _request_held_graph_re)
+    return [ rrd.request_held(_cp.get(_view, "basedir"), interval, request, site) ]
+
+_request_idle_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/idle/?(hourly|weekly|daily|monthly|yearly)?/?$')
+def request_idle_graph(environ, start_response):
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+    path = environ.get('PATH_INFO', '')
+    site, request, interval = validate_request(path, _request_idle_graph_re)
+    return [ rrd.request_idle(_cp.get(_view, "basedir"), interval, request, site) ]
+
+_request_joint_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/joint/?(hourly|weekly|daily|monthly|yearly)?/?$')
+def request_joint_graph(environ, start_response):
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+    path = environ.get('PATH_INFO', '')
+    site, request, interval = validate_request(path, _request_joint_graph_re)
+    return [ rrd.request_joint(_cp.get(_view, "basedir"), interval, request, site) ]
 
 _subtask_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/+([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def subtask_graph(environ, start_response):
@@ -301,6 +338,9 @@ urls = [
     (_site_graph_re, site_graph),
     (_summary_graph_re, summary_graph),
     (_request_starvation_graph_re, request_starvation_graph),
+    (_request_held_graph_re, request_held_graph),
+    (_request_idle_graph_re, request_idle_graph),
+    (_request_joint_graph_re, request_joint_graph),
     (_request_graph_re, request_graph),
     (_request_site_graph_re, request_site_graph),
     (_subtask_graph_re, subtask_graph),

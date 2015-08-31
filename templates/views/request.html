@@ -49,38 +49,57 @@
 
             // Next get the workflow summaries
             $.get('json/$request/summary', function(data){
-                gotSummary(data, currentview)});
+                $.get('/scheddview/json/summary', function(schedddata){
+                gotSummary(data, schedddata, currentview)})});
 
             // Finally, get the site summaries
             $.get('json/$request/site_summary', function(data){
                  gotSiteSummary(data, currentview)});
             
         }
-        function gotSummary(data, currentview) {
+        function gotSummary(data, schedddata, currentview) {
             var table_data = new google.visualization.DataTable();
             if (currentview == "/prodview/"){
                 table_data.addColumn("string", "Workflow");
+                table_data.addColumn("string", "Debugger");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Idle");
                 table_data.addColumn("number", "Priority");
-                table_data.addColumn("number", "Matching Site Count");
-                table_data.addColumn("number", "Higher Prio Workflow Jobs Idle");
-                table_data.addColumn("number", "Lower Prio Workflow Jobs Running");
                 table_data.addColumn("string", 'Workflow History');
 
                 for (workflow_key in data) {
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="/prodview/graphs/$request/' + workflow_key + '"/>';
                     var workflow_html = workflow_key;
-                    var taksInfo = "";
-                    taskInfo = workflow_html + '<br/>';
-                    taskInfo += '<table border="1"><tr><th>WallTime</th><th>Memory</th></tr>';
-                    taskInfo += '<tr>';
-                    taskInfo += '<td>' + workflow_data.TaskInfo.MaxWallTimeMins + '</td>';
-                    taskInfo += '<td>' + workflow_data.TaskInfo.RequestMemory + '</td>';
-                    taskInfo += '</tr></table><br/>';
-                    taskInfo += 'Scheduler: ' + workflow_data.TaskInfo.Schedd;                                                                                    
-                    table_data.addRow([taskInfo, workflow_data.Running, workflow_data.Idle, workflow_data.BasePrio, workflow_data.SiteCount, workflow_data.HigherPrioIdle, workflow_data.LowerPrioRunning, image_html]);
+                    var taskInfo1 = "";
+                    var taskInfo = workflow_html;
+                    taskInfo1 += '<table border="1"><tr><th>WallTime</th><th>Memory</th><th>Running</th><th>Idle</th><th>Scheduler</th><th>Desired Sites</th><th>Warnings</th></tr>';
+                    for (task_group_key in workflow_data.TaskInfo){
+                    task_group_data = workflow_data.TaskInfo[task_group_key];
+                    var sites_len = task_group_data.DesiredSites.split(',').length;
+                    var schedd_key = task_group_data.Schedd.replace(/\./g,'-')
+                    var schedd_load = 0;
+                    if (schedd_key in schedddata)
+                    {
+                     schedd_load = schedddata[schedd_key].PercentageUse;
+                    }
+                    //$.each(schedddata, function(key1, val1){alert('"value" -> ' + key1 + ' ' + schedd_key + ' ' + val1);})
+                    var warnings  = '';
+                    if (sites_len == 0) warnings += ' There is no defined site.'
+                    if (task_group_data.WallTime === undefined ) warnings += ' Walltime not defined.'
+                    if (task_group_data.Memory === undefined ) warnings += ' Memory not defined.'
+                    if (schedd_load > 93) warnings += 'Scheduler is overloaded.'
+                    taskInfo1 += '<tr>';
+                    taskInfo1 += '<td>' + task_group_data.WallTime + '</td>';
+                    taskInfo1 += '<td>' + task_group_data.Memory + '</td>';
+                    taskInfo1 += '<td>' + task_group_data.Running + '</td>';
+                    taskInfo1 += '<td>' + task_group_data.Idle + '</td>';
+                    taskInfo1 += '<td>' + task_group_data.Schedd + '</td>';
+                    taskInfo1 += '<td>' + sites_len + '</td>';
+                    taskInfo1 += '<td>' + warnings + '</td></tr>';
+                    }                                           
+                    taskInfo1 += '</tr></table><br/>';                  
+                    table_data.addRow([taskInfo, taskInfo1, workflow_data.Running, workflow_data.Idle, workflow_data.BasePrio, image_html]);
                 }}
             else if (currentview == "/analysisview/" ){
             table_data.addColumn("string", "Task Info")
@@ -288,6 +307,7 @@
               <li><a href="/analysisview">Analysis Overview</a></li>
               <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
               <li><a href="/scheddview">Schedd Overview</a></li>
+              <li><a href="/factoryview">Factory Overview</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>

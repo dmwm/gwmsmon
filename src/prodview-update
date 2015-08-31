@@ -77,11 +77,19 @@ def query_schedd(ad, workflows, taskInfo):
 
         mainTaskInfo = taskInfo.setdefault(request, {})
         mainSubTask = mainTaskInfo.setdefault(sub_task, {})
-        if 'RequestMemory' in job.keys():
-            mainSubTask['RequestMemory'] = job['RequestMemory']
-        if 'MaxWallTimeMins' in job.keys():
-            mainSubTask['MaxWallTimeMins'] = job['MaxWallTimeMins']
-        mainSubTask['Schedd'] = ad['Name']
+        memory = 0 if 'RequestMemory' not in job.keys() else job['RequestMemory']
+        walltime =  0 if 'MaxWallTimeMins' not in job.keys() else job['MaxWallTimeMins']
+        key = str(memory) + "||" + str(walltime) + "||" + str(job['DESIRED_Sites']) + "||" + ad['Name']
+        mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': ''})
+        mainSubTaskdebug['Schedd'] = ad['Name']
+        mainSubTaskdebug['Memory'] = memory
+        mainSubTaskdebug['WallTime'] = walltime
+        mainSubTaskdebug['DesiredSites'] = job['DESIRED_Sites']
+        if job['JobStatus'] == 2:
+            mainSubTaskdebug['Running'] += 1
+        else:
+            mainSubTaskdebug['Idle'] += 1
+        
 
         jobinfo = (prio, desired_sites)
         if not running_site:
@@ -101,6 +109,10 @@ def query_schedd(ad, workflows, taskInfo):
 
 
 def analyze_prios_inner(workflows, sites, prio):
+    # This analyze prios takes too much time to complete
+    # when a lot of load is from production.
+    # Need to take a look where to improve this.
+    return 0, 0
     higher_idle = 0
     lower_running = 0
     sites = set(sites)
@@ -354,9 +366,7 @@ def write_rrds(workflows, gsites, output):
                     "DS:Idle:GAUGE:360:U:U",
                     "DS:HigherPrioIdle:GAUGE:360:U:U",
                     "DS:LowerPrioRunning:GAUGE:360:U:U",
-                    "RRA:AVERAGE:0.5:1:1000",
-                    "RRA:MIN:0.5:20:2000",
-                    "RRA:MAX:0.5:20:2000",
+                    "RRA:AVERAGE:0.5:1:1000",   
                     "RRA:AVERAGE:0.5:20:2000",
                     )
             stats = subtask_dict["Summary"]["Running"], subtask_dict["Summary"]["Idle"], subtask_dict["Summary"]["HigherPrioIdle"], subtask_dict["Summary"]["LowerPrioRunning"]

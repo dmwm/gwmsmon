@@ -136,7 +136,7 @@ def request_starvation(basedir, interval, request):
             "DEF:LowerPrioRunning=%s:LowerPrioRunning:AVERAGE" % fname,
             "DEF:HigherPrioIdle=%s:HigherPrioIdle:AVERAGE" % fname,
             "LINE1:LowerPrioRunning#00FF00:LowerPrioRunning",
-            "LINE2:HigherPrioIdle##FF0000:HigherPrioIdle",
+            "LINE2:HigherPrioIdle#FF0000:HigherPrioIdle",
             "COMMENT:\\n",
             "COMMENT:            max     avg     cur\\n",
             "COMMENT:LowerPrioRunning ",
@@ -249,4 +249,130 @@ def summary(basedir, interval):
             )
     return clean_and_return(fd, pngpath)
 
+def request_held(basedir, interval, request, site):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = ""
+    if request:
+        fname = os.path.join(basedir, site, "%s.rrd" % request)
+    else:
+        fname = os.path.join(basedir, "%s.rrd" % site)
+    if not os.path.exists(fname):
+        raise ValueError("No information present (request=%s, site=%s)" % (request, site))
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "400",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "%s Held Counts" % site,
+            "DEF:Held=%s:Held:AVERAGE" % fname,
+            "DEF:MaxHeld=%s:MaxHeld:AVERAGE" % fname,
+            "LINE1:Held#FF0000:Held",
+            "LINE2:MaxHeld#0000FF:MaxHeld",
+            "COMMENT:%s" % site,
+            "COMMENT:\\n",
+            "COMMENT:            max     avg     cur\\n",
+            "COMMENT:Held ",
+            "GPRINT:Held:MAX:%-6.0lf",
+            "GPRINT:Held:AVERAGE:%-6.0lf",
+            "GPRINT:Held:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:MaxHeld ",
+            "GPRINT:MaxHeld:MAX:%-6.0lf",
+            "GPRINT:MaxHeld:AVERAGE:%-6.0lf",
+            "GPRINT:MaxHeld:LAST:%-6.0lf\\n",
+            )
+    return clean_and_return(fd, pngpath)
+
+def request_idle(basedir, interval, request, site):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = ""
+    if request:
+        fname = os.path.join(basedir, site, "%s.rrd" % request)
+    else:
+        fname = os.path.join(basedir, "%s.rrd" % site)
+    if not os.path.exists(fname):
+        raise ValueError("No information present (request=%s, site=%s)" % (request, site))
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "400",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "%s Idle Counts" % site,
+            "DEF:Idle=%s:Idle:AVERAGE" % fname,
+            "DEF:MaxIdle=%s:MaxIdle:AVERAGE" % fname,
+            "DEF:Running=%s:Running:AVERAGE" % fname,
+            "LINE1:Idle#FFFF00:Idle",
+            "LINE2:MaxIdle#0000FF:MaxIdle",
+            "LINE2:Running#00FF00:Running",
+            "COMMENT:%s" % site,
+            "COMMENT:\\n",
+            "COMMENT:            max     avg     cur\\n",
+            "COMMENT:Idle ",
+            "GPRINT:Idle:MAX:%-6.0lf",
+            "GPRINT:Idle:AVERAGE:%-6.0lf",
+            "GPRINT:Idle:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:MaxIdle ",
+            "GPRINT:MaxIdle:MAX:%-6.0lf",
+            "GPRINT:MaxIdle:AVERAGE:%-6.0lf",
+            "GPRINT:MaxIdle:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:Running ",
+            "GPRINT:Running:MAX:%-6.0lf",
+            "GPRINT:Running:AVERAGE:%-6.0lf",
+            "GPRINT:Running:LAST:%-6.0lf\\n"
+            )
+    return clean_and_return(fd, pngpath)
+
+
+def request_joint(basedir, interval, request, site):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = ""
+    if request:
+        fname = os.path.join(basedir, site, "%s.rrd" % request)
+    else:
+        fname = os.path.join(basedir, "%s.rrd" % site)
+    if not os.path.exists(fname):
+        raise ValueError("No information present (request=%s, site=%s)" % (request, site))
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "400",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "%s Idle Counts" % site,
+            "DEF:Idle=%s:Idle:AVERAGE" % fname,
+            "DEF:Running=%s:Running:AVERAGE" % fname,
+            "DEF:MaxHeld=%s:MaxHeld:AVERAGE" % fname,
+            "DEF:Held=%s:Held:AVERAGE" % fname,
+            "LINE1:Idle#FFFF00:Idle",
+            "LINE2:Running#00FF00:Running",
+            "LINE2:MaxHeld#0000FF:MaxHeld",
+            "LINE2:Held#FF0000:Held",
+            "COMMENT:%s" % site,
+            "COMMENT:\\n",
+            "COMMENT:            max     avg     cur\\n",
+            "COMMENT:Idle ",
+            "GPRINT:Idle:MAX:%-6.0lf",
+            "GPRINT:Idle:AVERAGE:%-6.0lf",
+            "GPRINT:Idle:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:Running ",
+            "GPRINT:Running:MAX:%-6.0lf",
+            "GPRINT:Running:AVERAGE:%-6.0lf",
+            "GPRINT:Running:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:MaxHeld ",
+            "GPRINT:MaxHeld:MAX:%-6.0lf",
+            "GPRINT:MaxHeld:AVERAGE:%-6.0lf",
+            "GPRINT:MaxHeld:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:Held ",
+            "GPRINT:Held:MAX:%-6.0lf",
+            "GPRINT:Held:AVERAGE:%-6.0lf",
+            "GPRINT:Held:LAST:%-6.0lf\\n",
+            )
+    return clean_and_return(fd, pngpath)
 
