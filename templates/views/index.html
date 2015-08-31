@@ -241,6 +241,7 @@
                 table_data.addColumn("number", "Workflow Count");
             else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/")
                 table_data.addColumn("number", "User Count");
+            table_data.addColumn("string", "Resource Utilization(BETA)");
             table_data.addColumn("string", "Site History");
             if (currentview == "/totalview/"){
                  table_data.addColumn("string", "Production History");
@@ -252,15 +253,16 @@
 
             for (site_key in data) {
                 site = data[site_key];
+                var util_img = '<img src="/totalview/graphs/' + site_key + '/utilization/hourly"/>';
                 var site_img = '<img src="'+ currentview +'graphs/' + site_key + '"/>';
                 var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
                 if (currentview != "/totalview/")
-                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.RequestCount, site_img]);
+                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.RequestCount, util_img, site_img]);
                 else{
                     var prod_img = '<img src="/prodview/graphs/' + site_key + '"/>';
                     var anal_img = '<img src="/analysisview/graphs/' + site_key + '"/>';
                     var acr2_img = '<img src="/analysiscrab2view/graphs/' + site_key + '"/>';
-                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site_img, prod_img, anal_img, acr2_img]);
+                    table_data.addRow([site_html, site.Running, site.MatchingIdle, util_img, site_img, prod_img, anal_img, acr2_img]);
                 }
             }
 

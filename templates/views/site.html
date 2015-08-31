@@ -214,6 +214,12 @@
             table_data.addColumn("string", 'Last Day');
             table_data.addColumn("string", 'Last Week');
 
+            // Add resource utilization as first entry
+            var util_html_hourly = '<img src="/totalview/graphs/$site/utilization/hourly"/>';
+            var util_html_daily = '<img src="/totalview/graphs/$site/utilization/daily"/>';
+            var util_html_weekly = '<img src="/totalview/graphs/$site/utilization/weekly"/>';
+            table_data.addRow(['Resource Utilization (BETA)', util_html_hourly, util_html_daily, util_html_weekly]);
+
             if ('prodview' in data){
                 var image_html_hourly = '<img src="/prodview/graphs/$site/hourly"/>';
                 var image_html_daily = '<img src="/prodview/graphs/$site/daily"/>';

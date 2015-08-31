@@ -183,7 +183,6 @@ def request_site(basedir, interval, request, site):
             )
     return clean_and_return(fd, pngpath)
 
-
 def site(basedir, interval, site):
     fd, pngpath = tempfile.mkstemp(".png")
     fname = os.path.join(basedir, "%s.rrd" % site)
@@ -214,6 +213,40 @@ def site(basedir, interval, site):
             "GPRINT:MatchingIdle:MAX:%-6.0lf",
             "GPRINT:MatchingIdle:AVERAGE:%-6.0lf",
             "GPRINT:MatchingIdle:LAST:%-6.0lf\\n",
+            )
+    return clean_and_return(fd, pngpath)
+
+
+def site_util(basedir, interval, site):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, "%s-UTIL.rrd" % site)
+    if not os.path.exists(fname):
+        fname = os.path.join(basedir, "empty.rrd")
+        if not os.path.exists(fname):
+            raise ValueError("No information present (site=%s)" % site)
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "250",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "%s resource utilization" % site,
+            "DEF:Running=%s:Running:AVERAGE" % fname,
+            "DEF:MaxRunning=%s:MaxRunning:AVERAGE" % fname,
+            "LINE1:Running#00FF00:Running",
+            "LINE2:MaxRunning#0000FF:MaxRunning",
+            "COMMENT:%s" % site,
+            "COMMENT:\\n",
+            "COMMENT:            max     avg     cur\\n",
+            "COMMENT:Running ",
+            "GPRINT:Running:MAX:%-6.0lf",
+            "GPRINT:Running:AVERAGE:%-6.0lf",
+            "GPRINT:Running:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:MaxRunning ",
+            "GPRINT:MaxRunning:MAX:%-6.0lf",
+            "GPRINT:MaxRunning:AVERAGE:%-6.0lf",
+            "GPRINT:MaxRunning:LAST:%-6.0lf\\n",
             )
     return clean_and_return(fd, pngpath)
 

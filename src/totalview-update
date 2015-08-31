@@ -229,14 +229,15 @@ def load_pool_data(totals, sites, basedir, name):
         totalsSummary = json.load(open(fname))
         totals[name] = totalsSummary
     except:
-        print 'Got Error loading file'
+        print 'Got Error loading file %s' % fname
     fname = os.path.join(basedir, 'site_summary.json')
     try:
         sitesSummary = json.load(open(fname))
         sites[name] = sitesSummary
     except:
-        print 'Got error loading file'
-    return
+        print 'Got Error loading file %s' % fname
+        return False
+    return True
 
 def writeToVar(out, entry_info):
     out['Summary']['Held'] += entry_info['nowHeld']
@@ -248,7 +249,7 @@ def writeToVar(out, entry_info):
     out['Summary']['Warnings'] += 0 if 'Warning' not in entry_info else len(entry_info['Warning'])
 
 
-def summarize(totals, sites, xmlout):
+def summarize(totals, sites, xmlout, sitesCompare):
     totalR = 0
     totalI = 0
     for type, type_dict in totals.items():
@@ -270,6 +271,16 @@ def summarize(totals, sites, xmlout):
                     sites['Summary'][site]['Running'] += site_dict['Running']
                     sites['Summary'][site]['MatchingIdle'] += site_dict['MatchingIdle']
                     sites['Summary'][site][type] = site_dict
+    #Double check with what maximum was
+    for site, site_dict in sites['Summary'].items():
+        if site in sitesCompare and 'MaxWasRunning' in sitesCompare[site]:
+            if site_dict['Running'] > sitesCompare[site]['MaxWasRunning']:
+                sites['Summary'][site]['MaxWasRunning'] = site_dict['Running']
+            else:
+                sites['Summary'][site]['MaxWasRunning'] = sitesCompare[site]['MaxWasRunning']
+        else:
+            sites['Summary'][site]['MaxWasRunning'] = site_dict['Running']
+
     xmlout['Summary'] = {'Held': 0, 'Idle': 0, 'Run': 0, 'MHeld': 0, 'MIdle': 0, 'Errors': 0, 'Warnings': 0}
     for siteName, entries_dict in xmlout.items():
         if siteName not in ['Summary', 'Errors']:
@@ -357,8 +368,18 @@ def write_rrds(totals, sites, xmlout, output, factoryout):
                 "DS:MatchingIdle:GAUGE:360:U:U",
                 "RRA:AVERAGE:0.5:1:1000",
                 "RRA:AVERAGE:0.5:20:2000",
-            )   
+            )
         update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
+        fname = str(os.path.join(output, "%s-UTIL.rrd" % site))
+        if not os.path.exists(fname):
+            rrdtool.create(fname,
+                "--step", "180",
+                "DS:Running:GAUGE:360:U:U",
+                "DS:MaxRunning:GAUGE:360:U:U",
+                "RRA:AVERAGE:0.5:1:1000",
+                "RRA:AVERAGE:0.5:20:2000",
+                )
+        update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MaxWasRunning"]))
 
     #Create fake empty.rrd for sites which have no data.
     fname = str(os.path.join(output, "empty.rrd"))
@@ -367,10 +388,11 @@ def write_rrds(totals, sites, xmlout, output, factoryout):
                 "--step", "180",
                 "DS:Running:GAUGE:360:U:U",
                 "DS:MatchingIdle:GAUGE:360:U:U",
+                "DS:MaxRunning:GAUGE:360:U:U",
                 "RRA:AVERAGE:0.5:1:1000",
                 "RRA:AVERAGE:0.5:20:2000",
             )
-        update_rrd(fname, "%d:0:0" % g_startup)
+        update_rrd(fname, "%d:0:0:0" % g_startup)
 
     fname = str(os.path.join(factoryout, 'summary.rrd'))
     summary = xmlout['Summary']
@@ -455,6 +477,16 @@ def main():
     load_pool_data(totals, sites, opts.prodview, "prodview")
     load_pool_data(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
 
+    max_resources = {}
+    max_totals = {}
+    i = 0
+    while i < 5:
+        success = load_pool_data(max_totals, max_resources, opts.output, "totalview")
+        if success:
+            break
+        print 'Failed to load site data for resource utilization'
+        time.sleep(1)
+        i += 1
     #Move this list to configuration also
     urls = [{"FNAL Factory" :"http://cmsgwms-factory.fnal.gov:8319/factory/monitor/"},
             {"GOC Factory" : "http://glidein.grid.iu.edu/factory/monitor/"},
@@ -476,13 +508,11 @@ def main():
                 parseConfigXML(entries, xml_out, factoryName, entryMappings)
             else:
                 parseRRDsData(entries, xml_out, factoryName, entryMappings)
-    import pprint
-    summarize(totals, sites, xml_out)
+    summarize(totals, sites, xml_out, max_resources['totalview'])
     xml_out["Summary"]["FactoryUrls"] = {}
     for url_ in urls:
         factoryName, url = url_.items()[0]
         xml_out["Summary"]["FactoryUrls"][factoryName] = url
-    pprint.pprint(xml_out)
     if opts.output:
         write_json(totals, sites, xml_out, opts.output, opts.factoryview)
         write_rrds(totals, sites, xml_out, opts.output, opts.factoryview)
