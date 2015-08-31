@@ -22,15 +22,12 @@
             var currentview = "/".concat(currentview, "/");
             document.getElementById('brand').setAttribute('href', currentview);
             document.getElementById("factory_entries").style.display = 'none';
-            
             if (currentview == "/prodview/"){
                 document.getElementById("brand").innerHTML = "Production Overview";
                 $.get('json/$site', function(data){
                   gotTotals(data, currentview)});
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)});
-                $.get('json/$site/summary', function(data){
-                  gotSummaryT(data, currentview)});
             }
             else if (currentview == "/analysisview/"){
                 document.getElementById("brand").innerHTML = "Analysis Overview";
@@ -38,8 +35,6 @@
                   gotTotals(data, currentview)});
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)})
-                $.get('json/$site/summary', function(data){
-                  gotSummaryT(data, currentview)});
             }
             else if (currentview == "/analysiscrab2view/"){
                 document.getElementById("brand").innerHTML = "Analysis CRAB2 Overview";
@@ -47,8 +42,6 @@
                   gotTotals(data, currentview)});
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)});
-                $.get('json/$site/summary', function(data){
-                  gotSummaryT(data, currentview)});
             }
             else if (currentview == "/totalview/"){
                 document.getElementById("factory_entries").style.marginLeft = '1px';
