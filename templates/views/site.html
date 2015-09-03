@@ -22,6 +22,7 @@
             var currentview = "/".concat(currentview, "/");
             document.getElementById('brand').setAttribute('href', currentview);
             document.getElementById("factory_entries").style.display = 'none';
+            document.getElementById("pilots").style.display = 'none';
             if (currentview == "/prodview/"){
                 document.getElementById("brand").innerHTML = "Production Overview";
                 $.get('json/$site', function(data){
@@ -46,6 +47,9 @@
             else if (currentview == "/totalview/"){
                 document.getElementById("factory_entries").style.marginLeft = '1px';
                 document.getElementById("factory_entries").style.display = 'inline';
+                document.getElementById("pilots").style.marginLeft = '1px';
+                document.getElementById("pilots").style.display = 'inline';
+
                 document.getElementById("brand").innerHTML = "Total Overview";
                 document.getElementById("title").innerHTML = "Total Overview";
                 $.get('json/$site/summary', function(data){
@@ -120,8 +124,8 @@
                   var factory_url = '';
                   if (key1 in data1.FactoryUrls)
                       factory_url = data1.FactoryUrls[key1]
-                  var details = '<a href="' + factory_url + '">' + key1 + ' link </a><br/>';
-                  details += '<a href="'+ factory_url +'/factoryEntryStatusNow.html?entry=' + key + '">'+ key +' link </a><br/>';
+                  var details = '<a target="_blank" href="' + factory_url + '">' + key1 + ' link </a><br/>';
+                  details += '<a target="_blank" href="'+ factory_url +'/factoryEntryStatusNow.html?entry=' + key + '">'+ key +' link </a><br/>';
                   var errors = 0;
                   var warnings = 0;
                   if ('Error' in sdata){
@@ -218,7 +222,7 @@
             var util_html_hourly = '<img src="/totalview/graphs/$site/utilization/hourly"/>';
             var util_html_daily = '<img src="/totalview/graphs/$site/utilization/daily"/>';
             var util_html_weekly = '<img src="/totalview/graphs/$site/utilization/weekly"/>';
-            table_data.addRow(['Resource Utilization (BETA)', util_html_hourly, util_html_daily, util_html_weekly]);
+            table_data.addRow(['Max Running Achieved', util_html_hourly, util_html_daily, util_html_weekly]);
 
             if ('prodview' in data){
                 var image_html_hourly = '<img src="/prodview/graphs/$site/hourly"/>';
@@ -256,6 +260,53 @@
 
             dashboard.bind([control], [table]);
             dashboard.draw(table_data);
+
+            // Pilots usage graphs
+            if ('PilotUsage' in data){
+             var table_data = new google.visualization.DataTable();
+             table_data.addColumn("string", "Type");
+             table_data.addColumn("string", 'Last Hour');
+             table_data.addColumn("string", 'Last Day');
+             table_data.addColumn("string", 'Last Week');
+             var types = ['Total', 'Partitionable', 'Static'];
+
+             var pilots_html_hourly = '<img src="/totalview/graphs/$site/full/hourly"/>';
+             var pilots_html_daily = '<img src="/totalview/graphs/$site/full/daily"/>';
+             var pilots_html_weekly = '<img src="/totalview/graphs/$site/full/weekly"/>';
+             table_data.addRow(['Totals', pilots_html_hourly, pilots_html_daily, pilots_html_weekly]);
+ 
+             if ('Partitionable' in data['PilotUsage']){
+             
+                 var pilots_html_hourly = '<img src="/totalview/graphs/$site/partitionable/hourly"/>';
+                 var pilots_html_daily = '<img src="/totalview/graphs/$site/partitionable/daily"/>';
+                 var pilots_html_weekly = '<img src="/totalview/graphs/$site/partitionable/weekly"/>';
+                 table_data.addRow(['Partitionable', pilots_html_hourly, pilots_html_daily, pilots_html_weekly]);
+             }
+             
+             if ('Partitionable' in data['PilotUsage']){
+              
+                 var pilots_html_hourly = '<img src="/totalview/graphs/$site/static/hourly"/>';
+                 var pilots_html_daily = '<img src="/totalview/graphs/$site/static/daily"/>';
+                 var pilots_html_weekly = '<img src="/totalview/graphs/$site/static/weekly"/>';
+                 table_data.addRow(['Static', pilots_html_hourly, pilots_html_daily, pilots_html_weekly]);
+             
+             }
+             var dashboard = new google.visualization.Dashboard(document.getElementById('pilots_usage'));
+             var table = new google.visualization.ChartWrapper({
+                 chartType: 'Table',
+                 containerId: 'pilots_usage_table',
+                 options: {sortColumn: 0, sortAscending: false, allowHtml: true, page: 'enable'}
+             });
+             var control = new google.visualization.ControlWrapper({
+                 controlType: 'StringFilter',
+                 containerId: 'pilots_usage_control',
+                 options: {filterColumnIndex: 0, matchType: 'any'}
+             });
+             dashboard.bind([control], [table]);
+             dashboard.draw(table_data);
+            
+            
+            }
         }
 
 
@@ -410,6 +461,16 @@
                         <div id="factory_entries_r_control"></div>
                         <div id="factory_entries_r_table"></div>
                     </div>
+                </div>
+                <div class="span1"></div>
+                <div id="pilots" class="span12">
+                   <h2 id="title">
+                    Pilots usage
+                   </h2>
+                   <div id="pilots_usage">
+                      <div id="pilots_usage_control"></div>
+                      <div id="pilots_usage_table"></div>
+                   </div>
                 </div>
                 <div class="span1"></div>
             </div>

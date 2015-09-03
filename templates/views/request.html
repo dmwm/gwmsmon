@@ -9,6 +9,23 @@
         <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.0/css/bootstrap-combined.min.css" rel="stylesheet" type="text/css" />
         <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.0/js/bootstrap.min.js" type="text/javascript"></script>
         <script type='text/javascript' src='https://www.google.com/jsapi'></script>
+        <script type="text/javascript">
+        <!--
+        function toggle_visibility(id) {
+          var e = document.getElementById(id);
+          var aID = id + '-name';
+          if(e.style.display == 'inline'){
+             e.style.display = 'none';1
+             document.getElementById(aID).innerHTML = "Show Debug Information";
+          }
+          else
+          {
+             document.getElementById(aID).innerHTML = "Hide Debug Information";
+             e.style.display = 'inline';
+          }
+        }
+//-->
+        </script>
         <script type='text/javascript'>
 //<![CDATA[
         google.load('visualization', '1', {packages:['table', 'controls']});
@@ -73,7 +90,9 @@
                     var workflow_html = workflow_key;
                     var taskInfo1 = "";
                     var taskInfo = workflow_html;
-                    taskInfo1 += '<table border="1"><tr><th>WallTime</th><th>Memory</th><th>Running</th><th>Idle</th><th>Scheduler</th><th>Desired Sites</th><th>Warnings</th></tr>';
+                    var hrefName = workflow_key + '-name';
+                    taskInfo1 += '<a href="#" id='+ hrefName +' onclick="toggle_visibility(\''+ workflow_key +'\');">Show debug information</a><br/>';
+                    taskInfo1 += '<table id="'+ workflow_key +'" style="display:none;" border="1"><tr><th>WallTime</th><th>Memory</th><th>Running</th><th>Idle</th><th>Scheduler</th><th>Desired Sites</th><th>Warnings</th></tr>';
                     for (task_group_key in workflow_data.TaskInfo){
                     task_group_data = workflow_data.TaskInfo[task_group_key];
                     var sites_len = task_group_data.DesiredSites.split(',').length;

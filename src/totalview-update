@@ -111,6 +111,31 @@ def summarize_schedds(schedds_info, schedd_ads):
             continue
         schedds_info[name]['Status'] = schedd_status
 
+def pilotUsageInfo(coll, pilot_usage):
+    pilots = coll.query(htcondor.AdTypes.Any, 'GLIDEIN_CMSSite isnt undefined && SlotType isnt undefined', ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State'])
+    for item in pilots:
+        if 'PartitionableSlot' in item:
+            #Means we have partitionable slot and some info about it
+            #and we don`t care about state as in Static
+            slot_info = pilot_usage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
+            slot_info['CpusFree'] += int(item['Cpus'])
+            slot_info['CpusUse'] += int(item['TotalSlotCpus'] - item['Cpus'])
+        elif item['SlotType'] == 'Static':
+            slot_info = pilot_usage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
+            if item['State'] == 'Claimed':
+                slot_info['CpusUse'] += 1
+            elif item['State'] == 'Unclaimed':
+                slot_info['CpusUse'] += 1
+    #summarize
+    pilot_usage['Summary'] = {}
+    for item, item_dict in pilot_usage.items():
+        if item == 'Summary':
+            continue
+        for slot, slot_dict in item_dict.items():
+            out = pilot_usage.setdefault('Summary', {}).setdefault(slot, {'CpusUse': 0, 'CpusFree': 0})
+            out['CpusUse'] += slot_dict['CpusUse']
+            out['CpusFree'] += slot_dict['CpusFree']
+
 def parseConfigXML(entries, output, factoryName, entryMappings):
     for entry in entries:
         entryName = entry.get('name')
@@ -249,7 +274,7 @@ def writeToVar(out, entry_info):
     out['Summary']['Warnings'] += 0 if 'Warning' not in entry_info else len(entry_info['Warning'])
 
 
-def summarize(totals, sites, xmlout, sitesCompare):
+def summarize(totals, sites, xmlout, sitesCompare, pilot_usage):
     totalR = 0
     totalI = 0
     for type, type_dict in totals.items():
@@ -271,6 +296,9 @@ def summarize(totals, sites, xmlout, sitesCompare):
                     sites['Summary'][site]['Running'] += site_dict['Running']
                     sites['Summary'][site]['MatchingIdle'] += site_dict['MatchingIdle']
                     sites['Summary'][site][type] = site_dict
+                    if site in pilot_usage:
+                        sites['Summary'][site]['PilotUsage'] = pilot_usage[site]
+
     #Double check with what maximum was
     for site, site_dict in sites['Summary'].items():
         if site in sitesCompare and 'MaxWasRunning' in sitesCompare[site]:
@@ -380,6 +408,24 @@ def write_rrds(totals, sites, xmlout, output, factoryout):
                 "RRA:AVERAGE:0.5:20:2000",
                 )
         update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MaxWasRunning"]))
+        if 'PilotUsage' in site_dict:
+            partR = 0 if 'Partitionable' not in site_dict['PilotUsage'] else site_dict['PilotUsage']['Partitionable']['CpusUse']
+            partI = 0 if 'Partitionable' not in site_dict['PilotUsage'] else site_dict['PilotUsage']['Partitionable']['CpusFree']
+            statR = 0 if 'Static' not in site_dict['PilotUsage'] else site_dict['PilotUsage']['Static']['CpusUse']
+            statI = 0 if 'Static' not in site_dict['PilotUsage'] else site_dict['PilotUsage']['Static']['CpusFree']
+            fname = str(os.path.join(output, "%s-USAGE.rrd" % site))
+            if not os.path.exists(fname):
+                rrdtool.create(fname,
+                   "--step", "180",
+                   "DS:PartRunning:GAUGE:360:U:U",
+                   "DS:PartIdle:GAUGE:360:U:U",
+                   "DS:StatRunning:GAUGE:360:U:U",
+                   "DS:StatIdle:GAUGE:360:U:U",
+                   "RRA:AVERAGE:0.5:1:1000",
+                   "RRA:AVERAGE:0.5:20:2000",
+                   )
+            update_rrd(fname, "%d:%d:%d:%d:%d" % (g_startup, partR, partI, statR, statI))
+
 
     #Create fake empty.rrd for sites which have no data.
     fname = str(os.path.join(output, "empty.rrd"))
@@ -470,9 +516,12 @@ def main():
     if schedd_ads:
         summarize_schedds(schedds_info, schedd_ads)
     write_schedd_info(opts.scheddview, schedds_info, fact_out)
+
+    pilot_usage = {} 
     totals = {}
     sites = {}
 
+    pilotUsageInfo(coll, pilot_usage)
     load_pool_data(totals, sites, opts.analysisview, "analysisview")
     load_pool_data(totals, sites, opts.prodview, "prodview")
     load_pool_data(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
@@ -508,7 +557,7 @@ def main():
                 parseConfigXML(entries, xml_out, factoryName, entryMappings)
             else:
                 parseRRDsData(entries, xml_out, factoryName, entryMappings)
-    summarize(totals, sites, xml_out, max_resources['totalview'])
+    summarize(totals, sites, xml_out, max_resources['totalview'], pilot_usage)
     xml_out["Summary"]["FactoryUrls"] = {}
     for url_ in urls:
         factoryName, url = url_.items()[0]
