@@ -1,14 +1,20 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:py="http://genshi.edgewall.org/">
     <head>
         <title>
             Site $site Overview
         </title>
-        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
-        <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.0/css/bootstrap-combined.min.css" rel="stylesheet" type="text/css" />
-        <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.0/js/bootstrap.min.js" type="text/javascript"></script>
+        <script src="/jquery.min.js" type="text/javascript"></script>
+        <!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="/bootstrap.css"/>
+        <!-- Optional theme -->
+        <link rel="stylesheet" href="/bootstrap.min.css"/>
+        <!-- Latest compiled and minified JavaScript -->
+        <script src="/bootstrap.min.js"></script>
+
         <script type='text/javascript' src='https://www.google.com/jsapi'></script>
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
         <script type='text/javascript'>
 //<![CDATA[
         google.load('visualization', '1', {packages:['table', 'controls']});
@@ -20,25 +26,25 @@
         function load_data() {
             var currentview = window.location['pathname'].split("/")[1];
             var currentview = "/".concat(currentview, "/");
-            document.getElementById('brand').setAttribute('href', currentview);
+            document.getElementById('navbar-brand').setAttribute('href', currentview);
             document.getElementById("factory_entries").style.display = 'none';
             document.getElementById("pilots").style.display = 'none';
             if (currentview == "/prodview/"){
-                document.getElementById("brand").innerHTML = "Production Overview";
+                document.getElementById("navbar-brand").innerHTML = "Production Overview";
                 $.get('json/$site', function(data){
                   gotTotals(data, currentview)});
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)});
             }
             else if (currentview == "/analysisview/"){
-                document.getElementById("brand").innerHTML = "Analysis Overview";
+                document.getElementById("navbar-brand").innerHTML = "Analysis Overview";
                 $.get('json/$site', function(data){
                   gotTotals(data, currentview)});
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)})
             }
             else if (currentview == "/analysiscrab2view/"){
-                document.getElementById("brand").innerHTML = "Analysis CRAB2 Overview";
+                document.getElementById("navbar-brand").innerHTML = "Analysis CRAB2 Overview";
                 $.get('json/$site', function(data){
                   gotTotals(data, currentview)});
                 $.get('json/$site/summary', function(data){
@@ -50,7 +56,7 @@
                 document.getElementById("pilots").style.marginLeft = '1px';
                 document.getElementById("pilots").style.display = 'inline';
 
-                document.getElementById("brand").innerHTML = "Total Overview";
+                document.getElementById("navbar-brand").innerHTML = "Total Overview";
                 document.getElementById("title").innerHTML = "Total Overview";
                 $.get('json/$site/summary', function(data){
                   gotSummaryT(data, currentview)});
@@ -60,7 +66,7 @@
             }
             else if (currentview == '/factoryview/' ){
                 document.getElementById("workflows").style.marginLeft = '1px';
-                document.getElementById("brand").innerHTML = "Factory Overview";
+                document.getElementById("navbar-brand").innerHTML = "Factory Overview";
                 document.getElementById("title").innerHTML = "Factory Overview";
                $.get('json/$site/summary', function(data){
                  $.get(currentview.concat('/json/summary'), function(data1){
@@ -150,7 +156,7 @@
         var table = new google.visualization.ChartWrapper({
                       chartType: 'Table',
                       containerId: DataTableID,
-                      options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable'}
+                      options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable', cssClassNames: {headerRow: '1', tableRow: '1', oddTableRow: '1', selectedTableRow: '1', hoverTableRow: '1', headerCell: '1', tableCell: '1', rowNumberCell: '1'}}
                   });
         var control = new google.visualization.ControlWrapper({
                       controlType: 'StringFilter',
@@ -158,6 +164,11 @@
                       options: {filterColumnIndex: 0, matchType: 'any'}
                   });
         dashboard.bind([control], [table]);
+        // I hate google table class. Sorry ;)
+        google.visualization.events.addListener(table, 'ready', function(){
+          $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');
+        });
+
         dashboard.draw(table_data);
         }
 
@@ -250,7 +261,7 @@
             var table = new google.visualization.ChartWrapper({
                 chartType: 'Table',
                 containerId: 'running_workflows_table',
-                options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable'}
+                options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable', cssClassNames: {headerRow: '1', tableRow: '1', oddTableRow: '1', selectedTableRow: '1', hoverTableRow: '1', headerCell: '1', tableCell: '1', rowNumberCell: '1'}}
             });
             var control = new google.visualization.ControlWrapper({
                 controlType: 'StringFilter',
@@ -259,6 +270,11 @@
             });
 
             dashboard.bind([control], [table]);
+            // I hate google table class. Sorry ;)
+            google.visualization.events.addListener(table, 'ready', function(){
+              $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');
+            });
+
             dashboard.draw(table_data);
 
             // Pilots usage graphs
@@ -295,7 +311,7 @@
              var table = new google.visualization.ChartWrapper({
                  chartType: 'Table',
                  containerId: 'pilots_usage_table',
-                 options: {sortColumn: 0, sortAscending: false, allowHtml: true, page: 'enable'}
+                 options: {sortColumn: 0, sortAscending: false, allowHtml: true, page: 'enable', cssClassNames: {headerRow: '1', tableRow: '1', oddTableRow: '1', selectedTableRow: '1', hoverTableRow: '1', headerCell: '1', tableCell: '    1', rowNumberCell: '1'}}
              });
              var control = new google.visualization.ControlWrapper({
                  controlType: 'StringFilter',
@@ -303,6 +319,11 @@
                  options: {filterColumnIndex: 0, matchType: 'any'}
              });
              dashboard.bind([control], [table]);
+             // I hate google table class. Sorry ;)
+             google.visualization.events.addListener(table, 'ready', function(){
+               $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');
+             });
+
              dashboard.draw(table_data);
             
             
@@ -341,7 +362,7 @@
             var table = new google.visualization.ChartWrapper({
                 chartType: 'Table',
                 containerId: 'running_workflows_table',
-                options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable'}
+                options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable', cssClassNames: {headerRow: '1', tableRow: '1', oddTableRow: '1', selectedTableRow: '1', hoverTableRow: '1', headerCell: '1', tableCell: '    1', rowNumberCell: '1'}}
             });
             var control = new google.visualization.ControlWrapper({
                 controlType: 'StringFilter',
@@ -350,6 +371,11 @@
             });
 
             dashboard.bind([control], [table]);
+            // I hate google table class. Sorry ;)
+            google.visualization.events.addListener(table, 'ready', function(){
+              $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');
+            });
+
             dashboard.draw(table_data);
 
         }
@@ -397,17 +423,18 @@
         </script>
     </head>
     <body>
-    <div class="navbar navbar-inverse navbar-fixed-top">
-      <div class="navbar-inner">
-        <div class="container-fluid">
-          <button data-target=".nav-collapse" data-toggle="collapse" class="btn btn-navbar" type="button">
+    <nav class="navbar navbar-default" role="navigation">
+         <div class="navbar-header">
+          <button data-target=".navbar-ex1-collapse" data-toggle="collapse" class="navbar-toggle" type="button">
+            <span class="sr-only">Toggle navigation</span>
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a href="/analysisview" class="brand" id="brand">Analysis Overview</a>
-          <div class="nav-collapse collapse">
-            <ul class="nav">
+          <a href="/" class="navbar-brand" id="navbar-brand">GWMS Overview</a>
+         </div>
+          <div class="navbar-collapse collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
               <li><a href="/">Main Page</a></li>
               <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
@@ -415,36 +442,34 @@
               <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
               <li><a href="/scheddview">Schedd Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
-            </ul>
+          </ul>
           </div><!--/.nav-collapse -->
-        </div>
-      </div>
-    </div>
-        <div class="container-fluid" style="padding-top:60px">
-            <div class="row-fluid">
-                <div class="span12">
-                    <div class="span3" style="padding-top:40px"><div id="site_slots_table"></div></div>
-                    <div class="span3">
-                    <div class="row-fluid">
+    </nav>
+        <div class="container-fluid">
+            <div class="row jumbotron">
+                <div class="col-md-12">
+                    <div class="col-md-3" style="padding-top:40px"><div id="site_slots_table"></div></div>
+                    <div class="col-md-3">
+                    <div class="row">
                         <h2>Last Hour</h2>
                         <div id="site_hourly_img"></div>
                     </div>
                     </div>
-                    <div class="span3">
-                    <div class="row-fluid">
+                    <div class="col-md-3">
+                    <div class="row">
                         <h2>Last Day</h2>
                         <div id="site_daily_img"></div>
                     </div>
                     </div>
-                    <div class="span3">
-                    <div class="row-fluid">
+                    <div class="col-md-3">
+                    <div class="row">
                         <h2>Last Week</h2>
                         <div id="site_weekly_img"></div>
                     </div></div></div>
             </div>
-            <div class="row-fluid">
-                <div class="span1"></div>
-                <div id="workflows" class="span12">
+            <div class="row">
+                <div class="col-md-1"></div>
+                <div id="workflows" class="col-md-12">
                     <h2 id="title">
                         Running Requests 
                     </h2>
@@ -453,7 +478,7 @@
                         <div id="running_workflows_table"></div>
                     </div>
                 </div>
-                 <div id="factory_entries" class="span12">
+                 <div id="factory_entries" class="col-md-12">
                     <h2 id="title">
                         Factory entries
                     </h2>
@@ -462,8 +487,8 @@
                         <div id="factory_entries_r_table"></div>
                     </div>
                 </div>
-                <div class="span1"></div>
-                <div id="pilots" class="span12">
+                <div class="col-md-1"></div>
+                <div id="pilots" class="col-md-12">
                    <h2 id="title">
                     Pilots usage
                    </h2>
@@ -472,9 +497,17 @@
                       <div id="pilots_usage_table"></div>
                    </div>
                 </div>
-                <div class="span1"></div>
+                <div class="col-md-1"></div>
             </div>
         </div>
     </body>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-69774798-1', 'auto');
+  ga('send', 'pageview');
+</script>
 </html>
 

@@ -289,6 +289,7 @@ def write_rrds(workflows, gsites, output):
     sites = {}
     running = 0
     idle = 0
+    # Count and make numbers for max running per site for analysis
     for request_dict in workflows.values():
         for site, site_dict in request_dict["Summary"]["Sites"].items():
             sites.setdefault(site, {"Running": 0, "MatchingIdle": 0})
@@ -297,6 +298,7 @@ def write_rrds(workflows, gsites, output):
         running += request_dict["Summary"]["Running"]
         idle += request_dict["Summary"]["Idle"]
     fname = os.path.join(output, "summary.rrd")
+    # Create summary RRD which is shown in top.
     if not os.path.exists(fname):
         rrdtool.create(fname,
             "--step", "180",
@@ -306,6 +308,8 @@ def write_rrds(workflows, gsites, output):
             "RRA:AVERAGE:0.5:20:2000",
         )
     update_rrd(fname, "%d:%d:%d" % (g_startup, running, idle))
+
+    # For all calculated sites, make graphs
     for site, site_dict in sites.items():
         fname = os.path.join(output, "%s.rrd" % site)
         if not os.path.exists(fname):
