@@ -1,8 +1,8 @@
 
 Name:		prodview
-Version:	0.5
+Version:	0.6
 Release:	1%{?dist}
-Summary:	A simple monitoring page for CMS production
+Summary:	A simple monitoring page for CMS global pool
 
 Group:		Applications/Internet
 License:	ASL 2.0
@@ -43,6 +43,11 @@ python setup.py build
 rm -rf %{buildroot}
 python setup.py install -O1 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
 mkdir -p $RPM_BUILD_ROOT/var/www/prodview
+mkdir -p $RPM_BUILD_ROOT/var/www/analysisview
+mkdir -p $RPM_BUILD_ROOT/var/www/analysiscrab2view
+mkdir -p $RPM_BUILD_ROOT/var/www/totalview
+mkdir -p $RPM_BUILD_ROOT/var/www/factoryview
+mkdir -p $RPM_BUILD_ROOT/var/www/scheddview
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -53,10 +58,25 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %_sysconfdir/prodview.conf
 %config(noreplace) %_sysconfdir/httpd/conf.d/prodview-httpd.conf
 %verify(not group user) %config(noreplace) %_sysconfdir/cron.d/prodview.cron
+%verify(not group user) %config(noreplace) %_sysconfdir/cron.d/analysisview.cron
+%verify(not group user) %config(noreplace) %_sysconfdir/cron.d/analysiscrab2.cron
+%verify(not group user) %config(noreplace) %_sysconfdir/cron.d/totalview.cron
+%verify(not group user) %config(noreplace) %_sysconfdir/cron.d/utilization.cron
 %attr(0755,apache,apache) %dir /var/www/prodview
-
+%attr(0755,apache,apache) %dir /var/www/prodview
+%attr(0755,apache,apache) %dir /var/www/analysisview
+%attr(0755,apache,apache) %dir /var/www/analysiscrab2view
+%attr(0755,apache,apache) %dir /var/www/totalview
+%attr(0755,apache,apache) %dir /var/www/factoryview
+%attr(0755,apache,apache) %dir /var/www/scheddview
 
 %changelog
+* Thu Dec 03 2015 Justas Balcas <justas.balcas@cern.ch>  - 0.6-1
+- Added crab2 view 9 May
+- Added total, schedd, factory view - 3 Aug
+- Resource utilization - 31 Aug
+- Pilot usage in total view per site - 3 Sep
+- Bootstrap 3 - 10 Nov
 * Tue Aug 04 2015 Brian Bockelman <bbockelm@cse.unl.edu> - 0.5-1
 - Cleanup file leaks.
 
