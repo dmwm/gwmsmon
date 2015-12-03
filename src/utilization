@@ -1,0 +1,145 @@
+#!/usr/bin/python
+
+import os
+import sys
+import json
+import time
+import optparse
+import ConfigParser
+import rrdtool
+import htcondor
+import datetime
+import rrdtool
+import json
+
+def parse_args():
+    parser = optparse.OptionParser()
+    parser.add_option("-c", "--config", help="Prodview configuration file", dest="config", default=None)
+    parser.add_option("-p", "--pool", help="HTCondor pool to analyze", dest="pool")
+    parser.add_option("-o", "--output", help="Top-level output dir", dest="output")
+    opts, args = parser.parse_args()
+
+    opts.inputd = ""
+    #opts.outputp = ""
+    #opts.outputc2 = ""
+    #opts.outputc3 = ""
+    opts.timespan = ""
+
+    if args:
+        parser.print_help()
+        print >> sys.stderr, "%s takes no arguments." % sys.args[0]
+        sys.exit(1)
+
+    cp = ConfigParser.ConfigParser()
+    if opts.config:
+        if not os.path.exists(opts.config):
+            print >> sys.stderr, "Config file %s does not exist." % opts.config
+            sys.exit(1)
+        cp.read(opts.config)
+    elif os.path.exists("/etc/prodview.conf"):
+        cp.read("/etc/prodview.conf")
+
+    if cp.has_option("prodview", "basedir"):
+        opts.outputp = cp.get("prodview", "basedir")
+
+    if cp.has_option("analysiscrab2view", "basedir"):
+        opts.outputc2 = cp.get("analysiscrab2view", "basedir")
+
+    if cp.has_option("analysisview", "basedir"):
+        opts.outputc3 = cp.get("analysisview", "basedir")
+
+    if cp.has_option("totalview", "basedir"):
+        opts.inputd = cp.get("totalview", "basedir")
+
+    if cp.has_option("utilization", "timespan"):
+        opts.timespan = int(cp.get("utilization", "timespan"))
+
+    return opts, args
+
+def drop_obj(obj, dirname, fname):
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    fname_tmp = os.path.join(dirname, fname + ".tmp")
+    fname = os.path.join(dirname, fname)
+    json.dump(obj, open(fname_tmp, "w"))
+    os.rename(fname_tmp, fname)
+
+def get_average_last_n(inp, keys):
+    suma = 0
+    for key in keys:
+        if key in inp:
+            suma += inp[key]
+    return int(suma/len(keys))
+
+def analyse_prod_rrds(prodview_dir, totalview_dir, timespan):
+    fname = os.path.join(totalview_dir, 'site_summary.json')
+    sites = json.load(open(fname))
+
+    now = datetime.datetime.now()
+    then = now - datetime.timedelta(days=timespan)
+    # Also I don`t need hour, mins, seconds, microseconds
+    then = then - datetime.timedelta(hours=then.hour, minutes=then.minute, seconds=then.second, microseconds=then.microsecond)
+
+    output = {}
+
+    for site_name in sites.keys():
+        output[site_name] = {}
+        output[site_name]['per_day_values'] = {}
+        try:
+            fname = os.path.join(prodview_dir, '%s.rrd' % site_name)
+            values = rrdtool.fetch(str(fname), 'AVERAGE', '-s', then.strftime("%s"), '-e', now.strftime("%s"))
+        except:
+            print 'Seems this site is not running production %s' % site_name
+            continue
+        # 0 - will give start, end, interval
+        #  1 - will give keys, in this case Running, Matching idle
+        # 2 is a list of values. Some might have None. if not integer skip that value
+        max = 0
+        n = 0 # it will count number of hours
+        start_date = then
+        possible_dates = []
+        for item in values[2]:
+             try:
+                 value = int(item[0])
+             except:
+                 value = 0
+             if n <= 23:
+                 n += 1
+                 if value > max:
+                     max = value
+             else:
+                 key_name = int(str(start_date.year) + str('%02d' % start_date.month) + str('%02d' % start_date.day))
+                 possible_dates.append(key_name)
+                 output[site_name]['per_day_values'][key_name] = max
+                 print site_name, start_date.year, start_date.month, start_date.day , max
+                 start_date = start_date + datetime.timedelta(days=1)
+                 n = 1
+                 max = value
+             # RRD has a bug and does not stop if values are NaN.
+             # Also there is no point to analyse todays values as they will not be written to output
+             if len(output[site_name]['per_day_values']) == timespan:
+                 print 'This site has everything NaN. Break the loop'
+                 break
+    # Before droping make more statistics:
+    possible_dates = sorted(list(set(possible_dates))) # Keep only unique
+    # Values for calculating last N possible values
+    keys_to = {"onemonth": 31, "threeweeks": 21, "twoweeks": 14, "oneweek": 7, "sixdays": 6, "fivedays":5, "fourdays":4, "threedays":3, "twodays":2, "oneday":1}
+    for site in output.keys():
+        for key in keys_to:
+            value = get_average_last_n(output[site]['per_day_values'], possible_dates[-keys_to[key]:])
+            output[site][key] = value
+    drop_obj(output, prodview_dir, 'maxused.json')
+
+def main():
+    opts, args = parse_args()
+
+    if opts.timespan and opts.inputd:
+        if opts.outputp:
+            analyse_prod_rrds(opts.outputp, opts.inputd, opts.timespan)
+        if opts.outputc2:
+            analyse_prod_rrds(opts.outputc2, opts.inputd, opts.timespan)
+        if opts.outputc3:
+            analyse_prod_rrds(opts.outputc3, opts.inputd, opts.timespan)
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,2 @@
+MAILTO=""
+10 */6 * * * root prodview-update > /dev/null

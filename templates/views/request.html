@@ -96,6 +96,7 @@
                     var taskInfo1 = "";
                     var taskInfo = workflow_html;
                     var hrefName = workflow_key + '-name';
+                    taskInfo1 += '<a target="_blank" href="http://dashb-cms-job.cern.ch/dashboard/templates/web-job2/#user=default&table=Jobs&task=wmagent_$request">Dashboard link</a><br/>';
                     taskInfo1 += '<a href="#" id='+ hrefName +' onclick="toggle_visibility(\''+ workflow_key +'\');">Show debug information</a><br/>';
                     taskInfo1 += '<table id="'+ workflow_key +'" style="display:none;" border="1"><tr><th>WallTime</th><th>Memory</th><th>Running</th><th>Idle</th><th>Scheduler</th><th>Desired Sites</th><th>Warnings</th></tr>';
                     for (task_group_key in workflow_data.TaskInfo){
@@ -143,7 +144,6 @@
                 var taskInfo = "";
                 taskInfo = workflow_html + '<br/>';
                 taskInfo += '<a target="_blank" href="' + workflow_data.TaskInfo.CRAB_UserWebDir + '">User Web Directory</a><br/>';
-                taskInfo += '<a target="_blank" href="http://glidemon.web.cern.ch/glidemon/jobs.php?taskname=' + workflow_html + '">Glidemon link</a><br/>';
                 taskInfo += '<a target="_blank" href="http://dashb-cms-job.cern.ch/dashboard/templates/task-analysis/#user=default&table=Jobs&tid=' +workflow_html+ '">Dashboard link</a><br/>';
                 taskInfo += '<a target="_blank" href="https://cmsweb.cern.ch/crabserver/ui/task/' + workflow_html + '"> CrabServer link</a><br/>';
                 taskInfo += '<br/>';
