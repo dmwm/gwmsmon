@@ -140,6 +140,8 @@ def main():
             analyse_prod_rrds(opts.outputc2, opts.inputd, opts.timespan)
         if opts.outputc3:
             analyse_prod_rrds(opts.outputc3, opts.inputd, opts.timespan)
+        # Also do for totalview
+        analyse_prod_rrds(opts.inputd, opts.inputd, opts.timespan)
 
 if __name__ == "__main__":
     main()
