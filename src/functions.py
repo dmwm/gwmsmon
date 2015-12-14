@@ -78,9 +78,7 @@ def updateRrd(fname, line):
     try:
         rrdtool.update(fname, line)
     except rrdtool.error as e:
-        print e
-        print fname
-        print line
+        print 'Unable to update:', e, fname, line
 
 
 def validateInt(numb):

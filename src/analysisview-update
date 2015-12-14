@@ -48,7 +48,8 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             desiredSites = job['DESIRED_Sites'].split(",")
         except:
             desiredSites = []
-        desiredSites = tuple(desiredSites.sort())
+        desiredSites.sort()
+        desiredSites = tuple(desiredSites)
         runningSite = job.get("MATCH_EXP_JOBGLIDEIN_CMSSite")
         if job["JobStatus"] == 1:
             status = "MatchingIdle"
@@ -79,7 +80,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             prioDict[status] += 1
 
 
-def summarize(workflows, gsites, tasks):
+def summarize(workflows, gsites, tasks, siteview):
     """ TODO doc  """
     for request, requestDict in workflows.items():
         for subtask, subtaskDict in requestDict.items():
@@ -112,7 +113,7 @@ def summarize(workflows, gsites, tasks):
         idle = sum([subtaskDict["Summary"]["Idle"] for subtaskDict in requestDict.values()])
         uniq = sum([subtaskDict["Summary"]["UniquePressure"] for subtaskDict in requestDict.values()])
         total = running + idle
-        requestDict["Summary"] = {"Running": runnded in the second one (still in the sameing,
+        requestDict["Summary"] = {"Running": running,
                                   "Idle": idle,
                                   "UniquePressure": uniq,
                                   "Total": total}
@@ -134,34 +135,33 @@ def summarize(workflows, gsites, tasks):
             for status, dummycount in siteDict.items():
                 gsitesDict[request][status] += siteDict[status]
 
-
-def writeJson(workflows, gsites, taskInfo, output):
-    """ TODO doc """
-    sites = {}
-    running = 0
-    idle = 0
-    uniq = 0
+    running, idle, uniq = 0, 0, 0
     # This has to go to summarize
     for requestDict in workflows.values():
         for site, siteDict in requestDict["Summary"]["Sites"].items():
-            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0, "UniquePressure": 0})
-            sites[site]["Running"] += siteDict["Running"]
-            sites[site]["MatchingIdle"] += siteDict["MatchingIdle"]
-            sites[site]["RequestCount"] += 1
-            sites[site]["UniquePressure"] += siteDict["UniquePressure"]
+            siteview.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0, "UniquePressure": 0})
+            siteview[site]["Running"] += siteDict["Running"]
+            siteview[site]["MatchingIdle"] += siteDict["MatchingIdle"]
+            siteview[site]["RequestCount"] += 1 
+            siteview[site]["UniquePressure"] += siteDict["UniquePressure"]
         running += requestDict["Summary"]["Running"]
         idle += requestDict["Summary"]["Idle"]
         uniq += requestDict["Summary"]["UniquePressure"]
-    requests = len(workflows)
+    siteview['Summary'] = {"Running": running, "MatchingIdle": idle, "UniquePressure": uniq}
 
+
+def writeJson(workflows, gsites, taskInfo, output, sitesview):
+    """ TODO doc """
+    requests = len(workflows)
     now = int(time.time())
-    dropObj(sites, output, "site_summary.json")
+    dropObj(sitesview, output, "site_summary.json")
 
     # Count total Not Queued jobs
     # This has to go to summarize
     notQueued = 0
     taskCountR = 0
     taskCountH = 0
+    # This also has to move to summarize
     for dummyuser, userDict in taskInfo.items():
         for subtask, subtaskDict in userDict.items():
             notQueued += subtaskDict.get('DAG_NodesReady', 0)
@@ -170,13 +170,13 @@ def writeJson(workflows, gsites, taskInfo, output):
                     taskCountH += 1
                 elif subtaskDict['JobStatus'] == 2:
                     taskCountR += 1
-    dropObj({"Running": running, "Idle": idle, "UniquePressure": uniq, "RequestCount": requests, "UpdateTime": now,
-             "NotQueued": notQueued, "TaskCountR": taskCountR, "TaskCountH": taskCountH}, output, "totals.json")
+    dropObj({"Running": sitesview['Summary']['Running'], "Idle": sitesview['Summary']['MatchingIdle'], "UniquePressure": sitesview['Summary']['UniquePressure'],
+             "RequestCount": requests, "UpdateTime": now, "NotQueued": notQueued, "TaskCountR": taskCountR, "TaskCountH": taskCountH}, output, "totals.json")
 
     for site, siteDict in gsites.items():
         if site:
             siteDir = os.path.join(output, site)
-            finalObj = dict(sites[site])
+            finalObj = dict(sitesview[site])
             finalObj["UpdateTime"] = now
             dropObj(finalObj, siteDir, "totals.json")
             dropObj(siteDict, siteDir, "summary.json")
@@ -224,57 +224,51 @@ def writeJson(workflows, gsites, taskInfo, output):
         dropObj(finalObj, requestDir, "summary.json")
 
 
-def writeRrds(workflows, gsites, output):
+def writeRrds(workflows, gsites, output, sitesview):
     """ TODO doc """
-    sites = {}
-    running = 0
-    idle = 0
-    # Count and make numbers for max running per site for analysis
-    for requestDict in workflows.values():
-        for site, siteDict in requestDict["Summary"]["Sites"].items():
-            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0})
-            sites[site]["Running"] += siteDict["Running"]
-            sites[site]["MatchingIdle"] += siteDict["MatchingIdle"]
-        running += requestDict["Summary"]["Running"]
-        idle += requestDict["Summary"]["Idle"]
     fname = os.path.join(output, "summary.rrd")
     # Create summary RRD which is shown in top.
     if not os.path.exists(fname):
         rrdtool.create(fname,
                        "--step", "180",
+                       "--start", "%s" % (GSTARTUP - 180),
                        "DS:Running:GAUGE:360:U:U",
                        "DS:Idle:GAUGE:360:U:U",
+                       "DS:Unique:GAUGE:360:U:U",
                        "RRA:AVERAGE:0.5:1:1000",
                        "RRA:AVERAGE:0.5:20:2000",)
-    updateRrd(fname, "%d:%d:%d" % (GSTARTUP, running, idle))
+        updateRrd(fname, "%d:%d:%d:%d" % (GSTARTUP, sitesview['Summary']['Running'], sitesview['Summary']['MatchingIdle'], sitesview['Summary']['UniquePressure']))
 
     # For all calculated sites, make graphs
-    for site, siteDict in sites.items():
+    for site, siteDict in sitesview.items():
+        if site == 'Summary':
+            continue
         fname = os.path.join(output, "%s.rrd" % site)
         if not os.path.exists(fname):
             rrdtool.create(fname,
                            "--step", "180",
+                           "--start", "%s" % (GSTARTUP - 180),
                            "DS:Running:GAUGE:360:U:U",
                            "DS:MatchingIdle:GAUGE:360:U:U",
+                           "DS:UniquePressure:GAUGE:360:U:U",
                            "RRA:AVERAGE:0.5:1:1000",
                            "RRA:AVERAGE:0.5:20:2000",)
-        updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"]))
+            updateRrd(fname, "%d:%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"], siteDict["UniquePressure"]))
 
-    # For analysis there is no point to create site usage per task...
-    # for site, site_dict in gsites.items():
-    #    site_dir = os.path.join(output, site)
-    #    for request, request_dict in site_dict.items():
-    #        fname = os.path.join(site_dir, "%s.rrd" % request)
-    #        print fname
-    #        if not os.path.exists(fname):
-    #            rrdtool.create(fname,
-    #                "--step", "180",
-    #                "DS:Running:GAUGE:360:U:U",
-    #                "DS:MatchingIdle:GAUGE:360:U:U",
-    #                "RRA:AVERAGE:0.5:1:1000",
-    #                "RRA:AVERAGE:0.5:20:2000",
-    #            )
-    #        update_rrd(fname, "%d:%d:%d" % (g_startup, request_dict["Running"], request_dict["MatchingIdle"]))
+    for site, site_dict in gsites.items():
+        site_dir = os.path.join(output, site)
+        for request, request_dict in site_dict.items():
+            fname = os.path.join(site_dir, "%s.rrd" % request)
+            if not os.path.exists(fname):
+                rrdtool.create(fname,
+                    "--step", "180",
+                    "--start", "%s" % (GSTARTUP - 180),
+                    "DS:Running:GAUGE:360:U:U",
+                    "DS:MatchingIdle:GAUGE:360:U:U",
+                    "RRA:AVERAGE:0.5:1:1000",
+                    "RRA:AVERAGE:0.5:20:2000",
+                )
+            updateRrd(fname, "%d:%d:%d" % (GSTARTUP, request_dict["Running"], request_dict["MatchingIdle"]))
 
     for request, requestDict in workflows.items():
         requestDir = os.path.join(output, request)
@@ -284,6 +278,7 @@ def writeRrds(workflows, gsites, output):
         if not os.path.exists(fname):
             rrdtool.create(fname,
                            "--step", "180",
+                           "--start", "%s" % (GSTARTUP - 180),
                            "DS:Running:GAUGE:360:U:U",
                            "DS:Idle:GAUGE:360:U:U",
                            "RRA:AVERAGE:0.5:1:1000",
@@ -295,6 +290,7 @@ def writeRrds(workflows, gsites, output):
             if not os.path.exists(fname):
                 rrdtool.create(fname,
                                "--step", "180",
+                               "--start", "%s" % (GSTARTUP - 180),
                                "DS:Running:GAUGE:360:U:U",
                                "DS:MatchingIdle:GAUGE:360:U:U",
                                "RRA:AVERAGE:0.5:1:1000",
@@ -311,6 +307,7 @@ def writeRrds(workflows, gsites, output):
             if not os.path.exists(fname):
                 rrdtool.create(fname,
                                "--step", "180",
+                               "--start", "%s" % (GSTARTUP - 180),
                                "DS:Running:GAUGE:360:U:U",
                                "DS:Idle:GAUGE:360:U:U",
                                "RRA:AVERAGE:0.5:1:1000",
@@ -318,20 +315,20 @@ def writeRrds(workflows, gsites, output):
             stats = subtaskDict["Summary"]["Running"], subtaskDict["Summary"]["Idle"]
             updateRrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
 
-            for site, siteDict in subtaskDict.items():
-                if site == "Summary":
-                    continue
-                fname = os.path.join(subtaskDir, "%s.rrd" % site)
-                if not os.path.exists(fname):
-                    rrdtool.create(fname,
-                                   "--step", "180",
-                                   "DS:Running:GAUGE:360:U:U",
-                                   "DS:MatchingIdle:GAUGE:360:U:U",
-                                   "RRA:AVERAGE:0.5:1:1000",
-                                   "RRA:AVERAGE:0.5:20:2000",)
-                stats = sum(prioDict["Running"] for prioDict in siteDict.values()), \
-                    sum(prioDict["MatchingIdle"] for prioDict in siteDict.values())
-                updateRrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
+            #for site, siteDict in subtaskDict.items():
+            #    if site == "Summary":
+            #        continue
+            #    fname = os.path.join(subtaskDir, "%s.rrd" % site)
+            #    if not os.path.exists(fname):
+            #        rrdtool.create(fname,
+            #                       "--step", "180",
+            #                       "DS:Running:GAUGE:360:U:U",
+            #                       "DS:MatchingIdle:GAUGE:360:U:U",
+            #                       "RRA:AVERAGE:0.5:1:1000",
+            #                       "RRA:AVERAGE:0.5:20:2000",)
+            #    stats = sum(prioDict["Running"] for prioDict in siteDict.values()), \
+            #        sum(prioDict["MatchingIdle"] for prioDict in siteDict.values())
+            #    updateRrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
 
 
 def main():
@@ -343,13 +340,13 @@ def main():
     sites = {}
     workflows = {}
     taskInfo = {}
-
+    sitesview = {}
     for ad in scheddAds:
         print "Querying schedd", ad['Name']
         analyzeScheddOutput(ad, workflows, taskInfo)
 
     # analyze_prios(workflows)
-    summarize(workflows, sites, taskInfo)
+    summarize(workflows, sites, taskInfo, sitesview)
 
     # This is nice, but need to change to be debugging and option to debug.
     # TODO: change this to proint only then DEBUG
@@ -371,9 +368,9 @@ def main():
             #        for status, count in prioDict.items():
             #            print "\t\t\t\t- %s: %d" % (status, count)
 
-    if opts.output:
-        writeJson(workflows, sites, taskInfo, opts.output)
-        writeRrds(workflows, sites, opts.output)
+    if opts.analysisview:
+        writeJson(workflows, sites, taskInfo, opts.analysisview, sitesview)
+        writeRrds(workflows, sites, opts.analysisview, sitesview)
 
 if __name__ == "__main__":
     main()
