@@ -3,12 +3,11 @@
 import re
 import os
 import time
-import rrdtool
 from functions import parseArgs
 from functions import dropObj
-from functions import updateRrd
 from functions import querySchedd
 from functions import getSchedds
+from functions import rrdUpdate
 
 GSTARTUP = int(time.time())
 
@@ -142,7 +141,7 @@ def summarize(workflows, gsites, tasks, siteview):
             siteview.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0, "UniquePressure": 0})
             siteview[site]["Running"] += siteDict["Running"]
             siteview[site]["MatchingIdle"] += siteDict["MatchingIdle"]
-            siteview[site]["RequestCount"] += 1 
+            siteview[site]["RequestCount"] += 1
             siteview[site]["UniquePressure"] += siteDict["UniquePressure"]
         running += requestDict["Summary"]["Running"]
         idle += requestDict["Summary"]["Idle"]
@@ -228,94 +227,52 @@ def writeRrds(workflows, gsites, output, sitesview):
     """ TODO doc """
     fname = os.path.join(output, "summary.rrd")
     # Create summary RRD which is shown in top.
-    if not os.path.exists(fname):
-        rrdtool.create(fname,
-                       "--step", "180",
-                       "--start", "%s" % (GSTARTUP - 180),
-                       "DS:Running:GAUGE:360:U:U",
-                       "DS:Idle:GAUGE:360:U:U",
-                       "DS:Unique:GAUGE:360:U:U",
-                       "RRA:AVERAGE:0.5:1:1000",
-                       "RRA:AVERAGE:0.5:20:2000",)
-        updateRrd(fname, "%d:%d:%d:%d" % (GSTARTUP, sitesview['Summary']['Running'], sitesview['Summary']['MatchingIdle'], sitesview['Summary']['UniquePressure']))
-
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:UniquePressure:GAUGE:360:U:U"]
+    tempUpdLine = "%d:%d:%d:%d" % (GSTARTUP, sitesview['Summary']['Running'],
+                                   sitesview['Summary']['MatchingIdle'],
+                                   sitesview['Summary']['UniquePressure'])
+    rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
     # For all calculated sites, make graphs
     for site, siteDict in sitesview.items():
         if site == 'Summary':
             continue
         fname = os.path.join(output, "%s.rrd" % site)
-        if not os.path.exists(fname):
-            rrdtool.create(fname,
-                           "--step", "180",
-                           "--start", "%s" % (GSTARTUP - 180),
-                           "DS:Running:GAUGE:360:U:U",
-                           "DS:MatchingIdle:GAUGE:360:U:U",
-                           "DS:UniquePressure:GAUGE:360:U:U",
-                           "RRA:AVERAGE:0.5:1:1000",
-                           "RRA:AVERAGE:0.5:20:2000",)
-            updateRrd(fname, "%d:%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"], siteDict["UniquePressure"]))
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:UniquePressure:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d:%d" % (GSTARTUP, siteDict['Running'], siteDict['MatchingIdle'], siteDict['UniquePressure'])
+        rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
-    for site, site_dict in gsites.items():
-        site_dir = os.path.join(output, site)
-        for request, request_dict in site_dict.items():
-            fname = os.path.join(site_dir, "%s.rrd" % request)
-            if not os.path.exists(fname):
-                rrdtool.create(fname,
-                    "--step", "180",
-                    "--start", "%s" % (GSTARTUP - 180),
-                    "DS:Running:GAUGE:360:U:U",
-                    "DS:MatchingIdle:GAUGE:360:U:U",
-                    "RRA:AVERAGE:0.5:1:1000",
-                    "RRA:AVERAGE:0.5:20:2000",
-                )
-            updateRrd(fname, "%d:%d:%d" % (GSTARTUP, request_dict["Running"], request_dict["MatchingIdle"]))
+    for site, siteDict in gsites.items():
+        siteDir = os.path.join(output, site)
+        for request, requestDict in siteDict.items():
+            fname = os.path.join(siteDir, "%s.rrd" % request)
+            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
+            tempUpdLine = "%d:%d:%d" % (GSTARTUP, requestDict["Running"], requestDict["MatchingIdle"])
+            rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     for request, requestDict in workflows.items():
         requestDir = os.path.join(output, request)
-        if not os.path.exists(requestDir):
-            os.makedirs(requestDir)
         fname = os.path.join(requestDir, "request.rrd")
-        if not os.path.exists(fname):
-            rrdtool.create(fname,
-                           "--step", "180",
-                           "--start", "%s" % (GSTARTUP - 180),
-                           "DS:Running:GAUGE:360:U:U",
-                           "DS:Idle:GAUGE:360:U:U",
-                           "RRA:AVERAGE:0.5:1:1000",
-                           "RRA:AVERAGE:0.5:20:2000",)
-        updateRrd(fname, ("%d:%d:%d" % (GSTARTUP, requestDict["Summary"]["Running"], requestDict["Summary"]["Idle"])))
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d" % (GSTARTUP, requestDict["Summary"]["Running"], requestDict["Summary"]["Idle"])
+        rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
         for site, siteDict in requestDict["Summary"]["Sites"].items():
             fname = os.path.join(requestDir, "%s.rrd" % site)
-            if not os.path.exists(fname):
-                rrdtool.create(fname,
-                               "--step", "180",
-                               "--start", "%s" % (GSTARTUP - 180),
-                               "DS:Running:GAUGE:360:U:U",
-                               "DS:MatchingIdle:GAUGE:360:U:U",
-                               "RRA:AVERAGE:0.5:1:1000",
-                               "RRA:AVERAGE:0.5:20:2000",)
-            updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"]))
+            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
+            tempUpdLine = "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"])
+            rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
         for subtask, subtaskDict in requestDict.items():
             if subtask == "Summary":
                 continue
             subtaskDir = os.path.join(requestDir, subtask)
-            if not os.path.exists(subtaskDir):
-                os.makedirs(subtaskDir)
             fname = os.path.join(subtaskDir, "subtask.rrd")
-            if not os.path.exists(fname):
-                rrdtool.create(fname,
-                               "--step", "180",
-                               "--start", "%s" % (GSTARTUP - 180),
-                               "DS:Running:GAUGE:360:U:U",
-                               "DS:Idle:GAUGE:360:U:U",
-                               "RRA:AVERAGE:0.5:1:1000",
-                               "RRA:AVERAGE:0.5:20:2000",)
             stats = subtaskDict["Summary"]["Running"], subtaskDict["Summary"]["Idle"]
-            updateRrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
+            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
+            tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
+            rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
-            #for site, siteDict in subtaskDict.items():
+            # for site, siteDict in subtaskDict.items():
             #    if site == "Summary":
             #        continue
             #    fname = os.path.join(subtaskDir, "%s.rrd" % site)

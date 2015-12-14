@@ -5,13 +5,12 @@ import os
 import json
 import time
 import xml.etree.ElementTree as ET
-import rrdtool
 import htcondor
 import classad
 from functions import parseArgs
 from functions import getSchedds
 from functions import getFromURL
-from functions import updateRrd
+from functions import rrdUpdate
 
 GSTARTUP = int(time.time())
 
@@ -20,7 +19,7 @@ def queryFactory(coll, output):
     """TODO: write it """
     try:
         entries = coll.query(htcondor.AdTypes.Any, 'MyType=?="glidefactory" && GLIDEIN_CMSSite isnt undefined',
-                             ['GLIDEIN_CMSSite', 'GLIDEIN_MaxMemMBs', 'GLIDEIN_Max_Walltime'])
+                             ['GLIDEIN_CMSSite', 'GLIDEIN_MaxMemMBs', 'GLIDEIN_Max_Walltime', 'GLIDEIN_CPUS'])
     except IOError as er:
         print 'Failed to query factory. Error: %s' % er
         return
@@ -30,7 +29,9 @@ def queryFactory(coll, output):
             entry['GLIDEIN_MaxMemMBs'] = 0
         if 'GLIDEIN_Max_Walltime' not in entry:
             entry['GLIDEIN_Max_Walltime'] = 0
-        dataAppend = {'MaxMemMB': entry['GLIDEIN_MaxMemMBs'], 'MaxWallTime': int(entry['GLIDEIN_Max_Walltime']/60)}
+        if 'GLIDEIN_CPUS' not in entry:
+            entry['GLIDEIN_CPUS'] = 1
+        dataAppend = {'MaxMemMB': entry['GLIDEIN_MaxMemMBs'], 'MaxWallTime': int(entry['GLIDEIN_Max_Walltime']/60), 'MaxCpus': int(entry['GLIDEIN_CPUS'])}
         if entry['GLIDEIN_CMSSite'] not in output:
             output[entry['GLIDEIN_CMSSite']] = []
         inDict = False
@@ -193,17 +194,10 @@ def writeScheddInfo(basedir, scheddsInfo, factInfo):
         if 'Name' not in scheddDict:
             continue
         requestDir = os.path.join(basedir, scheddName)
-        if not os.path.exists(requestDir):
-            os.makedirs(requestDir)
-        fname = str(os.path.join(requestDir, "request.rrd"))
-        if not os.path.exists(fname):
-            rrdtool.create(fname,
-                           "--step", "180",
-                           "DS:Running:GAUGE:360:U:U",
-                           "DS:Idle:GAUGE:360:U:U",
-                           "RRA:AVERAGE:0.5:1:1000",
-                           "RRA:AVERAGE:0.5:20:2000",)
-        updateRrd(fname, "%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"]))
+        fname = os.path.join(requestDir, "request.rrd")
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"])
+        rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
     dropObj(factInfo, basedir, 'totals.json')
     return
 
@@ -345,94 +339,54 @@ def writeRrds(totals, sites, xmlout, output, factoryout):
     running = totals['Summary']['Running']
     idle = totals['Summary']['Idle']
     fname = str(os.path.join(output, "summary.rrd"))
-    if not os.path.exists(fname):
-        rrdtool.create(fname,
-                       "--step", "180",
-                       "DS:Running:GAUGE:360:U:U",
-                       "DS:Idle:GAUGE:360:U:U",
-                       "RRA:AVERAGE:0.5:1:1000",
-                       "RRA:AVERAGE:0.5:20:2000",)
-    updateRrd(fname, "%d:%d:%d" % (GSTARTUP, running, idle))
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
+    tempUpdLine = "%d:%d:%d" % (GSTARTUP, running, idle)
+    rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     for site, siteDict in sites['Summary'].items():
         fname = str(os.path.join(output, "%s.rrd" % site))
-        if not os.path.exists(fname):
-            rrdtool.create(fname,
-                           "--step", "180",
-                           "DS:Running:GAUGE:360:U:U",
-                           "DS:MatchingIdle:GAUGE:360:U:U",
-                           "RRA:AVERAGE:0.5:1:1000",
-                           "RRA:AVERAGE:0.5:20:2000",)
-        updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"]))
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"])
+        rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
+
         fname = str(os.path.join(output, "%s-UTIL.rrd" % site))
-        if not os.path.exists(fname):
-            rrdtool.create(fname,
-                           "--step", "180",
-                           "DS:Running:GAUGE:360:U:U",
-                           "DS:MaxRunning:GAUGE:360:U:U",
-                           "RRA:AVERAGE:0.5:1:1000",
-                           "RRA:AVERAGE:0.5:20:2000",)
-        updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MaxWasRunning"]))
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MaxRunning:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MaxWasRunning"])
+        rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
+
         if 'PilotUsage' in siteDict:
             partR = 0 if 'Partitionable' not in siteDict['PilotUsage'] else siteDict['PilotUsage']['Partitionable']['CpusUse']
             partI = 0 if 'Partitionable' not in siteDict['PilotUsage'] else siteDict['PilotUsage']['Partitionable']['CpusFree']
             statR = 0 if 'Static' not in siteDict['PilotUsage'] else siteDict['PilotUsage']['Static']['CpusUse']
             statI = 0 if 'Static' not in siteDict['PilotUsage'] else siteDict['PilotUsage']['Static']['CpusFree']
             fname = str(os.path.join(output, "%s-USAGE.rrd" % site))
-            if not os.path.exists(fname):
-                rrdtool.create(fname,
-                               "--step", "180",
-                               "DS:PartRunning:GAUGE:360:U:U",
-                               "DS:PartIdle:GAUGE:360:U:U",
-                               "DS:StatRunning:GAUGE:360:U:U",
-                               "DS:StatIdle:GAUGE:360:U:U",
-                               "RRA:AVERAGE:0.5:1:1000",
-                               "RRA:AVERAGE:0.5:20:2000",)
-            updateRrd(fname, "%d:%d:%d:%d:%d" % (GSTARTUP, partR, partI, statR, statI))
+            tempKeys = ["DS:PartRunning:GAUGE:360:U:U", "DS:PartIdle:GAUGE:360:U:U", "DS:StatRunning:GAUGE:360:U:U", "DS:StatIdle:GAUGE:360:U:U"]
+            tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, partR, partI, statR, statI)
+            rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     # Create fake empty.rrd for sites which have no data.
     fname = str(os.path.join(output, "empty.rrd"))
-    if not os.path.exists(fname):
-        rrdtool.create(fname,
-                       "--step", "180",
-                       "DS:Running:GAUGE:360:U:U",
-                       "DS:MatchingIdle:GAUGE:360:U:U",
-                       "DS:MaxRunning:GAUGE:360:U:U",
-                       "RRA:AVERAGE:0.5:1:1000",
-                       "RRA:AVERAGE:0.5:20:2000",)
-        updateRrd(fname, "%d:0:0:0" % GSTARTUP)
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:MaxRunning:GAUGE:360:U:U"]
+    tempUpdLine = "%d:0:0:0" % GSTARTUP
+    rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     fname = str(os.path.join(factoryout, 'summary.rrd'))
     summary = xmlout['Summary']
-    if not os.path.exists(fname):
-        rrdtool.create(fname,
-                       "--step", "180",
-                       "DS:Running:GAUGE:360:U:U",
-                       "DS:Idle:GAUGE:360:U:U",
-                       "DS:Held:GAUGE:360:U:U",
-                       "DS:MaxIdle:GAUGE:360:U:U",
-                       "DS:MaxHeld:GAUGE:360:U:U",
-                       "RRA:AVERAGE:0.5:1:1000",
-                       "RRA:AVERAGE:0.5:20:2000",)
-    updateRrd(fname, "%d:%d:%d:%d:%d:%d" % (GSTARTUP, summary['Run'], summary['Idle'], summary['Held'], summary['MIdle'], summary['MHeld']))
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:Held:GAUGE:360:U:U", "DS:MaxIdle:GAUGE:360:U:U", "DS:MaxHeld:GAUGE:360:U:U"]
+    tempUpdLine = "%d:%d:%d:%d:%d:%d" % (GSTARTUP, summary['Run'], summary['Idle'], summary['Held'], summary['MIdle'], summary['MHeld'])
+    rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
+
     for site, siteDict in xmlout.items():
         if site in ['FactoryUrls', 'Errors', 'Summary']:
             continue
         for entry, entryDict in siteDict.items():
             if entry == 'Summary':
                 fname = str(os.path.join(factoryout, '%s.rrd' % site))
-                if not os.path.exists(fname):
-                    rrdtool.create(fname,
-                                   "--step", "180",
-                                   "DS:Running:GAUGE:360:U:U",
-                                   "DS:Idle:GAUGE:360:U:U",
-                                   "DS:Held:GAUGE:360:U:U",
-                                   "DS:MaxIdle:GAUGE:360:U:U",
-                                   "DS:MaxHeld:GAUGE:360:U:U",
-                                   "RRA:AVERAGE:0.5:1:1000",
-                                   "RRA:AVERAGE:0.5:20:2000",)
-                updateRrd(fname, "%d:%d:%d:%d:%d:%d" % (GSTARTUP, entryDict['Run'], entryDict['Idle'],
-                                                        entryDict['Held'], entryDict['MIdle'], entryDict['MHeld']))
+                tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:Held:GAUGE:360:U:U",
+                            "DS:MaxIdle:GAUGE:360:U:U", "DS:MaxHeld:GAUGE:360:U:U"]
+                tempUpdLine = "%d:%d:%d:%d:%d:%d" % (GSTARTUP, entryDict['Run'], entryDict['Idle'],
+                                                     entryDict['Held'], entryDict['MIdle'], entryDict['MHeld'])
+                rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
                 continue
             else:
                 subsiteDir = os.path.join(factoryout, site)
@@ -441,18 +395,11 @@ def writeRrds(totals, sites, xmlout, output, factoryout):
                 for factory, factoryInfo in entryDict.items():
                     newName = str(re.sub('[ ]', '', factory.lower()) + (re.sub('[ ]', '', entry)))
                     fname = os.path.join(subsiteDir, '%s.rrd' % newName)
-                    if not os.path.exists(fname):
-                        rrdtool.create(fname,
-                                       "--step", "180",
-                                       "DS:Running:GAUGE:360:U:U",
-                                       "DS:Idle:GAUGE:360:U:U",
-                                       "DS:Held:GAUGE:360:U:U",
-                                       "DS:MaxIdle:GAUGE:360:U:U",
-                                       "DS:MaxHeld:GAUGE:360:U:U",
-                                       "RRA:AVERAGE:0.5:1:1000",
-                                       "RRA:AVERAGE:0.5:20:2000",)
-                    updateRrd(fname, "%d:%d:%d:%d:%d:%d" % (GSTARTUP, factoryInfo['nowRunn'], factoryInfo['nowIdle'],
-                                                            factoryInfo['nowHeld'], factoryInfo['maxIdle'], factoryInfo['maxHeld']))
+                    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:Held:GAUGE:360:U:U",
+                                "DS:MaxIdle:GAUGE:360:U:U", "DS:MaxHeld:GAUGE:360:U:U"]
+                    tempUpdLine = "%d:%d:%d:%d:%d:%d" % (GSTARTUP, factoryInfo['nowRunn'], factoryInfo['nowIdle'],
+                                                         factoryInfo['nowHeld'], factoryInfo['maxIdle'], factoryInfo['maxHeld'])
+                    rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
 
 def main():

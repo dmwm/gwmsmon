@@ -71,7 +71,7 @@ def getFromURL(url):
         return None
 
 
-def updateRrd(fname, line):
+def updateRrdLine(fname, line):
     """Update rrd file
     fname -> full file path with filename
     line -> rrd line for update"""
@@ -123,3 +123,17 @@ def getSchedds(opts, pool, query, keys):
         if opts.pool1:
             scheddAds = getSchedds(opts, opts.pool1, query, keys)
     return scheddAds, coll
+
+
+def rrdUpdate(fname, createVars, updateLine, gstartup):
+    """ TODO Doc """
+    createVars = ["--step", "180", "--start", "%s" % str(gstartup - 180)] + createVars
+    createVars += ["RRA:AVERAGE:0.5:1:1000", "RRA:AVERAGE:0.5:20:2000"]
+    try:
+        if not os.path.exists(fname):
+            os.makedirs(os.path.dirname(fname))
+    except OSError:
+        pass
+    if not os.path.exists(fname):
+        rrdtool.create(fname, *createVars)
+    updateRrdLine(fname, updateLine)

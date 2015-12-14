@@ -2,13 +2,12 @@
 """TODO"""
 import os
 import time
-import rrdtool
 from functions import parseArgs
 from functions import dropObj
-from functions import updateRrd
 from functions import querySchedd
 from functions import validateInt
 from functions import getSchedds
+from functions import rrdUpdate
 
 GSTARTUP = int(time.time())
 
@@ -252,105 +251,61 @@ def writeRrds(workflows, gsites, output):
         running += requestDict["Summary"]["Running"]
         idle += requestDict["Summary"]["Idle"]
     fname = os.path.join(output, "summary.rrd")
-    if not os.path.exists(fname):
-        rrdtool.create(fname,
-                       "--step", "180",
-                       "DS:Running:GAUGE:360:U:U",
-                       "DS:Idle:GAUGE:360:U:U",
-                       "RRA:AVERAGE:0.5:1:1000",
-                       "RRA:AVERAGE:0.5:20:2000",)
-    updateRrd(fname, "%d:%d:%d" % (GSTARTUP, running, idle))
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
+    tempUpdLine = "%d:%d:%d" % (GSTARTUP, running, idle)
+    rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
+
     for site, siteDict in sites.items():
         fname = os.path.join(output, "%s.rrd" % site)
-        if not os.path.exists(fname):
-            rrdtool.create(fname,
-                           "--step", "180",
-                           "DS:Running:GAUGE:360:U:U",
-                           "DS:MatchingIdle:GAUGE:360:U:U",
-                           "RRA:AVERAGE:0.5:1:1000",
-                           "RRA:AVERAGE:0.5:20:2000",)
-        updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"]))
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"])
+        rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     for site, siteDict in gsites.items():
         siteDir = os.path.join(output, site)
         for request, requestDict in siteDict.items():
             fname = os.path.join(siteDir, "%s.rrd" % request)
-            if not os.path.exists(fname):
-                rrdtool.create(fname,
-                               "--step", "180",
-                               "DS:Running:GAUGE:360:U:U",
-                               "DS:MatchingIdle:GAUGE:360:U:U",
-                               "RRA:AVERAGE:0.5:1:1000",
-                               "RRA:AVERAGE:0.5:20:2000",)
-            updateRrd(fname, "%d:%d:%d" % (GSTARTUP, requestDict["Running"], requestDict["MatchingIdle"]))
+            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
+            tempUpdLine = "%d:%d:%d" % (GSTARTUP, requestDict["Running"], requestDict["MatchingIdle"])
+            rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     for request, requestDict in workflows.items():
         requestDir = os.path.join(output, request)
-        if not os.path.exists(requestDir):
-            os.makedirs(requestDir)
         fname = os.path.join(requestDir, "request.rrd")
-        if not os.path.exists(fname):
-            rrdtool.create(fname,
-                           "--step", "180",
-                           "DS:Running:GAUGE:360:U:U",
-                           "DS:Idle:GAUGE:360:U:U",
-                           "DS:HigherPrioIdle:GAUGE:360:U:U",
-                           "DS:LowerPrioRunning:GAUGE:360:U:U",
-                           "RRA:AVERAGE:0.5:1:1000",
-                           "RRA:AVERAGE:0.5:20:2000",)
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:HigherPrioIdle:GAUGE:360:U:U", "DS:LowerPrioRunning:GAUGE:360:U:U"]
         stats = requestDict["Summary"]["Running"], requestDict["Summary"]["Idle"], \
             requestDict["Summary"]["HigherPrioIdle"], requestDict["Summary"]["LowerPrioRunning"]
-        updateRrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
+        tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
+        rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
         for site, siteDict in requestDict["Summary"]["Sites"].items():
             fname = os.path.join(requestDir, "%s.rrd" % site)
-            if not os.path.exists(fname):
-                rrdtool.create(fname,
-                               "--step", "180",
-                               "DS:Running:GAUGE:360:U:U",
-                               "DS:MatchingIdle:GAUGE:360:U:U",
-                               "RRA:AVERAGE:0.5:1:1000",
-                               "RRA:AVERAGE:0.5:20:2000",)
-            updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"]))
+            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
+            tempUpdLine = "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"])
+            rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
         for subtask, subtaskDict in requestDict.items():
             if subtask == "Summary":
                 continue
             subtaskDir = os.path.join(requestDir, subtask)
-            if not os.path.exists(subtaskDir):
-                os.makedirs(subtaskDir)
             fname = os.path.join(subtaskDir, "subtask.rrd")
-            if not os.path.exists(fname):
-                rrdtool.create(fname,
-                               "--step", "180",
-                               "DS:Running:GAUGE:360:U:U",
-                               "DS:Idle:GAUGE:360:U:U",
-                               "DS:HigherPrioIdle:GAUGE:360:U:U",
-                               "DS:LowerPrioRunning:GAUGE:360:U:U",
-                               "RRA:AVERAGE:0.5:1:1000",
-                               "RRA:AVERAGE:0.5:20:2000",)
+            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:HigherPrioIdle:GAUGE:360:U:U", "DS:LowerPrioRunning:GAUGE:360:U:U"]
             stats = subtaskDict["Summary"]["Running"], subtaskDict["Summary"]["Idle"], \
                 subtaskDict["Summary"]["HigherPrioIdle"], subtaskDict["Summary"]["LowerPrioRunning"]
-            updateRrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
+            tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
+            rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
             for site, siteDict in subtaskDict.items():
                 if site == "Summary":
                     continue
                 fname = os.path.join(subtaskDir, "%s.rrd" % site)
-                if not os.path.exists(fname):
-                    rrdtool.create(fname,
-                                   "--step", "180",
-                                   "DS:Running:GAUGE:360:U:U",
-                                   "DS:MatchingIdle:GAUGE:360:U:U",
-                                   "DS:HigherPrioIdle:GAUGE:360:U:U",
-                                   "DS:LowerPrioRunning:GAUGE:360:U:U",
-                                   "RRA:AVERAGE:0.5:1:1000",
-                                   "RRA:AVERAGE:0.5:20:2000",)
+                tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:HigherPrioIdle:GAUGE:360:U:U", "DS:LowerPrioRunning:GAUGE:360:U:U"]
                 stats = sum(prioDict["Running"] for prioDict in siteDict.values()), \
                     sum(prioDict["MatchingIdle"] for prioDict in siteDict.values()), \
                     sum(prioDict["HigherPrioIdle"] for prioDict in siteDict.values()), \
                     sum(prioDict["LowerPrioRunning"] for prioDict in siteDict.values())
-                updateRrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
+                tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
+                rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
 
 def main():
