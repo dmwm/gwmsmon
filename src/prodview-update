@@ -9,60 +9,27 @@ import ConfigParser
 
 import rrdtool
 import htcondor
+from functions import parseArgs
+from functions import dropObj
+from functions import updateRrd
+from functions import getFromURL
+from functions import querySchedd
+from functions import validateInt
 
-g_startup = int(time.time())
 
-def parse_args():
-    parser = optparse.OptionParser()
-    parser.add_option("-c", "--config", help="Prodview configuration file", dest="config", default=None)
-    parser.add_option("-p", "--pool", help="HTCondor pool to analyze", dest="pool")
-    parser.add_option("-o", "--output", help="Top-level output dir", dest="output")
-    opts, args = parser.parse_args()
+GSTARTUP = int(time.time())
 
-    if args:
-        parser.print_help()
-        print >> sys.stderr, "%s takes no arguments." % sys.args[0]
-        sys.exit(1)
 
-    cp = ConfigParser.ConfigParser()
-    if opts.config:
-        if not os.path.exists(opts.config):
-            print >> sys.stderr, "Config file %s does not exist." % opts.config
-            sys.exit(1)
-        cp.read(opts.config)
-    elif os.path.exists("/etc/prodview.conf"):
-        cp.read("/etc/prodview.conf")
-
-    if not opts.pool and cp.has_option("htcondor", "pool"):
-        opts.pool = cp.get("htcondor", "pool")
-    if not opts.output and cp.has_option("prodview", "basedir"):
-        opts.output = cp.get("prodview", "basedir")
-
-    return opts, args
-
-def update_rrd(fname, line):
-    try:
-        rrdtool.update(fname, line)
-    except rrdtool.error as e:
-        print e
-        print fname
-        print line
-
-def query_schedd(ad, workflows, taskInfo):
-    schedd = htcondor.Schedd(ad)
-    try:
-        jobs = schedd.xquery("WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null", ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite", "JobPrio", "JobStatus", "RequestMemory", "MaxWallTimeMins"])
-    except Exception, e:
-        print "Failed querying", ad["Name"]
-        print e
-        return
+def analyzeScheddOutput(ad, workflows, taskInfo):
+    jobs = querySchedd(ad, "WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null",
+                       ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite",
+                        "JobPrio", "JobStatus", "RequestMemory", "MaxWallTimeMins"])
     for job in jobs:
         request = job['WMAgent_RequestName']
-        sub_task = job['WMAgent_SubTaskName'].split("/")[-1]
-        desired_sites = job['DESIRED_Sites'].split(",")
-        desired_sites.sort()
-        desired_sites = tuple(desired_sites)
-        running_site = job.get("MATCH_EXP_JOBGLIDEIN_CMSSite")
+        subTask = job['WMAgent_SubTaskName'].split("/")[-1]
+        desiredSites = job['DESIRED_Sites'].split(",")
+        desiredSites = tuple(desiredSites.sort())
+        runningSite = job.get("MATCH_EXP_JOBGLIDEIN_CMSSite")
         if job["JobStatus"] == 1:
             status = "MatchingIdle"
         elif job["JobStatus"] == 2:
@@ -70,16 +37,16 @@ def query_schedd(ad, workflows, taskInfo):
         else:
             continue
         prio = job["JobPrio"]
-        request_dict = workflows.setdefault(request, {})
-        subtask_dict = request_dict.setdefault(sub_task, {})
-        summary_dict = subtask_dict.setdefault('Summary', {})
-        summary_internal = summary_dict.setdefault("Internal", {})
+        requestDict = workflows.setdefault(request, {})
+        subtaskDict = requestDict.setdefault(subTask, {})
+        summaryDict = subtaskDict.setdefault('Summary', {})
+        summaryInternal = summaryDict.setdefault("Internal", {})
 
         mainTaskInfo = taskInfo.setdefault(request, {})
-        mainSubTask = mainTaskInfo.setdefault(sub_task, {})
-        memory = 0 if 'RequestMemory' not in job.keys() else job['RequestMemory']
-        walltime =  0 if 'MaxWallTimeMins' not in job.keys() else job['MaxWallTimeMins']
-        key = str(memory) + "||" + str(walltime) + "||" + str(job['DESIRED_Sites']) + "||" + ad['Name']
+        mainSubTask = mainTaskInfo.setdefault(subTask, {})
+        memory = 0 if 'RequestMemory' not in job.keys() else validateInt(job['RequestMemory'])
+        walltime = 0 if 'MaxWallTimeMins' not in job.keys() else validateInt(job['MaxWallTimeMins'])
+        key = "||".join(str(memory), str(walltime), str(job['DESIRED_Sites']), ad['Name'])
         mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': ''})
         mainSubTaskdebug['Schedd'] = ad['Name']
         mainSubTaskdebug['Memory'] = memory
@@ -89,65 +56,66 @@ def query_schedd(ad, workflows, taskInfo):
             mainSubTaskdebug['Running'] += 1
         else:
             mainSubTaskdebug['Idle'] += 1
-        
 
-        jobinfo = (prio, desired_sites)
-        if not running_site:
-            summary_internal.setdefault(jobinfo, 0)
-            summary_internal[jobinfo] += 1
-        for site in desired_sites:
-            site_dict = subtask_dict.setdefault(site, {})
-            prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
-            prio_dict.setdefault(status, 0)
-            if status != "Running":
-                prio_dict[status] += 1
-        if running_site:
-            site_dict = subtask_dict.setdefault(running_site, {})
-            prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
-            prio_dict.setdefault(status, 0)
-            prio_dict[status] += 1
+        jobinfo = (prio, desiredSites)
+        if not runningSite:
+            summaryInternal.setdefault(jobinfo, 0)
+            summaryInternal[jobinfo] += 1
+            for site in desiredSites:
+                siteDict = subtaskDict.setdefault(site, {})
+                prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
+                prioDict.setdefault(status, 0)
+                if status != "Running":
+                    prioDict[status] += 1
+        if runningSite:
+            siteDict = subtaskDict.setdefault(runningSite, {})
+            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
+            prioDict.setdefault(status, 0)
+            prioDict[status] += 1
 
 
 def analyze_prios_inner(workflows, sites, prio):
+    """ Analyze priorities and this gives view of lower/higher running """
+    # TODO: IMPROVE IT!!!!!
     # This analyze prios takes too much time to complete
     # when a lot of load is from production.
     # Need to take a look where to improve this.
     return 0, 0
-    higher_idle = 0
-    lower_running = 0
-    sites = set(sites)
-    if not sites:
-        return 0, 0
-    for request, request_dict in workflows.items():
-        for subtask, subtask_dict in request_dict.items():
-            for running_site, site_dict in subtask_dict.items():
-                if running_site == "Summary" and site_dict.get("Internal"):
-                    for jobinfo, jobs in site_dict["Internal"].items():
-                        idle_prio, desired_sites = jobinfo
-                        desired_sites = set(desired_sites)
-                        if (sites.intersection(desired_sites)) and idle_prio > prio:
-                            higher_idle += jobs
-                elif running_site in sites:
-                    for running_prio, prio_dict in site_dict.items():
-                        if running_prio >= prio:
-                            continue
-                        for status, count in prio_dict.items():
-                            if status != "Running":
-                                continue
-                            lower_running += count
-    return higher_idle, lower_running
+#    higher_idle = 0
+#    lower_running = 0
+#    sites = set(sites)
+#    if not sites:
+#        return 0, 0
+#    for request, request_dict in workflows.items():
+#        for subtask, subtask_dict in request_dict.items():
+#            for running_site, site_dict in subtask_dict.items():
+#                if running_site == "Summary" and site_dict.get("Internal"):
+#                    for jobinfo, jobs in site_dict["Internal"].items():
+#                        idle_prio, desired_sites = jobinfo
+#                        desired_sites = set(desired_sites)
+#                        if (sites.intersection(desired_sites)) and idle_prio > prio:
+#                            higher_idle += jobs
+#                elif running_site in sites:
+#                    for running_prio, prio_dict in site_dict.items():
+#                        if running_prio >= prio:
+#                            continue
+#                        for status, count in prio_dict.items():
+#                            if status != "Running":
+#                                continue
+#                            lower_running += count
+#    return higher_idle, lower_running
 
 
 def analyze_prios(workflows):
-    for request, request_dict in workflows.items():
-        for subtask, subtask_dict in request_dict.items():
-            for site, site_dict in subtask_dict.items():
+    for dummyrequest, requestDict in workflows.items():
+        for dummysubtask, subtaskDict in requestDict.items():
+            for site, siteDict in subtaskDict.items():
                 if site == "Summary":
                     continue
-                for prio, prio_dict in site_dict.items():
-                    higher_idle, lower_running = analyze_prios_inner(workflows, [site], prio)
-                    prio_dict["LowerPrioRunning"] = lower_running
-                    prio_dict["HigherPrioIdle"] = higher_idle
+                for dummyprio, prioDict in siteDict.items():
+                    higherIdle, lowerRunning = 0, 0  # analyze_prios_inner(workflows, [site], prio)
+                    prioDict["LowerPrioRunning"] = lowerRunning
+                    prioDict["HigherPrioIdle"] = higherIdle
 
 
 def summarize(workflows, gsites, tasks):
@@ -295,7 +263,7 @@ def write_rrds(workflows, gsites, output):
             "RRA:AVERAGE:0.5:1:1000",
             "RRA:AVERAGE:0.5:20:2000",
         )
-    update_rrd(fname, "%d:%d:%d" % (g_startup, running, idle))
+    update_rrd(fname, "%d:%d:%d" % (GSTARTUP, running, idle))
     for site, site_dict in sites.items():
         fname = os.path.join(output, "%s.rrd" % site)
         if not os.path.exists(fname):
@@ -306,7 +274,7 @@ def write_rrds(workflows, gsites, output):
                 "RRA:AVERAGE:0.5:1:1000",
                 "RRA:AVERAGE:0.5:20:2000",
             )   
-        update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
+        update_rrd(fname, "%d:%d:%d" % (GSTARTUP, site_dict["Running"], site_dict["MatchingIdle"]))
 
     for site, site_dict in gsites.items():
         site_dir = os.path.join(output, site)
@@ -320,7 +288,7 @@ def write_rrds(workflows, gsites, output):
                     "RRA:AVERAGE:0.5:1:1000",
                     "RRA:AVERAGE:0.5:20:2000",
                 )
-            update_rrd(fname, "%d:%d:%d" % (g_startup, request_dict["Running"], request_dict["MatchingIdle"]))
+            update_rrd(fname, "%d:%d:%d" % (GSTARTUP, request_dict["Running"], request_dict["MatchingIdle"]))
 
     for request, request_dict in workflows.items():
         request_dir = os.path.join(output, request)
@@ -338,7 +306,7 @@ def write_rrds(workflows, gsites, output):
                 "RRA:AVERAGE:0.5:20:2000",
                 )
         stats = request_dict["Summary"]["Running"], request_dict["Summary"]["Idle"], request_dict["Summary"]["HigherPrioIdle"], request_dict["Summary"]["LowerPrioRunning"]
-        update_rrd(fname, (("%d:" % g_startup) + ":".join(["%d"]*len(stats))) % stats)
+        update_rrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
 
         for site, site_dict in request_dict["Summary"]["Sites"].items():
             fname = os.path.join(request_dir, "%s.rrd" % site)
@@ -350,7 +318,7 @@ def write_rrds(workflows, gsites, output):
                     "RRA:AVERAGE:0.5:1:1000",
                     "RRA:AVERAGE:0.5:20:2000",
                 )
-            update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
+            update_rrd(fname, "%d:%d:%d" % (GSTARTUP, site_dict["Running"], site_dict["MatchingIdle"]))
 
         for subtask, subtask_dict in request_dict.items():
             if subtask == "Summary":
@@ -370,7 +338,7 @@ def write_rrds(workflows, gsites, output):
                     "RRA:AVERAGE:0.5:20:2000",
                     )
             stats = subtask_dict["Summary"]["Running"], subtask_dict["Summary"]["Idle"], subtask_dict["Summary"]["HigherPrioIdle"], subtask_dict["Summary"]["LowerPrioRunning"]
-            update_rrd(fname, (("%d:" % g_startup) + ":".join(["%d"]*len(stats))) % stats)
+            update_rrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
 
             for site, site_dict in subtask_dict.items():
                 if site == "Summary":
@@ -390,7 +358,7 @@ def write_rrds(workflows, gsites, output):
                         sum(prio_dict["MatchingIdle"] for prio_dict in site_dict.values()), \
                         sum(prio_dict["HigherPrioIdle"] for prio_dict in site_dict.values()), \
                         sum(prio_dict["LowerPrioRunning"] for prio_dict in site_dict.values())
-                update_rrd(fname, (("%d:" % g_startup) + ":".join(["%d"]*len(stats))) % stats)
+                update_rrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
 
 
 def main():
@@ -408,7 +376,7 @@ def main():
     taskInfo = {}
     for ad in schedd_ads:
         print "Querying schedd", ad['Name']
-        query_schedd(ad, workflows, taskInfo)
+        analyzeScheddOutput(ad, workflows, taskInfo)
 
     analyze_prios(workflows)
     summarize(workflows, sites, taskInfo)

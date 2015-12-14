@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+""" TODO doc """
 import re
 import os
 import sys
@@ -12,9 +12,12 @@ import xml.etree.ElementTree as ET
 import rrdtool
 import htcondor
 import classad
-g_startup = int(time.time())
 
-def parse_args():
+GSTARTUP = int(time.time())
+
+
+def parseArgs():
+    """TODO move it from here"""
     parser = optparse.OptionParser()
     parser.add_option("-c", "--config", help="Prodview configuration file", dest="config", default=None)
     parser.add_option("-p", "--pool", help="HTCondor pool to analyze", dest="pool")
@@ -23,7 +26,7 @@ def parse_args():
 
     if args:
         parser.print_help()
-        print >> sys.stderr, "%s takes no arguments." % sys.args[0]
+        print >> sys.stderr, "%s takes no arguments." % args[0]
         sys.exit(1)
 
     cp = ConfigParser.ConfigParser()
@@ -47,7 +50,9 @@ def parse_args():
 
     return opts, args
 
+
 def getFromURL(url):
+    """Get content from URL"""
     try:
         req = urllib2.Request(url)
         opener = urllib2.build_opener()
@@ -57,7 +62,9 @@ def getFromURL(url):
         print er
         return None
 
-def update_rrd(fname, line):
+
+def updateRrd(fname, line):
+    """ TODO: write it... """
     try:
         rrdtool.update(fname, line)
     except rrdtool.error as e:
@@ -65,83 +72,89 @@ def update_rrd(fname, line):
         print fname
         print line
 
-def query_factory(coll, output):
+
+def queryFactory(coll, output):
+    """TODO: write it """
     try:
-        entries = coll.query(htcondor.AdTypes.Any, 'MyType=?="glidefactory" && GLIDEIN_CMSSite isnt undefined',['GLIDEIN_CMSSite', 'GLIDEIN_MaxMemMBs', 'GLIDEIN_Max_Walltime'])
+        entries = coll.query(htcondor.AdTypes.Any, 'MyType=?="glidefactory" && GLIDEIN_CMSSite isnt undefined',
+                             ['GLIDEIN_CMSSite', 'GLIDEIN_MaxMemMBs', 'GLIDEIN_Max_Walltime'])
     except IOError as er:
         print 'Failed to query factory. Error: %s' % er
         return
     for entry in entries:
-        #So far it requires to -30minutes from Walltime request. TODO
+        # So far it requires to -30minutes from Walltime request. TODO
+        if 'GLIDEIN_MaxMemMBs' not in entry:
+            entry['GLIDEIN_MaxMemMBs'] = 0
+        if 'GLIDEIN_Max_Walltime' not in entry:
+            entry['GLIDEIN_Max_Walltime'] = 0
         dataAppend = {'MaxMemMB': entry['GLIDEIN_MaxMemMBs'], 'MaxWallTime': int(entry['GLIDEIN_Max_Walltime']/60)}
         if entry['GLIDEIN_CMSSite'] not in output:
             output[entry['GLIDEIN_CMSSite']] = []
-        InDict = False
+        inDict = False
         for item in output[entry['GLIDEIN_CMSSite']]:
             if cmp(item, dataAppend) == 0:
-                InDict = True
-        if not InDict:
+                inDict = True
+        if not inDict:
             output[entry['GLIDEIN_CMSSite']].append(dataAppend)
 
-def summarize_schedds(schedds_info, schedd_ads):
-    for ad in schedd_ads:
-        #['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning']
-        name = ad['Name'].replace("@", "-")
-        name = name.replace(".", "-")
-        schedds_info[name] = {}
-        schedds_info[name]['Name'] = ad['Name']
-        schedds_info[name]['FileName'] = name
-        if 'CMSGWMS_Type' in ad:
-            schedds_info[name]['CMSGWMS_Type'] = ad['CMSGWMS_Type']
-        else:
-            schedds_info[name]['CMSGWMS_Type'] = 'CRAB2'
-        schedds_info[name]['Machine'] = ad['Machine']
-        schedds_info[name]['TotalRunningJobs'] = ad['TotalRunningJobs']
-        schedds_info[name]['TotalIdleJobs'] = ad['TotalIdleJobs']
-        schedds_info[name]['TotalHeldJobs'] = ad['TotalHeldJobs']
-        schedds_info[name]['MaxJobsRunning'] = ad['MaxJobsRunning']
-        schedds_info[name]['PercentageUse'] = 0 if ad['TotalRunningJobs'] == 0 else int((ad['TotalRunningJobs']*100)/ad['MaxJobsRunning'])
-        schedds_info[name]['Status'] = 'UNKNOWN'
-        schedd_status = "UNKNOWN"
+
+def summarizeSchedds(scheddsInfo, scheddAds):
+    """ TODO: write it. """
+    for ad in scheddAds:
+        # ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning']
+        name = ad['Name'].replace("@", "-").replace(".", "-")
+        scheddsInfo[name] = {}
+        scheddsInfo[name]['FileName'] = name
+        scheddsInfo[name]['CMSGWMS_Type'] = ad['CMSGWMS_Type'] if 'CMSGWMS_Type' in ad else 'CRAB2'
+        keys = ['Name', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning']
+        for key in keys:
+            scheddsInfo[name][key] = ad[key]
+        scheddsInfo[name]['PercentageUse'] = 0 if ad['TotalRunningJobs'] == 0 else int((ad['TotalRunningJobs']*100)/ad['MaxJobsRunning'])
+        scheddStatus = "UNKNOWN"
         try:
-            status_expr = classad.ExprTree('ifThenElse(IsOK is undefined, "UNKNOWN", ifThenElse(IsOK,"OK", ifThenElse(IsCritical, "CRITICAL", "WARNING")))');
-            schedd_status = status_expr.eval(ad)
+            statusExpr = classad.ExprTree('ifThenElse(IsOK is undefined, "UNKNOWN", ifThenElse(IsOK,"OK", ifThenElse(IsCritical, "CRITICAL", "WARNING")))')
+            scheddStatus = statusExpr.eval(ad)
         except:
             print 'Strange. wrong expression...', ad
             continue
-        schedds_info[name]['Status'] = schedd_status
+        scheddsInfo[name]['Status'] = scheddStatus
 
-def pilotUsageInfo(coll, pilot_usage):
+
+def pilotUsageInfo(coll, pilotUsage):
+    """ TODO """
     pilots = []
     try:
-        pilots = coll.query(htcondor.AdTypes.Any, 'GLIDEIN_CMSSite isnt undefined && SlotType isnt undefined', ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State'])
+        pilots = coll.query(htcondor.AdTypes.Any, 'GLIDEIN_CMSSite isnt undefined && SlotType isnt undefined',
+                            ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State'])
     except IOError as er:
         print 'Got IOError %s' % er
         return
     for item in pilots:
         if 'PartitionableSlot' in item:
-            #Means we have partitionable slot and some info about it
-            #and we don`t care about state as in Static
-            slot_info = pilot_usage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
-            slot_info['CpusFree'] += int(item['Cpus'])
-            slot_info['CpusUse'] += int(item['TotalSlotCpus'] - item['Cpus'])
+            # Means we have partitionable slot and some info about it
+            # and we don`t care about state as in Static
+            slotInfo = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
+            slotInfo['CpusFree'] += int(item['Cpus'])
+            slotInfo['CpusUse'] += int(item['TotalSlotCpus'] - item['Cpus'])
         elif item['SlotType'] == 'Static':
-            slot_info = pilot_usage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
+            slotInfo = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
             if item['State'] == 'Claimed':
-                slot_info['CpusUse'] += 1
+                slotInfo['CpusUse'] += 1
             elif item['State'] == 'Unclaimed':
-                slot_info['CpusUse'] += 1
-    #summarize
-    pilot_usage['Summary'] = {}
-    for item, item_dict in pilot_usage.items():
+                slotInfo['CpusUse'] += 1
+    # summarize
+    pilotUsage['Summary'] = {}
+    for item, itemDict in pilotUsage.items():
         if item == 'Summary':
             continue
-        for slot, slot_dict in item_dict.items():
-            out = pilot_usage.setdefault('Summary', {}).setdefault(slot, {'CpusUse': 0, 'CpusFree': 0})
-            out['CpusUse'] += slot_dict['CpusUse']
-            out['CpusFree'] += slot_dict['CpusFree']
+        for slot, slotDict in itemDict.items():
+            out = pilotUsage.setdefault('Summary', {}).setdefault(slot, {'CpusUse': 0, 'CpusFree': 0})
+            out['CpusUse'] += slotDict['CpusUse']
+            out['CpusFree'] += slotDict['CpusFree']
+
 
 def parseConfigXML(entries, output, factoryName, entryMappings):
+    """ TODO doc """
     for entry in entries:
         entryName = entry.get('name')
         attr = entry.find('attributes')
@@ -165,9 +178,10 @@ def parseConfigXML(entries, output, factoryName, entryMappings):
             factoryInfo['maxHeld'] = maxHeld
 
 
-def appendtoOutput(output, siteName, Entry, factory, held, idle, run, err = None, warning = None):
+def appendtoOutput(output, siteName, entry, factory, held, idle, run, err=None, warning=None):
+    """ TODO doc """
     if siteName:
-        mapped = output.setdefault(siteName, {}).setdefault(Entry, {}).setdefault(factory, {})
+        mapped = output.setdefault(siteName, {}).setdefault(entry, {}).setdefault(factory, {})
         mapped['nowHeld'] = int(float(held))
         mapped['nowIdle'] = int(float(idle))
         mapped['nowRunn'] = int(float(run))
@@ -180,6 +194,7 @@ def appendtoOutput(output, siteName, Entry, factory, held, idle, run, err = None
 
 
 def parseRRDsData(entries, output, factoryName, entryMappings):
+    """TODO doc """
     for entry in entries:
         entryName = entry.get('name')
         frontends = entry.find('frontends')
@@ -209,16 +224,14 @@ def parseRRDsData(entries, output, factoryName, entryMappings):
                 if int(pname) != 7200:
                     continue
                 foundPeriod = True
-                NowHeld = period.get('StatusHeld')
-                NowIdle = period.get('StatusIdle')
-                NowRunn = period.get('StatusRunning')
-                if not NowHeld and not NowIdle and not NowRunn:
+                nowHeld = period.get('StatusHeld')
+                nowIdle = period.get('StatusIdle')
+                nowRunn = period.get('StatusRunning')
+                if not nowHeld and not nowIdle and not nowRunn:
                     warning = 'There is no data for last 2h about running/idle/held. Maybe no one is requesting?'
                     appendtoOutput(output, previousSiteName, previousEntry, factoryName, 0, 0, 0, None, warning)
                     continue
-                if entryName in entryMappings:
-                    siteName = entryMappings[entryName]
-                appendtoOutput(output, previousSiteName, previousEntry, factoryName, NowHeld, NowIdle, NowRunn)
+                appendtoOutput(output, previousSiteName, previousEntry, factoryName, nowHeld, nowIdle, nowRunn)
         if not foundPeriod and previousEntry and previousSiteName:
             error = 'There is no data for last 2h about running/idle/held. Maybe no one is requesting?'
             appendtoOutput(output, previousSiteName, previousEntry, factoryName, 0, 0, 0, error)
@@ -227,31 +240,33 @@ def parseRRDsData(entries, output, factoryName, entryMappings):
             appendtoOutput(output, previousSiteName, previousEntry, factoryName, 0, 0, 0, error)
 
 
-def write_schedd_info(basedir, schedds_info, fact_info):
+def writeScheddInfo(basedir, scheddsInfo, factInfo):
+    """ TODO doc """
     now = int(time.time())
-    schedds_info['Summary'] = {}
-    schedds_info['Summary']['UpdateTime'] = now
-    drop_obj(schedds_info, basedir, 'summary.json')
-    for schedd_name, schedd_dict in schedds_info.items():
-        if 'Name' not in schedd_dict:
+    scheddsInfo['Summary'] = {}
+    scheddsInfo['Summary']['UpdateTime'] = now
+    dropObj(scheddsInfo, basedir, 'summary.json')
+    for scheddName, scheddDict in scheddsInfo.items():
+        if 'Name' not in scheddDict:
             continue
-        request_dir = os.path.join(basedir, schedd_name)
-        if not os.path.exists(request_dir):
-            os.makedirs(request_dir)
-        fname = str(os.path.join(request_dir, "request.rrd"))
+        requestDir = os.path.join(basedir, scheddName)
+        if not os.path.exists(requestDir):
+            os.makedirs(requestDir)
+        fname = str(os.path.join(requestDir, "request.rrd"))
         if not os.path.exists(fname):
             rrdtool.create(fname,
-                "--step", "180",
-                "DS:Running:GAUGE:360:U:U",
-                "DS:Idle:GAUGE:360:U:U",
-                "RRA:AVERAGE:0.5:1:1000",
-                "RRA:AVERAGE:0.5:20:2000",
-            )
-        update_rrd(fname, "%d:%d:%d" % (g_startup, schedd_dict["TotalRunningJobs"], schedd_dict["TotalIdleJobs"]))
-    drop_obj(fact_info, basedir, 'totals.json')
+                           "--step", "180",
+                           "DS:Running:GAUGE:360:U:U",
+                           "DS:Idle:GAUGE:360:U:U",
+                           "RRA:AVERAGE:0.5:1:1000",
+                           "RRA:AVERAGE:0.5:20:2000",)
+        updateRrd(fname, "%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"]))
+    dropObj(factInfo, basedir, 'totals.json')
     return
 
-def load_pool_data(totals, sites, basedir, name):
+
+def loadPoolData(totals, sites, basedir, name):
+    """TODO doc"""
     totals[name] = {}
     sites[name] = {}
     fname = os.path.join(basedir, 'totals.json')
@@ -269,237 +284,237 @@ def load_pool_data(totals, sites, basedir, name):
         return False
     return True
 
-def writeToVar(out, entry_info):
-    out['Summary']['Held'] += entry_info['nowHeld']
-    out['Summary']['Run'] += entry_info['nowRunn']
-    out['Summary']['Idle'] += entry_info['nowIdle']
-    out['Summary']['MIdle'] += entry_info['maxIdle']
-    out['Summary']['MHeld'] += entry_info['maxHeld']
-    out['Summary']['Errors'] += 0 if 'Error' not in entry_info else len(entry_info['Error'])
-    out['Summary']['Warnings'] += 0 if 'Warning' not in entry_info else len(entry_info['Warning'])
+
+def writeToVar(out, entryInfo):
+    """ TODO doc """
+    out['Summary']['Held'] += entryInfo['nowHeld']
+    out['Summary']['Run'] += entryInfo['nowRunn']
+    out['Summary']['Idle'] += entryInfo['nowIdle']
+    out['Summary']['MIdle'] += entryInfo['maxIdle']
+    out['Summary']['MHeld'] += entryInfo['maxHeld']
+    out['Summary']['Errors'] += 0 if 'Error' not in entryInfo else len(entryInfo['Error'])
+    out['Summary']['Warnings'] += 0 if 'Warning' not in entryInfo else len(entryInfo['Warning'])
 
 
-def summarize(totals, sites, xmlout, sitesCompare, pilot_usage):
+def summarize(totals, sites, xmlout, sitesCompare, pilotUsage):
+    """ TODO doc """
     totalR = 0
     totalI = 0
-    for type, type_dict in totals.items():
-        if 'Running' in type_dict.keys():
-            totalR += type_dict['Running']
-        if 'Idle' in type_dict.keys():
-            totalI += type_dict['Idle']
+    for dummytype, typeDict in totals.items():
+        if 'Running' in typeDict.keys():
+            totalR += typeDict['Running']
+        if 'Idle' in typeDict.keys():
+            totalI += typeDict['Idle']
     totals['Summary'] = {}
     totals['Summary']['Running'] = totalR
     totals['Summary']['Idle'] = totalI
-    
+
     sites['Summary'] = {}
-    for type, type_dict in sites.items():
-        if not type == 'Summary':
-            for site, site_dict in type_dict.items():
+    for typeK, typeDict in sites.items():
+        if not typeK == 'Summary':
+            for site, siteDict in typeDict.items():
                 if site and site != "Summary":
                     if site not in sites['Summary'].keys():
                         sites['Summary'][site] = {"Running": 0, "MatchingIdle": 0}
-                    sites['Summary'][site]['Running'] += site_dict['Running']
-                    sites['Summary'][site]['MatchingIdle'] += site_dict['MatchingIdle']
-                    sites['Summary'][site][type] = site_dict
-                    if site in pilot_usage:
-                        sites['Summary'][site]['PilotUsage'] = pilot_usage[site]
+                    sites['Summary'][site]['Running'] += siteDict['Running']
+                    sites['Summary'][site]['MatchingIdle'] += siteDict['MatchingIdle']
+                    sites['Summary'][site][type] = siteDict
+                    if site in pilotUsage:
+                        sites['Summary'][site]['PilotUsage'] = pilotUsage[site]
 
-    #Double check with what maximum was
-    for site, site_dict in sites['Summary'].items():
+    # Double check with what maximum was
+    for site, siteDict in sites['Summary'].items():
         if site in sitesCompare and 'MaxWasRunning' in sitesCompare[site]:
-            if site_dict['Running'] > sitesCompare[site]['MaxWasRunning']:
-                sites['Summary'][site]['MaxWasRunning'] = site_dict['Running']
+            if siteDict['Running'] > sitesCompare[site]['MaxWasRunning']:
+                sites['Summary'][site]['MaxWasRunning'] = siteDict['Running']
             else:
                 sites['Summary'][site]['MaxWasRunning'] = sitesCompare[site]['MaxWasRunning']
         else:
-            sites['Summary'][site]['MaxWasRunning'] = site_dict['Running']
+            sites['Summary'][site]['MaxWasRunning'] = siteDict['Running']
 
     xmlout['Summary'] = {'Held': 0, 'Idle': 0, 'Run': 0, 'MHeld': 0, 'MIdle': 0, 'Errors': 0, 'Warnings': 0}
-    for siteName, entries_dict in xmlout.items():
+    for siteName, entriesDict in xmlout.items():
         if siteName not in ['Summary', 'Errors']:
-            entries_dict["Summary"] = {'Held': 0, 'Idle': 0, 'Run': 0, 'MHeld': 0, 'MIdle': 0, 'Errors': 0, 'Warnings': 0}
-            for entry, factory_dict in entries_dict.items():
+            entriesDict["Summary"] = {'Held': 0, 'Idle': 0, 'Run': 0, 'MHeld': 0, 'MIdle': 0, 'Errors': 0, 'Warnings': 0}
+            for entry, factoryDict in entriesDict.items():
                 if entry in ['Summary']:
                     continue
-                for factory, entry_info in factory_dict.items():
-                    #fix the mess in the factory!!!
+                for dummyfactory, entryInfo in factoryDict.items():
+                    # fix the mess in the factory!!!
                     # Until factory will move all their xmls to somewhere where you can track history
                     # who did changes than, we need to track this down.
                     # The problem is that same entry name points to different cms sites on diff factories
                     # And one entry is on, another is off. Who forgot to update ?!
                     messedUp = False
                     for key in ['nowHeld', 'nowRunn', 'nowIdle', 'maxIdle', 'maxHeld']:
-                        if key not in entry_info:
-                            entry_info[key] = 0
+                        if key not in entryInfo:
+                            entryInfo[key] = 0
                             messedUp = True
                     if messedUp:
-                        errors = entry_info.setdefault('Error', [])
+                        errors = entryInfo.setdefault('Error', [])
                         errors.append("Messed up! Please contact factory ops.")
-                    elif entry_info['nowHeld'] > 0 and entry_info['nowHeld'] >= entry_info['maxHeld']:
+                    elif entryInfo['nowHeld'] > 0 and entryInfo['nowHeld'] >= entryInfo['maxHeld']:
                         # Everything is held and there will not be any progress until it is cleaned
-                        errors = entry_info.setdefault('Error', [])
-                        errors.append("Held pilots reached limit. Factory/Frontend will not request any new pilot to run until they are cleaned. Contact Factory ops to know the held reason.")
-                    elif entry_info['nowIdle'] > 0 and entry_info['nowIdle'] >= entry_info['maxIdle'] and entry_info['nowRunn'] == 0:
-                        warnings = entry_info.setdefault('Warning', [])
+                        errors = entryInfo.setdefault('Error', [])
+                        errors.append("Held pilots reached limit. Factory/Frontend will not request any new pilot to run until they are cleaned. \
+                                      Contact Factory ops to know the held reason.")
+                    elif entryInfo['nowIdle'] > 0 and entryInfo['nowIdle'] >= entryInfo['maxIdle'] and entryInfo['nowRunn'] == 0:
+                        warnings = entryInfo.setdefault('Warning', [])
                         warnings.append("Idle pilots reached its limit and there is 0 running. Something is wrong.")
-                    writeToVar(xmlout, entry_info)
-                    writeToVar(entries_dict, entry_info)
+                    writeToVar(xmlout, entryInfo)
+                    writeToVar(entriesDict, entryInfo)
 
 
-def drop_obj(obj, dirname, fname):
+def dropObj(obj, dirname, fname):
+    """ TODO move from here """
     dirname = re.sub('[:]', '', dirname)
     fname = re.sub('[:]', '', fname)
     if not os.path.exists(dirname):
         os.makedirs(dirname)
-    fname_tmp = os.path.join(dirname, fname + ".tmp")
+    fnameTmp = os.path.join(dirname, fname + ".tmp")
     fname = os.path.join(dirname, fname)
-    json.dump(obj, open(fname_tmp, "w"))
-    os.rename(fname_tmp, fname)
+    json.dump(obj, open(fnameTmp, "w"))
+    os.rename(fnameTmp, fname)
 
 
-def write_json(totals, sites, xmlout, output, factoryout):
-
+def writeJson(totals, sites, xmlout, output, factoryout):
+    """TODO: write doc"""
     now = int(time.time())
     totals['Summary']['UpdateTime'] = now
-    drop_obj(totals['Summary'], output, 'summary.json')
-    drop_obj(totals, output, 'totals.json')
+    dropObj(totals['Summary'], output, 'summary.json')
+    dropObj(totals, output, 'totals.json')
     sitesT = sites.setdefault('Summary', {})
-    drop_obj(sitesT, output, 'site_summary.json')
-    for site, site_dict in sitesT.items():
-        site_dir = os.path.join(output, site)
-        drop_obj(site_dict, site_dir, "summary.json")
-    drop_obj(xmlout['Summary'], factoryout, 'summary.json')
-    for site, site_dict in xmlout.items():
+    dropObj(sitesT, output, 'site_summary.json')
+    for site, siteDict in sitesT.items():
+        siteDir = os.path.join(output, site)
+        dropObj(siteDict, siteDir, "summary.json")
+    dropObj(xmlout['Summary'], factoryout, 'summary.json')
+    for site, siteDict in xmlout.items():
         if site in ['Errors', 'Summary']:
             continue
-        site_dir = os.path.join(factoryout, site)
-        drop_obj(site_dict, site_dir, 'summary.json')
-    drop_obj(xmlout, factoryout, 'totals.json')
+        siteDir = os.path.join(factoryout, site)
+        dropObj(siteDict, siteDir, 'summary.json')
+    dropObj(xmlout, factoryout, 'totals.json')
 
 
-def write_rrds(totals, sites, xmlout, output, factoryout):
-
+def writeRrds(totals, sites, xmlout, output, factoryout):
+    """ TODO doc """
     running = totals['Summary']['Running']
     idle = totals['Summary']['Idle']
     fname = str(os.path.join(output, "summary.rrd"))
     if not os.path.exists(fname):
         rrdtool.create(fname,
-            "--step", "180",
-            "DS:Running:GAUGE:360:U:U",
-            "DS:Idle:GAUGE:360:U:U",
-            "RRA:AVERAGE:0.5:1:1000",
-            "RRA:AVERAGE:0.5:20:2000",
-        )
-    update_rrd(fname, "%d:%d:%d" % (g_startup, running, idle))
+                       "--step", "180",
+                       "DS:Running:GAUGE:360:U:U",
+                       "DS:Idle:GAUGE:360:U:U",
+                       "RRA:AVERAGE:0.5:1:1000",
+                       "RRA:AVERAGE:0.5:20:2000",)
+    updateRrd(fname, "%d:%d:%d" % (GSTARTUP, running, idle))
 
-    for site, site_dict in sites['Summary'].items():
+    for site, siteDict in sites['Summary'].items():
         fname = str(os.path.join(output, "%s.rrd" % site))
         if not os.path.exists(fname):
             rrdtool.create(fname,
-                "--step", "180",
-                "DS:Running:GAUGE:360:U:U",
-                "DS:MatchingIdle:GAUGE:360:U:U",
-                "RRA:AVERAGE:0.5:1:1000",
-                "RRA:AVERAGE:0.5:20:2000",
-            )
-        update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
+                           "--step", "180",
+                           "DS:Running:GAUGE:360:U:U",
+                           "DS:MatchingIdle:GAUGE:360:U:U",
+                           "RRA:AVERAGE:0.5:1:1000",
+                           "RRA:AVERAGE:0.5:20:2000",)
+        updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"]))
         fname = str(os.path.join(output, "%s-UTIL.rrd" % site))
         if not os.path.exists(fname):
             rrdtool.create(fname,
-                "--step", "180",
-                "DS:Running:GAUGE:360:U:U",
-                "DS:MaxRunning:GAUGE:360:U:U",
-                "RRA:AVERAGE:0.5:1:1000",
-                "RRA:AVERAGE:0.5:20:2000",
-                )
-        update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MaxWasRunning"]))
-        if 'PilotUsage' in site_dict:
-            partR = 0 if 'Partitionable' not in site_dict['PilotUsage'] else site_dict['PilotUsage']['Partitionable']['CpusUse']
-            partI = 0 if 'Partitionable' not in site_dict['PilotUsage'] else site_dict['PilotUsage']['Partitionable']['CpusFree']
-            statR = 0 if 'Static' not in site_dict['PilotUsage'] else site_dict['PilotUsage']['Static']['CpusUse']
-            statI = 0 if 'Static' not in site_dict['PilotUsage'] else site_dict['PilotUsage']['Static']['CpusFree']
+                           "--step", "180",
+                           "DS:Running:GAUGE:360:U:U",
+                           "DS:MaxRunning:GAUGE:360:U:U",
+                           "RRA:AVERAGE:0.5:1:1000",
+                           "RRA:AVERAGE:0.5:20:2000",)
+        updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MaxWasRunning"]))
+        if 'PilotUsage' in siteDict:
+            partR = 0 if 'Partitionable' not in siteDict['PilotUsage'] else siteDict['PilotUsage']['Partitionable']['CpusUse']
+            partI = 0 if 'Partitionable' not in siteDict['PilotUsage'] else siteDict['PilotUsage']['Partitionable']['CpusFree']
+            statR = 0 if 'Static' not in siteDict['PilotUsage'] else siteDict['PilotUsage']['Static']['CpusUse']
+            statI = 0 if 'Static' not in siteDict['PilotUsage'] else siteDict['PilotUsage']['Static']['CpusFree']
             fname = str(os.path.join(output, "%s-USAGE.rrd" % site))
             if not os.path.exists(fname):
                 rrdtool.create(fname,
-                   "--step", "180",
-                   "DS:PartRunning:GAUGE:360:U:U",
-                   "DS:PartIdle:GAUGE:360:U:U",
-                   "DS:StatRunning:GAUGE:360:U:U",
-                   "DS:StatIdle:GAUGE:360:U:U",
-                   "RRA:AVERAGE:0.5:1:1000",
-                   "RRA:AVERAGE:0.5:20:2000",
-                   )
-            update_rrd(fname, "%d:%d:%d:%d:%d" % (g_startup, partR, partI, statR, statI))
+                               "--step", "180",
+                               "DS:PartRunning:GAUGE:360:U:U",
+                               "DS:PartIdle:GAUGE:360:U:U",
+                               "DS:StatRunning:GAUGE:360:U:U",
+                               "DS:StatIdle:GAUGE:360:U:U",
+                               "RRA:AVERAGE:0.5:1:1000",
+                               "RRA:AVERAGE:0.5:20:2000",)
+            updateRrd(fname, "%d:%d:%d:%d:%d" % (GSTARTUP, partR, partI, statR, statI))
 
-
-    #Create fake empty.rrd for sites which have no data.
+    # Create fake empty.rrd for sites which have no data.
     fname = str(os.path.join(output, "empty.rrd"))
     if not os.path.exists(fname):
         rrdtool.create(fname,
-                "--step", "180",
-                "DS:Running:GAUGE:360:U:U",
-                "DS:MatchingIdle:GAUGE:360:U:U",
-                "DS:MaxRunning:GAUGE:360:U:U",
-                "RRA:AVERAGE:0.5:1:1000",
-                "RRA:AVERAGE:0.5:20:2000",
-            )
-        update_rrd(fname, "%d:0:0:0" % g_startup)
+                       "--step", "180",
+                       "DS:Running:GAUGE:360:U:U",
+                       "DS:MatchingIdle:GAUGE:360:U:U",
+                       "DS:MaxRunning:GAUGE:360:U:U",
+                       "RRA:AVERAGE:0.5:1:1000",
+                       "RRA:AVERAGE:0.5:20:2000",)
+        updateRrd(fname, "%d:0:0:0" % GSTARTUP)
 
     fname = str(os.path.join(factoryout, 'summary.rrd'))
     summary = xmlout['Summary']
     if not os.path.exists(fname):
         rrdtool.create(fname,
-                "--step", "180",
-                "DS:Running:GAUGE:360:U:U",
-                "DS:Idle:GAUGE:360:U:U",
-                "DS:Held:GAUGE:360:U:U",
-                "DS:MaxIdle:GAUGE:360:U:U",
-                "DS:MaxHeld:GAUGE:360:U:U",
-                "RRA:AVERAGE:0.5:1:1000",
-                "RRA:AVERAGE:0.5:20:2000",
-                )
-    update_rrd(fname, "%d:%d:%d:%d:%d:%d" % (g_startup, summary['Run'], summary['Idle'], summary['Held'], summary['MIdle'], summary['MHeld']))
-    for site, site_dict in xmlout.items():
+                       "--step", "180",
+                       "DS:Running:GAUGE:360:U:U",
+                       "DS:Idle:GAUGE:360:U:U",
+                       "DS:Held:GAUGE:360:U:U",
+                       "DS:MaxIdle:GAUGE:360:U:U",
+                       "DS:MaxHeld:GAUGE:360:U:U",
+                       "RRA:AVERAGE:0.5:1:1000",
+                       "RRA:AVERAGE:0.5:20:2000",)
+    updateRrd(fname, "%d:%d:%d:%d:%d:%d" % (GSTARTUP, summary['Run'], summary['Idle'], summary['Held'], summary['MIdle'], summary['MHeld']))
+    for site, siteDict in xmlout.items():
         if site in ['FactoryUrls', 'Errors', 'Summary']:
             continue
-        for entry, entry_dict in site_dict.items():
+        for entry, entryDict in siteDict.items():
             if entry == 'Summary':
                 fname = str(os.path.join(factoryout, '%s.rrd' % site))
                 if not os.path.exists(fname):
                     rrdtool.create(fname,
-                            "--step", "180",
-                            "DS:Running:GAUGE:360:U:U",
-                            "DS:Idle:GAUGE:360:U:U",
-                            "DS:Held:GAUGE:360:U:U",
-                            "DS:MaxIdle:GAUGE:360:U:U",
-                            "DS:MaxHeld:GAUGE:360:U:U",
-                            "RRA:AVERAGE:0.5:1:1000",
-                            "RRA:AVERAGE:0.5:20:2000",
-                            )
-                update_rrd(fname, "%d:%d:%d:%d:%d:%d" % (g_startup, entry_dict['Run'], entry_dict['Idle'], entry_dict['Held'], entry_dict['MIdle'], entry_dict['MHeld']))
+                                   "--step", "180",
+                                   "DS:Running:GAUGE:360:U:U",
+                                   "DS:Idle:GAUGE:360:U:U",
+                                   "DS:Held:GAUGE:360:U:U",
+                                   "DS:MaxIdle:GAUGE:360:U:U",
+                                   "DS:MaxHeld:GAUGE:360:U:U",
+                                   "RRA:AVERAGE:0.5:1:1000",
+                                   "RRA:AVERAGE:0.5:20:2000",)
+                updateRrd(fname, "%d:%d:%d:%d:%d:%d" % (GSTARTUP, entryDict['Run'], entryDict['Idle'],
+                                                        entryDict['Held'], entryDict['MIdle'], entryDict['MHeld']))
                 continue
             else:
-                subsite_dir = os.path.join(factoryout, site)
-                if not os.path.exists(subsite_dir):
-                    os.makedirs(subsite_dir)
-                for factory, factory_info in entry_dict.items():
+                subsiteDir = os.path.join(factoryout, site)
+                if not os.path.exists(subsiteDir):
+                    os.makedirs(subsiteDir)
+                for factory, factoryInfo in entryDict.items():
                     newName = str(re.sub('[ ]', '', factory.lower()) + (re.sub('[ ]', '', entry)))
-                    fname = os.path.join(subsite_dir, '%s.rrd' % newName)
+                    fname = os.path.join(subsiteDir, '%s.rrd' % newName)
                     if not os.path.exists(fname):
                         rrdtool.create(fname,
-                                "--step", "180",
-                                "DS:Running:GAUGE:360:U:U",
-                                "DS:Idle:GAUGE:360:U:U",
-                                "DS:Held:GAUGE:360:U:U",
-                                "DS:MaxIdle:GAUGE:360:U:U",
-                                "DS:MaxHeld:GAUGE:360:U:U",
-                                "RRA:AVERAGE:0.5:1:1000",
-                                "RRA:AVERAGE:0.5:20:2000",
-                                )
-                    update_rrd(fname, "%d:%d:%d:%d:%d:%d" % (g_startup, factory_info['nowRunn'], factory_info['nowIdle'], factory_info['nowHeld'], factory_info['maxIdle'], factory_info['maxHeld']))
+                                       "--step", "180",
+                                       "DS:Running:GAUGE:360:U:U",
+                                       "DS:Idle:GAUGE:360:U:U",
+                                       "DS:Held:GAUGE:360:U:U",
+                                       "DS:MaxIdle:GAUGE:360:U:U",
+                                       "DS:MaxHeld:GAUGE:360:U:U",
+                                       "RRA:AVERAGE:0.5:1:1000",
+                                       "RRA:AVERAGE:0.5:20:2000",)
+                    updateRrd(fname, "%d:%d:%d:%d:%d:%d" % (GSTARTUP, factoryInfo['nowRunn'], factoryInfo['nowIdle'],
+                                                            factoryInfo['nowHeld'], factoryInfo['maxIdle'], factoryInfo['maxHeld']))
+
 
 def main():
-    opts, args = parse_args()
+    """ Main function """
+    opts, dummyargs = parseArgs()
 
     if opts.pool:
         coll = htcondor.Collector(opts.pool)
@@ -507,74 +522,74 @@ def main():
         coll = htcondor.Collector()
 
     # Has to be moved below
-    fact_out = {} # Used from condor
-    xml_out = {} # Used from parsing xmls
-    entryMappings = {} # Used for entries mapping from factory xmls
-    #Move this list to configuration
+    factOut = {}  # Used from condor
+    xmlOut = {}  # Used from parsing xmls
+    entryMappings = {}  # Used for entries mapping from factory xmls
+    # Move this list to configuration
     for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0305.cern.ch']:
         print 'Query %s factory' % factory
         collF = htcondor.Collector(factory)
-        query_factory(collF, fact_out)
-    #Get schedulers information
-    schedds_info = {}
-    schedd_ads = []
+        queryFactory(collF, factOut)
+    # Get schedulers information
+    scheddsInfo = {}
+    scheddAds = []
     try:
-        schedd_ads = coll.query(htcondor.AdTypes.Schedd, 'True',['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical'])
+        scheddAds = coll.query(htcondor.AdTypes.Schedd, 'True', ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs',
+                                                                 'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical'])
     except IOError as er:
         print 'Got IOError %s' % er
-    if schedd_ads:
-        summarize_schedds(schedds_info, schedd_ads)
-    write_schedd_info(opts.scheddview, schedds_info, fact_out)
+    if scheddAds:
+        summarizeSchedds(scheddsInfo, scheddAds)
+    writeScheddInfo(opts.scheddview, scheddsInfo, factOut)
 
-    pilot_usage = {} 
+    pilotUsage = {}
     totals = {}
     sites = {}
 
-    pilotUsageInfo(coll, pilot_usage)
-    load_pool_data(totals, sites, opts.analysisview, "analysisview")
-    load_pool_data(totals, sites, opts.prodview, "prodview")
-    load_pool_data(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
+    pilotUsageInfo(coll, pilotUsage)
+    loadPoolData(totals, sites, opts.analysisview, "analysisview")
+    loadPoolData(totals, sites, opts.prodview, "prodview")
+    loadPoolData(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
 
-    max_resources = {}
-    max_totals = {}
+    maxResources = {}
+    maxTotals = {}
     i = 0
     while i < 5:
-        success = load_pool_data(max_totals, max_resources, opts.output, "totalview")
+        success = loadPoolData(maxTotals, maxResources, opts.output, "totalview")
         if success:
             break
         print 'Failed to load site data for resource utilization'
         time.sleep(1)
         i += 1
-    #Move this list to configuration also
-    urls = [{"FNAL Factory" :"http://cmsgwms-factory.fnal.gov:8319/factory/monitor/"},
-            {"GOC Factory" : "http://glidein.grid.iu.edu/factory/monitor/"},
-            {"UCSD Factory" : "http://gfactory-1.t2.ucsd.edu/factory/monitor/"},
-            {"CERN Factory" : "http://vocms0305.cern.ch/monitor/"}]
+    # Move this list to configuration also
+    urls = [{"FNAL Factory": "http://cmsgwms-factory.fnal.gov:8319/factory/monitor/"},
+            {"GOC Factory": "http://glidein.grid.iu.edu/factory/monitor/"},
+            {"UCSD Factory": "http://gfactory-1.t2.ucsd.edu/factory/monitor/"},
+            {"CERN Factory": "http://vocms0305.cern.ch/monitor/"}]
     appends = ['descript.xml', 'rrd_Status_Attributes.xml']
-    errors = xml_out.setdefault("Errors", [])
+    errors = xmlOut.setdefault("Errors", [])
     for appendId in [0, 1]:
-        for url_ in urls:
-            factoryName, url = url_.items()[0]
+        for urlVal in urls:
+            factoryName, url = urlVal.items()[0]
             urlD = url + appends[appendId]
-            factory_xml = getFromURL(urlD)
-            if not factory_xml:
+            factoryXml = getFromURL(urlD)
+            if not factoryXml:
                 errors.append("Failed to parse %s info from %s url" % (factoryName, urlD))
                 continue
-            root = ET.fromstring(factory_xml)
+            root = ET.fromstring(factoryXml)
             entries = root.find('entries')
             if appendId == 0:
-                parseConfigXML(entries, xml_out, factoryName, entryMappings)
+                parseConfigXML(entries, xmlOut, factoryName, entryMappings)
             else:
-                parseRRDsData(entries, xml_out, factoryName, entryMappings)
-    summarize(totals, sites, xml_out, max_resources['totalview'], pilot_usage)
-    xml_out["Summary"]["FactoryUrls"] = {}
-    for url_ in urls:
-        factoryName, url = url_.items()[0]
-        xml_out["Summary"]["FactoryUrls"][factoryName] = url
+                parseRRDsData(entries, xmlOut, factoryName, entryMappings)
+    summarize(totals, sites, xmlOut, maxResources['totalview'], pilotUsage)
+    xmlOut["Summary"]["FactoryUrls"] = {}
+    for urlVal in urls:
+        factoryName, url = urlVal.items()[0]
+        xmlOut["Summary"]["FactoryUrls"][factoryName] = url
     if opts.output:
-        write_json(totals, sites, xml_out, opts.output, opts.factoryview)
-        write_rrds(totals, sites, xml_out, opts.output, opts.factoryview)
+        writeJson(totals, sites, xmlOut, opts.output, opts.factoryview)
+        writeRrds(totals, sites, xmlOut, opts.output, opts.factoryview)
 
 if __name__ == "__main__":
     main()
-

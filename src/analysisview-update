@@ -42,64 +42,42 @@ def parse_args():
 
 
 def query_schedd(ad, workflows, taskInfo):
+    keys = ["CRAB_UserHN","CRAB_ReqName", "ClusterId", "RequestMemory", "MaxWallTimeMins",
+            "JobStatus", "TaskType", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite",
+            "CRAB_UserWebDir", "JobPrio", "DAG_NodesReady", "DAG_NodesUnready", 
+            "DAG_NodesTotal", "DAG_NodesFailed", "DAG_NodesDone", "QDate"]
     schedd = htcondor.Schedd(ad)
     try:
-        jobs = schedd.xquery("CRAB_ReqName isnt null", ["CRAB_UserHN","CRAB_ReqName", "ClusterId", "RequestMemory", "MaxWallTimeMins", "JobStatus", "TaskType", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite",  "CRAB_UserWebDir", "JobPrio", "DAG_NodesReady", "DAG_NodesUnready", "DAG_NodesTotal", "DAG_NodesFailed", "DAG_NodesDone", "QDate"])
-    except Exception, e:
+        jobs = schedd.xquery("CRAB_ReqName isnt null", keys)
+    except Exception as e:
+        # logging
+        # Also it has to be saved and showed in the schedd view
         print "Failed querying", ad["Name"]
         print e
         return
     for job in jobs:
-        request = job['CRAB_UserHN']
-        request = re.sub('[:]', '', request)
-        sub_task = job['CRAB_ReqName']
-        main_task_name = sub_task
-        sub_task = re.sub('[:]', '', sub_task)
-        if 'DESIRED_Sites' not in job.keys():
-            #means main task.
+        request = re.sub('[:]', '', job['CRAB_UserHN'])
+        main_task_name = job['CRAB_ReqName']
+        sub_task = re.sub('[:]', '', main_task_name)
+        if 'DESIRED_Sites' not in job.keys() or \
+           ('DESIRED_Sites' in job.keys() and job['DESIRED_Sites'] == 'undefined'):
+            # means main task.
             mainUserInfo = taskInfo.setdefault(request, {})
             mainUserTask = mainUserInfo.setdefault(sub_task, {})
             mainUserTask['Schedd'] = ad['Name']
             mainUserTask['QDate'] = job['QDate']
             mainUserTask['TaskName'] = main_task_name
-            if 'CRAB_UserWebDir' in job.keys():
-                mainUserTask['CRAB_UserWebDir'] = job['CRAB_UserWebDir']
-            if 'DAG_NodesTotal' in job.keys():
-                mainUserTask['DAG_NodesTotal'] = job['DAG_NodesTotal']
-            if 'DAG_NodesReady' in job.keys():
-                mainUserTask['DAG_NodesReady'] = job['DAG_NodesReady']
-            if 'DAG_NodesUnready' in job.keys():
-                mainUserTask['DAG_NodesUnready'] = job['DAG_NodesUnready']
-            if 'DAG_NodesFailed' in job.keys():
-                mainUserTask['DAG_NodesFailed'] = job['DAG_NodesFailed']
-            if 'DAG_NodesDone' in job.keys():
-                mainUserTask['DAG_NodesDone'] = job['DAG_NodesDone']
-            if 'RequestMemory' in job.keys():
-                mainUserTask['RequestMemory'] = job['RequestMemory']
-            if 'MaxWallTimeMins' in job.keys():
-                mainUserTask['MaxWallTimeMins'] = job['MaxWallTimeMins']
-            if 'JobStatus' in job.keys():
-                mainUserTask['JobStatus'] = job['JobStatus']
-                if job['JobStatus'] == 5:
-                    mainUserTask['DagNodesWasReady'] = mainUserTask.get('DAG_NodesReady', 0)
-                    mainUserTask['DAG_NodesReady'] = 0
+            keysFromMainTask = ['CRAB_UserWebDir', 'DAG_NodesTotal', 'DAG_NodesReady', 'DAG_NodesUnready',
+                                'DAG_NodesFailed', 'DAG_NodesDone', 'RequestMemory', 'MaxWallTimeMins', 'JobStatus']
+            for keyName in keysFromMainTask:
+                if keyName in job.keys():
+                    mainUserTask[keyName] = job[keyName]
+            if 'JobStatus' in mainUserTask and mainUserTask['JobStatus'] == 5:
+                mainUserTask['DagNodesWasReady'] = mainUserTask.get('DAG_NodesReady', 0)
+                mainUserTask['DAG_NodesReady'] = 0
             #Prepare summary of running,idle,notqueued
             continue
-        elif job['DESIRED_Sites'] == "undefined":
-            #Means main task. We can take other needed parameters
-            mainUserInfo = taskInfo.setdefault(request, {})
-            mainUserTask = mainUserInfo.setdefault(sub_task, {})
-            mainUserTask['Schedd'] = ad['Name']
-            mainUserTask['QDate'] = job['QDate']
-            if 'CRAB_UserWebDir' in job.keys():
-                mainUserTask['CRAB_UserWebDir'] = job['CRAB_UserWebDir']
-            if 'DAG_NodesTotal' in job.keys():
-                mainUserTask['DAG_NodesTotal'] = job['DAG_NodesTotal']
-            if 'RequestMemory' in job.keys():
-                mainUserTask['RequestMemory'] = job['RequestMemory']
-            if 'MaxWallTimeMins' in job.keys():
-                mainUserTask['MaxWallTimeMins'] = job['MaxWallTimeMins']
-            continue
+
         desired_sites = []
         try:
             desired_sites = job['DESIRED_Sites'].split(",")
@@ -123,15 +101,16 @@ def query_schedd(ad, workflows, taskInfo):
         if not running_site:
             summary_internal.setdefault(jobinfo, 0)
             summary_internal[jobinfo] += 1
-        for site in desired_sites:
-            site_dict = subtask_dict.setdefault(site, {})
-            prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
-            prio_dict.setdefault(status, 0)
-            if status != "Running":
+            for site in desired_sites:
+                site_dict = subtask_dict.setdefault(site, {})
+                prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+                prio_dict.setdefault(status, 0)
                 prio_dict[status] += 1
+            if len(desired_sites) == 1 and not running_site:
+                prio_dict['UniquePressure'] += 1
         if running_site:
             site_dict = subtask_dict.setdefault(running_site, {})
-            prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
+            prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
             prio_dict.setdefault(status, 0)
             prio_dict[status] += 1
 
@@ -145,13 +124,20 @@ def summarize(workflows, gsites, tasks):
             notQueued = int(tasks.get(request, {}).get(subtask, {}).get("DAG_NodesTotal", 0))
             running = 0
             min_prio = 0
+            uniq = 0
             higher_idle, lower_running = 0, 0
             for site_dict in subtask_dict.values():
                 for prio_dict in site_dict.values():
                     running += prio_dict.get("Running", 0)
+                    uniq += prio_dict.get("UniquePressure", 0)
             notQueued -= max([(notQueued -(idle + running)), 0])
             totalJobs = notQueued + idle + running
-            subtask_dict["Summary"].update({"Running": running, "Idle": idle, "notQueued": notQueued, "Total": totalJobs, "TaskInfo": taskinfo})
+            subtask_dict["Summary"].update({"Running": running,
+                                            "Idle": idle,
+                                            "UniquePressure": uniq,
+                                            "notQueued": notQueued,
+                                            "Total": totalJobs,
+                                            "TaskInfo": taskinfo})
 
         min_prio = 0 
         sites = set()
@@ -161,9 +147,13 @@ def summarize(workflows, gsites, tasks):
                     sites.add(site)
         running = sum([subtask_dict["Summary"]["Running"] for subtask_dict in request_dict.values()])
         idle = sum([subtask_dict["Summary"]["Idle"] for subtask_dict in request_dict.values()])
+        uniq = sum([subtask_dict["Summary"]["UniquePressure"] for subtask_dict in request_dict.values()])
         total = running + idle
         higher_idle, lower_running = 0, 0
-        request_dict["Summary"] = {"Running": running, "Idle": idle, "Total" : total}
+        request_dict["Summary"] = {"Running": running,
+                                   "Idle": idle,
+                                   "UniquePressure": uniq,
+                                   "Total" : total}
 
         request_sites = request_dict["Summary"].setdefault("Sites", {})
         for subtask, subtask_dict in request_dict.items():
@@ -172,13 +162,13 @@ def summarize(workflows, gsites, tasks):
             for site, site_dict in subtask_dict.items():
                 if site == "Summary":
                     continue
-                request_sites.setdefault(site, {"Running": 0, "MatchingIdle": 0})
-                request_sites[site]["Running"] += sum([prio_dict["Running"] for prio_dict in site_dict.values()])
-                request_sites[site]["MatchingIdle"] += sum([prio_dict["MatchingIdle"] for prio_dict in site_dict.values()])
+                request_sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+                for key in request_sites[site]:
+                    request_sites[site][key] += sum([prio_dict[key] for prio_dict in site_dict.values()])
 
         for site, site_dict in request_sites.items():
             gsites_dict = gsites.setdefault(site, {})
-            gsites_dict.setdefault(request, {"Running": 0, "MatchingIdle": 0, 'MatchingSites': len(request_sites)})
+            gsites_dict.setdefault(request, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'MatchingSites': len(request_sites)})
             for status, count in site_dict.items():
                 gsites_dict[request][status] += site_dict[status]
 
@@ -197,21 +187,26 @@ def write_json(workflows, gsites, taskInfo, output):
     sites = {}
     running = 0
     idle = 0
+    uniq = 0
+    # This has to go to summarize
     for request_dict in workflows.values():
         for site, site_dict in request_dict["Summary"]["Sites"].items():
-            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0})
+            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0, "UniquePressure": 0})
             sites[site]["Running"] += site_dict["Running"]
             sites[site]["MatchingIdle"] += site_dict["MatchingIdle"]
             sites[site]["RequestCount"] += 1
+            sites[site]["UniquePressure"] += site_dict["UniquePressure"]
         running += request_dict["Summary"]["Running"]
         idle += request_dict["Summary"]["Idle"]
+        uniq += request_dict["Summary"]["UniquePressure"]
     requests = len(workflows)
 
     now = int(time.time())
-
+    import pdb; pdb.set_trace()
     drop_obj(sites, output, "site_summary.json")
 
     #Count total Not Queued jobs
+    # This has to go to summarize
     notQueued = 0
     taskCountR = 0
     taskCountH = 0
@@ -224,7 +219,7 @@ def write_json(workflows, gsites, taskInfo, output):
                 elif subtask_dict['JobStatus'] == 2:
                     taskCountR += 1
         
-    drop_obj({"Running": running, "Idle": idle, "RequestCount": requests, "UpdateTime": now, 'NotQueued': notQueued, 'TaskCountR': taskCountR, 'TaskCountH': taskCountH}, output, "totals.json")
+    drop_obj({"Running": running, "Idle": idle, "UniquePressure": uniq, "RequestCount": requests, "UpdateTime": now, 'NotQueued': notQueued, 'TaskCountR': taskCountR, 'TaskCountH': taskCountH}, output, "totals.json")
 
     for site, site_dict in gsites.items():
         if site: 
@@ -322,19 +317,21 @@ def write_rrds(workflows, gsites, output):
             )   
         update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
 
-    for site, site_dict in gsites.items():
-        site_dir = os.path.join(output, site)
-        for request, request_dict in site_dict.items():
-            fname = os.path.join(site_dir, "%s.rrd" % request)
-            if not os.path.exists(fname):
-                rrdtool.create(fname,
-                    "--step", "180",
-                    "DS:Running:GAUGE:360:U:U",
-                    "DS:MatchingIdle:GAUGE:360:U:U",
-                    "RRA:AVERAGE:0.5:1:1000",
-                    "RRA:AVERAGE:0.5:20:2000",
-                )
-            update_rrd(fname, "%d:%d:%d" % (g_startup, request_dict["Running"], request_dict["MatchingIdle"]))
+    # For analysis there is no point to create site usage per task...
+    # for site, site_dict in gsites.items():
+    #    site_dir = os.path.join(output, site)
+    #    for request, request_dict in site_dict.items():
+    #        fname = os.path.join(site_dir, "%s.rrd" % request)
+    #        print fname
+    #        if not os.path.exists(fname):
+    #            rrdtool.create(fname,
+    #                "--step", "180",
+    #                "DS:Running:GAUGE:360:U:U",
+    #                "DS:MatchingIdle:GAUGE:360:U:U",
+    #                "RRA:AVERAGE:0.5:1:1000",
+    #                "RRA:AVERAGE:0.5:20:2000",
+    #            )
+    #        update_rrd(fname, "%d:%d:%d" % (g_startup, request_dict["Running"], request_dict["MatchingIdle"]))
 
     for request, request_dict in workflows.items():
         request_dir = os.path.join(output, request)
@@ -419,6 +416,7 @@ def main():
     #analyze_prios(workflows)
     summarize(workflows, sites, taskInfo)
 
+    # This is nice, but need to change to be debugging and option to debug.
     for request, request_dict in workflows.items():
         print "- Info for request", request
         print request_dict["Summary"]
