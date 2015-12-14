@@ -59,13 +59,14 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             summaryInternal[jobinfo] += 1
             for site in desiredSites:
                 siteDict = subtaskDict.setdefault(site, {})
-                prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
+                prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
                 prioDict.setdefault(status, 0)
-                if status != "Running":
-                    prioDict[status] += 1
+                prioDict[status] += 1
+                if len(desiredSites) == 1 and not runningSite:
+                    prioDict['UniquePressure'] += 1
         if runningSite:
             siteDict = subtaskDict.setdefault(runningSite, {})
-            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
+            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
             prioDict.setdefault(status, 0)
             prioDict[status] += 1
 
@@ -125,11 +126,14 @@ def summarize(workflows, gsites, tasks):
             higherIdle, lowerRunning = analyzePriosInner(workflows, sites, minPrio)
             idle = sum(subtaskDict.get("Summary", {}).get("Internal", {}).values())
             running = 0
+            uniq = 0
             for siteDict in subtaskDict.values():
                 for prioDict in siteDict.values():
                     running += prioDict.get("Running", 0)
-            subtaskDict["Summary"].update({"BasePrio": minPrio, "Running": running, "Idle": idle, "HigherPrioIdle": higherIdle,
-                                           "LowerPrioRunning": lowerRunning, "TaskInfo": taskinfo})
+                    uniq += prioDict.get("UniquePressure", 0)
+            subtaskDict["Summary"].update({"BasePrio": minPrio, "Running": running, "Idle": idle,
+                                           "HigherPrioIdle": higherIdle, "LowerPrioRunning": lowerRunning,
+                                           "TaskInfo": taskinfo, "UniquePressure": uniq})
 
         minPrio = int(min([float(subtaskDict["Summary"]["BasePrio"]) for subtaskDict in requestDict.values()]))
         minPrio %= 10000000
@@ -141,8 +145,10 @@ def summarize(workflows, gsites, tasks):
         running = sum([subtaskDict["Summary"]["Running"] for subtaskDict in requestDict.values()])
         idle = sum([subtaskDict["Summary"]["Idle"] for subtaskDict in requestDict.values()])
         higherIdle, lowerRunning = analyzePriosInner(workflows, sites, minPrio)
+        uniq = sum([subtaskDict["Summary"]["UniquePressure"] for subtaskDict in requestDict.values()])
         requestDict["Summary"] = {"BasePrio": minPrio, "Running": running, "Idle": idle,
-                                  "HigherPrioIdle": higherIdle, "LowerPrioRunning": lowerRunning}
+                                  "HigherPrioIdle": higherIdle, "LowerPrioRunning": lowerRunning,
+                                  "UniquePressure": uniq}
 
         requestSites = requestDict["Summary"].setdefault("Sites", {})
         for subtask, subtaskDict in requestDict.items():
@@ -151,13 +157,14 @@ def summarize(workflows, gsites, tasks):
             for site, siteDict in subtaskDict.items():
                 if site == "Summary":
                     continue
-                requestSites.setdefault(site, {"Running": 0, "MatchingIdle": 0})
-                requestSites[site]["Running"] += sum([prioDict["Running"] for prioDict in siteDict.values()])
-                requestSites[site]["MatchingIdle"] += sum([prioDict["MatchingIdle"] for prioDict in siteDict.values()])
+                requestSites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+                for key in requestSites:
+                    requestSites[site][key] += sum([prioDict[key] for prioDict in siteDict.values()])
 
         for site, siteDict in requestSites.items():
             gsitesDict = gsites.setdefault(site, {})
-            gsitesDict.setdefault(request, {"Running": 0, "MatchingIdle": 0, "BasePrio": minPrio, 'MatchingSites': len(requestSites)})
+            gsitesDict.setdefault(request, {"Running": 0, "MatchingIdle": 0, "BasePrio": minPrio,
+                                            'MatchingSites': len(requestSites), "UniquePressure": 0})
             for status, dummycount in siteDict.items():
                 gsitesDict[request][status] += siteDict[status]
 
@@ -167,22 +174,23 @@ def writeJson(workflows, gsites, output):
     Write json output for monitoring
     """
     sites = {}
-    running = 0
-    idle = 0
+    running, idle, uniq = 0, 0, 0
     for requestDict in workflows.values():
         for site, siteDict in requestDict["Summary"]["Sites"].items():
-            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0})
+            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0, "UniquePressure": 0})
             sites[site]["Running"] += siteDict["Running"]
             sites[site]["MatchingIdle"] += siteDict["MatchingIdle"]
             sites[site]["RequestCount"] += 1
+            sites[site]["UniquePressure"] += siteDict["UniquePressure"]
         running += requestDict["Summary"]["Running"]
         idle += requestDict["Summary"]["Idle"]
+        uniq += requestDict["Summary"]["UniquePressure"]
     requests = len(workflows)
 
     now = int(time.time())
 
     dropObj(sites, output, "site_summary.json")
-    dropObj({"Running": running, "Idle": idle, "RequestCount": requests, "UpdateTime": now}, output, "totals.json")
+    dropObj({"Running": running, "Idle": idle, "RequestCount": requests, "UniquePressure": uniq, "UpdateTime": now}, output, "totals.json")
 
     for site, siteDict in gsites.items():
         siteDir = os.path.join(output, site)
@@ -241,18 +249,19 @@ def writeRrds(workflows, gsites, output):
     """
 
     sites = {}
-    running = 0
-    idle = 0
+    running, idle, uniq = 0, 0, 0
     for requestDict in workflows.values():
         for site, siteDict in requestDict["Summary"]["Sites"].items():
-            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0})
+            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
             sites[site]["Running"] += siteDict["Running"]
             sites[site]["MatchingIdle"] += siteDict["MatchingIdle"]
+            sites[site]["UniquePressure"] += siteDict["UniquePressure"]
         running += requestDict["Summary"]["Running"]
         idle += requestDict["Summary"]["Idle"]
+        uniq += requestDict["Summary"]["UniquePressure"]
     fname = os.path.join(output, "summary.rrd")
-    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
-    tempUpdLine = "%d:%d:%d" % (GSTARTUP, running, idle)
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:UniquePressure:GAUGE:360:U:U"]
+    tempUpdLine = "%d:%d:%d:%d" % (GSTARTUP, running, idle, uniq)
     rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     for site, siteDict in sites.items():

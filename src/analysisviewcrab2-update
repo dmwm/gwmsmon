@@ -90,15 +90,15 @@ def query_schedd(ad, workflows, taskInfo):
         if not running_site:
             summary_internal.setdefault(jobinfo, 0)
             summary_internal[jobinfo] += 1
-        for site in desired_sites:
-            site_dict = subtask_dict.setdefault(site, {})
-            prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
-            prio_dict.setdefault(status, 0)
-            if status != "Running":
-                prio_dict[status] += 1
+            for site in desired_sites:
+                site_dict = subtask_dict.setdefault(site, {})
+                prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+                prio_dict.setdefault(status, 0)
+                if len(desiredSites) == 1 and not runningSite:
+                    prioDict['UniquePressure'] += 1
         if running_site:
             site_dict = subtask_dict.setdefault(running_site, {})
-            prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0})
+            prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
             prio_dict.setdefault(status, 0)
             prio_dict[status] += 1
 
@@ -109,15 +109,16 @@ def summarize(workflows, gsites, tasks):
             idle = sum(subtask_dict.get("Summary", {}).get("Internal", {}).values())
             taskinfo = tasks.get(request, {}).get(subtask, {})
             notQueued = int(tasks.get(request, {}).get(subtask, {}).get("DAG_NodesTotal", 0))
-            running = 0
+            running, uniq = 0, 0
             min_prio = 0
             higher_idle, lower_running = 0, 0
             for site_dict in subtask_dict.values():
                 for prio_dict in site_dict.values():
                     running += prio_dict.get("Running", 0)
-            subtask_dict["Summary"].update({"Running": running, "Idle": idle, "notQueued": 0, "Total": 0, "TaskInfo": taskinfo})
+                    uniq += prioDict.get("UniquePressure", 0)
+            subtask_dict["Summary"].update({"Running": running, "Idle": idle, "notQueued": 0, "UniquePressure": uniq, "Total": 0, "TaskInfo": taskinfo})
 
-        min_prio = 0 
+        min_prio = 0
         sites = set()
         for subtask_dict in request_dict.values():
             for site, site_dict in subtask_dict.items():
@@ -125,9 +126,10 @@ def summarize(workflows, gsites, tasks):
                     sites.add(site)
         running = sum([subtask_dict["Summary"]["Running"] for subtask_dict in request_dict.values()])
         idle = sum([subtask_dict["Summary"]["Idle"] for subtask_dict in request_dict.values()])
+        uniq = sum([subtaskDict["Summary"]["UniquePressure"] for subtaskDict in requestDict.values()])
         total = running + idle
         higher_idle, lower_running = 0, 0
-        request_dict["Summary"] = {"Running": running, "Idle": idle, "Total" : total}
+        request_dict["Summary"] = {"Running": running, "Idle": idle, "Total": total, "UniquePressure": uniq}
 
         request_sites = request_dict["Summary"].setdefault("Sites", {})
         for subtask, subtask_dict in request_dict.items():
@@ -136,13 +138,13 @@ def summarize(workflows, gsites, tasks):
             for site, site_dict in subtask_dict.items():
                 if site == "Summary":
                     continue
-                request_sites.setdefault(site, {"Running": 0, "MatchingIdle": 0})
-                request_sites[site]["Running"] += sum([prio_dict["Running"] for prio_dict in site_dict.values()])
-                request_sites[site]["MatchingIdle"] += sum([prio_dict["MatchingIdle"] for prio_dict in site_dict.values()])
+                request_sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+                for key in request_sites[site]:
+                    request_sites[site][key] += sum([prio_dict[key] for prio_dict in site_dict.values()])
 
         for site, site_dict in request_sites.items():
             gsites_dict = gsites.setdefault(site, {})
-            gsites_dict.setdefault(request, {"Running": 0, "MatchingIdle": 0, 'MatchingSites': len(request_sites)})
+            gsites_dict.setdefault(request, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'MatchingSites': len(request_sites)})
             for status, count in site_dict.items():
                 gsites_dict[request][status] += site_dict[status]
 
@@ -161,29 +163,34 @@ def write_json(workflows, gsites, taskInfo, output):
     sites = {}
     running = 0
     idle = 0
+    uniq = 0
     for request_dict in workflows.values():
         for site, site_dict in request_dict["Summary"]["Sites"].items():
             sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0})
             sites[site]["Running"] += site_dict["Running"]
             sites[site]["MatchingIdle"] += site_dict["MatchingIdle"]
             sites[site]["RequestCount"] += 1
+            sites[site]["UniquePressure"] += site_dict["UniquePressure"]
         running += request_dict["Summary"]["Running"]
         idle += request_dict["Summary"]["Idle"]
+        uniq += request_dict["Summary"]["UniquePressure"]
     requests = len(workflows)
 
     now = int(time.time())
 
     drop_obj(sites, output, "site_summary.json")
 
-    #Count total Not Queued jobs
+    # Count total Not Queued jobs
     taskCount = 0
     for user, user_dict in taskInfo.items():
         taskCount += len(user_dict.items())
 
-    drop_obj({"Running": running, "Idle": idle, "RequestCount": requests, "UpdateTime": now, 'NotQueued': 0, 'TaskCountR': taskCount, 'TaskCountH': 0}, output, "totals.json")
+    drop_obj({"Running": running, "Idle": idle, "RequestCount": requests,
+              "UpdateTime": now, 'NotQueued': 0, 'TaskCountR': taskCount,
+              'TaskCountH': 0, "UniquePressure": uniq}, output, "totals.json")
 
     for site, site_dict in gsites.items():
-        if site: 
+        if site:
             site_dir = os.path.join(output, site)
             final_obj = dict(sites[site])
             final_obj["UpdateTime"] = now
@@ -243,23 +250,27 @@ def write_rrds(workflows, gsites, output):
     sites = {}
     running = 0
     idle = 0
+    uniq = 0
     for request_dict in workflows.values():
         for site, site_dict in request_dict["Summary"]["Sites"].items():
-            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0})
+            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
             sites[site]["Running"] += site_dict["Running"]
             sites[site]["MatchingIdle"] += site_dict["MatchingIdle"]
+            sites[site]["UniquePressure"] += site_dict["UniquePressure"]
         running += request_dict["Summary"]["Running"]
         idle += request_dict["Summary"]["Idle"]
+        uniq += request_dict["Summary"]["UniquePressure"]
     fname = os.path.join(output, "summary.rrd")
     if not os.path.exists(fname):
         rrdtool.create(fname,
             "--step", "300",
             "DS:Running:GAUGE:360:U:U",
             "DS:Idle:GAUGE:360:U:U",
+            "DS:UniquePressure:GAUGE:360:U:U",
             "RRA:AVERAGE:0.5:1:1000",
             "RRA:AVERAGE:0.5:20:2000",
         )
-    update_rrd(fname, "%d:%d:%d" % (g_startup, running, idle))
+    update_rrd(fname, "%d:%d:%d:%d" % (g_startup, running, idle, uniq))
     for site, site_dict in sites.items():
         fname = os.path.join(output, "%s.rrd" % site)
         if not os.path.exists(fname):
@@ -271,7 +282,7 @@ def write_rrds(workflows, gsites, output):
                 "RRA:MIN:0.5:20:2000",
                 "RRA:MAX:0.5:20:2000",
                 "RRA:AVERAGE:0.5:20:2000",
-            )   
+            )
         update_rrd(fname, "%d:%d:%d" % (g_startup, site_dict["Running"], site_dict["MatchingIdle"]))
 
     for site, site_dict in gsites.items():
