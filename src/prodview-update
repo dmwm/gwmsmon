@@ -3,13 +3,12 @@
 import os
 import time
 import rrdtool
-import htcondor
 from functions import parseArgs
 from functions import dropObj
 from functions import updateRrd
 from functions import querySchedd
 from functions import validateInt
-
+from functions import getSchedds
 
 GSTARTUP = int(time.time())
 
@@ -357,13 +356,7 @@ def writeRrds(workflows, gsites, output):
 def main():
     """ Main prodview function """
     opts, dummyargs = parseArgs()
-
-    if opts.pool:
-        coll = htcondor.Collector(opts.pool)
-    else:
-        coll = htcondor.Collector()
-
-    scheddAds = coll.query(htcondor.AdTypes.Schedd, 'CMSGWMS_Type=?="prodschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'])
+    scheddAds, dummycoll = getSchedds(opts, opts.pool, 'CMSGWMS_Type=?="prodschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'])
 
     sites = {}
     workflows = {}

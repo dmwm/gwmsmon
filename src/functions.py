@@ -6,22 +6,25 @@ import json
 import optparse
 import ConfigParser
 import rrdtool
-import datetime
-import rrdtool
 import urllib2
 import htcondor
 
+
 def parseArgs():
-    """TODO: move to one function... """
+    """ parse all arguments from config file. """
     parser = optparse.OptionParser()
     parser.add_option("-c", "--config", help="Prodview configuration file", dest="config", default=None)
     parser.add_option("-p", "--pool", help="HTCondor pool to analyze", dest="pool")
     parser.add_option("-o", "--output", help="Top-level output dir", dest="output")
     opts, args = parser.parse_args()
-
-    opts.inputd = ""
-    opts.timespan = ""
-
+    keys = [{"key": "prodview", "subkey": "basedir", "variable": "prodview"},
+            {"key": "analysiscrab2view", "subkey": "basedir", "variable": "analysiscrab2view"},
+            {"key": "analysisview", "subkey": "basedir", "variable": "analysisview"},
+            {"key": "totalview", "subkey": "basedir", "variable": "totalview"},
+            {"key": "scheddview", "subkey": "basedir", "variable": "scheddview"},
+            {"key": "factoryview", "subkey": "basedir", "variable": "factoryview"},
+            {"key": "htcondor", "subkey": "pool", "variable": "pool"}, {"key": "htcondor", "subkey": "pool1", "variable": "pool1"},
+            {"key": "utilization", "subkey": "timespan", "variable": "utilization"}]
     if args:
         parser.print_help()
         print >> sys.stderr, "%s takes no arguments." % args[0]
@@ -35,21 +38,9 @@ def parseArgs():
         cp.read(opts.config)
     elif os.path.exists("/etc/prodview.conf"):
         cp.read("/etc/prodview.conf")
-
-    if cp.has_option("prodview", "basedir"):
-        opts.outputp = cp.get("prodview", "basedir")
-
-    if cp.has_option("analysiscrab2view", "basedir"):
-        opts.outputc2 = cp.get("analysiscrab2view", "basedir")
-
-    if cp.has_option("analysisview", "basedir"):
-        opts.outputc3 = cp.get("analysisview", "basedir")
-
-    if cp.has_option("totalview", "basedir"):
-        opts.inputd = cp.get("totalview", "basedir")
-
-    if cp.has_option("utilization", "timespan"):
-        opts.timespan = int(cp.get("utilization", "timespan"))
+    for item in keys:
+        if cp.has_option(item['key'], item['subkey']):
+            setattr(opts, item['variable'], cp.get(item['key'], item['subkey']))
 
     return opts, args
 
@@ -119,3 +110,18 @@ def querySchedd(ad, const, keys):
         # Also it has to be saved and showed in the schedd view
         print "Failed querying", ad["Name"], e
     return output
+
+
+def getSchedds(opts, pool, query, keys):
+    """TODO doc"""
+    if pool:
+        coll = htcondor.Collector(pool)
+    else:
+        coll = htcondor.Collector()
+
+    scheddAds = coll.query(htcondor.AdTypes.Schedd, query, keys)
+    if not scheddAds:
+        # This should not happen, if happens, means something wrong...
+        if opts.pool1:
+            scheddAds = getSchedds(opts, opts.pool1, query, keys)
+    return scheddAds, coll

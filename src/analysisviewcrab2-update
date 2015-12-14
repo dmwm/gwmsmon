@@ -1,5 +1,6 @@
 #!/usr/bin/python
-
+# pylint: skip-file
+# I don`t really care crab2 pylint. Ignore it until it will be retired.
 import re
 import os
 import sys

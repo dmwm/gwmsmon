@@ -4,12 +4,11 @@ import re
 import os
 import time
 import rrdtool
-import htcondor
 from functions import parseArgs
 from functions import dropObj
 from functions import updateRrd
 from functions import querySchedd
-from functions import validateInt
+from functions import getSchedds
 
 GSTARTUP = int(time.time())
 
@@ -113,7 +112,7 @@ def summarize(workflows, gsites, tasks):
         idle = sum([subtaskDict["Summary"]["Idle"] for subtaskDict in requestDict.values()])
         uniq = sum([subtaskDict["Summary"]["UniquePressure"] for subtaskDict in requestDict.values()])
         total = running + idle
-        requestDict["Summary"] = {"Running": running,
+        requestDict["Summary"] = {"Running": runnded in the second one (still in the sameing,
                                   "Idle": idle,
                                   "UniquePressure": uniq,
                                   "Total": total}
@@ -242,11 +241,11 @@ def writeRrds(workflows, gsites, output):
     # Create summary RRD which is shown in top.
     if not os.path.exists(fname):
         rrdtool.create(fname,
-            "--step", "180",
-            "DS:Running:GAUGE:360:U:U",
-            "DS:Idle:GAUGE:360:U:U",
-            "RRA:AVERAGE:0.5:1:1000",
-            "RRA:AVERAGE:0.5:20:2000",)
+                       "--step", "180",
+                       "DS:Running:GAUGE:360:U:U",
+                       "DS:Idle:GAUGE:360:U:U",
+                       "RRA:AVERAGE:0.5:1:1000",
+                       "RRA:AVERAGE:0.5:20:2000",)
     updateRrd(fname, "%d:%d:%d" % (GSTARTUP, running, idle))
 
     # For all calculated sites, make graphs
@@ -254,11 +253,11 @@ def writeRrds(workflows, gsites, output):
         fname = os.path.join(output, "%s.rrd" % site)
         if not os.path.exists(fname):
             rrdtool.create(fname,
-                "--step", "180",
-                "DS:Running:GAUGE:360:U:U",
-                "DS:MatchingIdle:GAUGE:360:U:U",
-                "RRA:AVERAGE:0.5:1:1000",
-                "RRA:AVERAGE:0.5:20:2000",)
+                           "--step", "180",
+                           "DS:Running:GAUGE:360:U:U",
+                           "DS:MatchingIdle:GAUGE:360:U:U",
+                           "RRA:AVERAGE:0.5:1:1000",
+                           "RRA:AVERAGE:0.5:20:2000",)
         updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"]))
 
     # For analysis there is no point to create site usage per task...
@@ -284,23 +283,22 @@ def writeRrds(workflows, gsites, output):
         fname = os.path.join(requestDir, "request.rrd")
         if not os.path.exists(fname):
             rrdtool.create(fname,
-                "--step", "180",
-                "DS:Running:GAUGE:360:U:U",
-                "DS:Idle:GAUGE:360:U:U",
-                "RRA:AVERAGE:0.5:1:1000",
-                "RRA:AVERAGE:0.5:20:2000",)
+                           "--step", "180",
+                           "DS:Running:GAUGE:360:U:U",
+                           "DS:Idle:GAUGE:360:U:U",
+                           "RRA:AVERAGE:0.5:1:1000",
+                           "RRA:AVERAGE:0.5:20:2000",)
         updateRrd(fname, ("%d:%d:%d" % (GSTARTUP, requestDict["Summary"]["Running"], requestDict["Summary"]["Idle"])))
 
         for site, siteDict in requestDict["Summary"]["Sites"].items():
             fname = os.path.join(requestDir, "%s.rrd" % site)
             if not os.path.exists(fname):
                 rrdtool.create(fname,
-                    "--step", "180",
-                    "DS:Running:GAUGE:360:U:U",
-                    "DS:MatchingIdle:GAUGE:360:U:U",
-                    "RRA:AVERAGE:0.5:1:1000",
-                    "RRA:AVERAGE:0.5:20:2000",
-                )
+                               "--step", "180",
+                               "DS:Running:GAUGE:360:U:U",
+                               "DS:MatchingIdle:GAUGE:360:U:U",
+                               "RRA:AVERAGE:0.5:1:1000",
+                               "RRA:AVERAGE:0.5:20:2000",)
             updateRrd(fname, "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"]))
 
         for subtask, subtaskDict in requestDict.items():
@@ -326,25 +324,21 @@ def writeRrds(workflows, gsites, output):
                 fname = os.path.join(subtaskDir, "%s.rrd" % site)
                 if not os.path.exists(fname):
                     rrdtool.create(fname,
-                        "--step", "180",
-                        "DS:Running:GAUGE:360:U:U",
-                        "DS:MatchingIdle:GAUGE:360:U:U",
-                        "RRA:AVERAGE:0.5:1:1000",
-                        "RRA:AVERAGE:0.5:20:2000",)
+                                   "--step", "180",
+                                   "DS:Running:GAUGE:360:U:U",
+                                   "DS:MatchingIdle:GAUGE:360:U:U",
+                                   "RRA:AVERAGE:0.5:1:1000",
+                                   "RRA:AVERAGE:0.5:20:2000",)
                 stats = sum(prioDict["Running"] for prioDict in siteDict.values()), \
                     sum(prioDict["MatchingIdle"] for prioDict in siteDict.values())
                 updateRrd(fname, (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats)
 
 
 def main():
+    """Main function for prod"""
     opts, dummyargs = parseArgs()
 
-    if opts.pool:
-        coll = htcondor.Collector(opts.pool)
-    else:
-        coll = htcondor.Collector()
-
-    scheddAds = coll.query(htcondor.AdTypes.Schedd, 'CMSGWMS_Type=?="crabschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'])
+    scheddAds, dummycoll = getSchedds(opts, opts.pool, 'CMSGWMS_Type=?="crabschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'])
 
     sites = {}
     workflows = {}
@@ -359,7 +353,7 @@ def main():
 
     # This is nice, but need to change to be debugging and option to debug.
     # TODO: change this to proint only then DEBUG
-    for request, requestDict in workflows.items():
+    for dummyrequest, requestDict in workflows.items():
         # print "- Info for request", request
         # print requestDict["Summary"]
         for subtask, subtaskDict in requestDict.items():

@@ -2,75 +2,18 @@
 """ TODO doc """
 import re
 import os
-import sys
 import json
 import time
-import optparse
-import ConfigParser
-import urllib2
 import xml.etree.ElementTree as ET
 import rrdtool
 import htcondor
 import classad
+from functions import parseArgs
+from functions import getSchedds
+from functions import getFromURL
+from functions import updateRrd
 
 GSTARTUP = int(time.time())
-
-
-def parseArgs():
-    """TODO move it from here"""
-    parser = optparse.OptionParser()
-    parser.add_option("-c", "--config", help="Prodview configuration file", dest="config", default=None)
-    parser.add_option("-p", "--pool", help="HTCondor pool to analyze", dest="pool")
-    parser.add_option("-o", "--output", help="Top-level output dir", dest="output")
-    opts, args = parser.parse_args()
-
-    if args:
-        parser.print_help()
-        print >> sys.stderr, "%s takes no arguments." % args[0]
-        sys.exit(1)
-
-    cp = ConfigParser.ConfigParser()
-    if opts.config:
-        if not os.path.exists(opts.config):
-            print >> sys.stderr, "Config file %s does not exist." % opts.config
-            sys.exit(1)
-        cp.read(opts.config)
-    elif os.path.exists("/etc/prodview.conf"):
-        cp.read("/etc/prodview.conf")
-
-    if not opts.pool and cp.has_option("htcondor", "pool"):
-        opts.pool = cp.get("htcondor", "pool")
-    if not opts.output and cp.has_option("totalview", "basedir"):
-        opts.output = cp.get("totalview", "basedir")
-    opts.analysisview = cp.get("analysisview", "basedir")
-    opts.prodview = cp.get("prodview", "basedir")
-    opts.analysiscrab2view = cp.get("analysiscrab2view", "basedir")
-    opts.scheddview = cp.get("scheddview", "basedir")
-    opts.factoryview = cp.get("factoryview", "basedir")
-
-    return opts, args
-
-
-def getFromURL(url):
-    """Get content from URL"""
-    try:
-        req = urllib2.Request(url)
-        opener = urllib2.build_opener()
-        f = opener.open(req)
-        return f.read()
-    except urllib2.URLError as er:
-        print er
-        return None
-
-
-def updateRrd(fname, line):
-    """ TODO: write it... """
-    try:
-        rrdtool.update(fname, line)
-    except rrdtool.error as e:
-        print e
-        print fname
-        print line
 
 
 def queryFactory(coll, output):
@@ -516,11 +459,6 @@ def main():
     """ Main function """
     opts, dummyargs = parseArgs()
 
-    if opts.pool:
-        coll = htcondor.Collector(opts.pool)
-    else:
-        coll = htcondor.Collector()
-
     # Has to be moved below
     factOut = {}  # Used from condor
     xmlOut = {}  # Used from parsing xmls
@@ -532,12 +470,9 @@ def main():
         queryFactory(collF, factOut)
     # Get schedulers information
     scheddsInfo = {}
-    scheddAds = []
-    try:
-        scheddAds = coll.query(htcondor.AdTypes.Schedd, 'True', ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs',
-                                                                 'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical'])
-    except IOError as er:
-        print 'Got IOError %s' % er
+
+    scheddAds, coll = getSchedds(opts, opts.pool, 'True', ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs',
+                                                           'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical'])
     if scheddAds:
         summarizeSchedds(scheddsInfo, scheddAds)
     writeScheddInfo(opts.scheddview, scheddsInfo, factOut)
