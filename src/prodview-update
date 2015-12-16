@@ -24,7 +24,8 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         request = job['WMAgent_RequestName']
         subTask = job['WMAgent_SubTaskName'].split("/")[-1]
         desiredSites = job['DESIRED_Sites'].split(",")
-        desiredSites = tuple(desiredSites.sort())
+        desiredSites.sort()
+        desiredSites = tuple(desiredSites)
         runningSite = job.get("MATCH_EXP_JOBGLIDEIN_CMSSite")
         if job["JobStatus"] == 1:
             status = "MatchingIdle"
@@ -42,7 +43,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         mainSubTask = mainTaskInfo.setdefault(subTask, {})
         memory = 0 if 'RequestMemory' not in job.keys() else validateInt(job['RequestMemory'])
         walltime = 0 if 'MaxWallTimeMins' not in job.keys() else validateInt(job['MaxWallTimeMins'])
-        key = "||".join(str(memory), str(walltime), str(job['DESIRED_Sites']), ad['Name'])
+        key = "||".join([str(memory), str(walltime), str(job['DESIRED_Sites']), ad['Name']])
         mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': ''})
         mainSubTaskdebug['Schedd'] = ad['Name']
         mainSubTaskdebug['Memory'] = memory
@@ -158,7 +159,7 @@ def summarize(workflows, gsites, tasks):
                 if site == "Summary":
                     continue
                 requestSites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
-                for key in requestSites:
+                for key in requestSites[site]:
                     requestSites[site][key] += sum([prioDict[key] for prioDict in siteDict.values()])
 
         for site, siteDict in requestSites.items():
@@ -332,9 +333,9 @@ def main():
     analyzePrios(workflows)
     summarize(workflows, sites, taskInfo)
 
-    if opts.output:
-        writeJson(workflows, sites, opts.output)
-        writeRrds(workflows, sites, opts.output)
+    if opts.prodview:
+        writeJson(workflows, sites, opts.prodview)
+        writeRrds(workflows, sites, opts.prodview)
 
 if __name__ == "__main__":
     main()

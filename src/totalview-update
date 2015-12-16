@@ -437,7 +437,7 @@ def main():
     maxTotals = {}
     i = 0
     while i < 5:
-        success = loadPoolData(maxTotals, maxResources, opts.output, "totalview")
+        success = loadPoolData(maxTotals, maxResources, opts.totalview, "totalview")
         if success:
             break
         print 'Failed to load site data for resource utilization'
@@ -469,9 +469,9 @@ def main():
     for urlVal in urls:
         factoryName, url = urlVal.items()[0]
         xmlOut["Summary"]["FactoryUrls"][factoryName] = url
-    if opts.output:
-        writeJson(totals, sites, xmlOut, opts.output, opts.factoryview)
-        writeRrds(totals, sites, xmlOut, opts.output, opts.factoryview)
+    if opts.totalview:
+        writeJson(totals, sites, xmlOut, opts.totalview, opts.factoryview)
+        writeRrds(totals, sites, xmlOut, opts.totalview, opts.factoryview)
 
 if __name__ == "__main__":
     main()

@@ -94,8 +94,8 @@ def query_schedd(ad, workflows, taskInfo):
                 site_dict = subtask_dict.setdefault(site, {})
                 prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
                 prio_dict.setdefault(status, 0)
-                if len(desiredSites) == 1 and not runningSite:
-                    prioDict['UniquePressure'] += 1
+                if len(desired_sites) == 1 and not running_site:
+                    prio_dict['UniquePressure'] += 1
         if running_site:
             site_dict = subtask_dict.setdefault(running_site, {})
             prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
@@ -115,7 +115,7 @@ def summarize(workflows, gsites, tasks):
             for site_dict in subtask_dict.values():
                 for prio_dict in site_dict.values():
                     running += prio_dict.get("Running", 0)
-                    uniq += prioDict.get("UniquePressure", 0)
+                    uniq += prio_dict.get("UniquePressure", 0)
             subtask_dict["Summary"].update({"Running": running, "Idle": idle, "notQueued": 0, "UniquePressure": uniq, "Total": 0, "TaskInfo": taskinfo})
 
         min_prio = 0
@@ -126,7 +126,7 @@ def summarize(workflows, gsites, tasks):
                     sites.add(site)
         running = sum([subtask_dict["Summary"]["Running"] for subtask_dict in request_dict.values()])
         idle = sum([subtask_dict["Summary"]["Idle"] for subtask_dict in request_dict.values()])
-        uniq = sum([subtaskDict["Summary"]["UniquePressure"] for subtaskDict in requestDict.values()])
+        uniq = sum([subtask_dict["Summary"]["UniquePressure"] for subtask_dict in request_dict.values()])
         total = running + idle
         higher_idle, lower_running = 0, 0
         request_dict["Summary"] = {"Running": running, "Idle": idle, "Total": total, "UniquePressure": uniq}
@@ -166,7 +166,7 @@ def write_json(workflows, gsites, taskInfo, output):
     uniq = 0
     for request_dict in workflows.values():
         for site, site_dict in request_dict["Summary"]["Sites"].items():
-            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0})
+            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0, "UniquePressure": 0})
             sites[site]["Running"] += site_dict["Running"]
             sites[site]["MatchingIdle"] += site_dict["MatchingIdle"]
             sites[site]["RequestCount"] += 1
