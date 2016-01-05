@@ -143,6 +143,22 @@ def request_graph(environ, start_response):
         interval=m.groups()[1]
     return [ rrd.request(_cp.get(_view, "basedir"), interval, request) ]
 
+_priority_summary_graph_re = re.compile(r'^/*graphs/prioritysummary(idle|running)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+def priority_summary_graph(environ, start_response):
+     status = '200 OK'
+     headers = [('Content-type', 'image/png'),
+                ('Cache-Control', 'max-age=60, public')]
+     start_response(status, headers)
+
+     path = environ.get('PATH_INFO', '')
+     m = _priority_summary_graph_re.match(path)
+     interval = "daily"
+     jobType = m.groups()[0].title()
+     if m.groups()[1]:
+         interval=m.groups()[1]
+
+     return [ rrd.priority_summary_graph(_cp.get(_view, "basedir"), interval, jobType) ]
+
 
 _request_starvation_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/starvation/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_starvation_graph(environ, start_response):
@@ -373,6 +389,7 @@ urls = [
     #(re.compile(r'^graphs/([-_A-Za-z0-9]+)/prio/?$'), request_prio_graph),
     (_site_graph_re, site_graph),
     (_site_graph_util_re, site_graph_util),
+    (_priority_summary_graph_re, priority_summary_graph),
     (_summary_graph_re, summary_graph),
     (_request_starvation_graph_re, request_starvation_graph),
     (_request_held_graph_re, request_held_graph),

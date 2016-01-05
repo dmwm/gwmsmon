@@ -88,6 +88,36 @@ def subtask(basedir, interval, request, subtask):
             )
     return clean_and_return(fd, pngpath)
 
+def priority_summary_graph(basedir, interval, jobType):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, "priorities-%s.rrd" % jobType.lower())
+    if not os.path.exists(fname):
+        raise ValueError("No information present" % site)
+    rrdtool.graph(pngpath,
+                  "--imgformat", "PNG",
+                  "--width", "250",
+                  "--start", "-1%s" % get_rrd_interval(interval),
+                  "--vertical-label", "Jobs",
+                  "--lower-limit", "0",
+                  "--title", "%s Job Priority" % jobType,
+                  'DEF:R0=%s:R0:AVERAGE' % fname,
+                  'DEF:R1=%s:R1:AVERAGE' % fname,
+                  'DEF:R2=%s:R2:AVERAGE' % fname,
+                  'DEF:R3=%s:R3:AVERAGE' % fname,
+                  'DEF:R4=%s:R4:AVERAGE' % fname,
+                  'DEF:R5=%s:R5:AVERAGE' % fname,
+                  'DEF:R6=%s:R6:AVERAGE' % fname,
+                  'DEF:R7=%s:R7:AVERAGE' % fname,
+                  'AREA:R0#ff0000:High Priority',
+                  'AREA:R1#ff7f00:Block 1 (110k):STACK',
+                  'AREA:R2#ffff00:Block 2 (90k):STACK',
+                  'AREA:R3#00ff00:Block 3 (85k):STACK',
+                  'AREA:R4#0000ff:Block 4 (80k):STACK',
+                  'AREA:R5#6600ff:Block 5 (70k):STACK',
+                  'AREA:R6#8800ff:Block 6 (63k):STACK',
+                  'AREA:R7#000000:Low Priority:STACK')
+    return clean_and_return(fd, pngpath)
+
 
 def request(basedir, interval, request):
     fd, pngpath = tempfile.mkstemp(".png")
