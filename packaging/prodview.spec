@@ -71,6 +71,13 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0755,apache,apache) %dir /var/www/scheddview
 
 %changelog
+* Tue Jan 05 2016 Justas Balcas <justas.balcas@cern.ch>  - 0.7-1
+- RRDs start time to not loss data
+- Unique Pressure per sites in all views
+- Production Priority graphs (idle, running)
+- Support for multiple collectors and code minimization
+- Code moved to python2.7 + PEP8 friendly
+
 * Thu Dec 03 2015 Justas Balcas <justas.balcas@cern.ch>  - 0.6-1
 - Added crab2 view 9 May
 - Added total, schedd, factory view - 3 Aug

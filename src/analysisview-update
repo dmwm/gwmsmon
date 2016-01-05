@@ -8,6 +8,7 @@ from functions import dropObj
 from functions import querySchedd
 from functions import getSchedds
 from functions import rrdUpdate
+from functions import createEmptyRRD
 
 GSTARTUP = int(time.time())
 
@@ -225,6 +226,7 @@ def writeJson(workflows, gsites, taskInfo, output, sitesview):
 
 def writeRrds(workflows, gsites, output, sitesview):
     """ TODO doc """
+    createEmptyRRD(output, GSTARTUP)
     fname = os.path.join(output, "summary.rrd")
     # Create summary RRD which is shown in top.
     tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:UniquePressure:GAUGE:360:U:U"]

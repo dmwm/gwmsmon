@@ -93,6 +93,12 @@ def validateInt(numb):
         del er
         return int(numb.eval())
 
+def createEmptyRRD(output, startTime):
+    """ Create fake empty.rrd for sites which have no data. """
+    fname = str(os.path.join(output, "empty.rrd"))
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:MaxRunning:GAUGE:360:U:U"]
+    tempUpdLine = "%d:0:0:0" % startTime
+    rrdUpdate(fname, tempKeys, tempUpdLine, startTime)
 
 def querySchedd(ad, const, keys):
     """query schedd with const and keys

@@ -8,6 +8,7 @@ from functions import querySchedd
 from functions import validateInt
 from functions import getSchedds
 from functions import rrdUpdate
+from functions import createEmptyRRD
 
 GSTARTUP = int(time.time())
 
@@ -34,6 +35,8 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         else:
             continue
         prio = job["JobPrio"]
+        priorityDict = taskInfo.setdefault("Summary", {})
+        prioPriorityDict  = priorityDict.setdefault(int(prio), {"Running": 0, "Idle": 0})
         requestDict = workflows.setdefault(request, {})
         subtaskDict = requestDict.setdefault(subTask, {})
         summaryDict = subtaskDict.setdefault('Summary', {})
@@ -51,8 +54,10 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         mainSubTaskdebug['DesiredSites'] = job['DESIRED_Sites']
         if job['JobStatus'] == 2:
             mainSubTaskdebug['Running'] += 1
+            prioPriorityDict['Running'] += 1
         else:
             mainSubTaskdebug['Idle'] += 1
+            prioPriorityDict['Idle'] += 1
 
         jobinfo = (prio, desiredSites)
         if not runningSite:
@@ -169,8 +174,24 @@ def summarize(workflows, gsites, tasks):
             for status, dummycount in siteDict.items():
                 gsitesDict[request][status] += siteDict[status]
 
+    newTasksDict = {}
+    mappings = {63000: "B6", 70000: "B5", 80000: "B4", 85000: "B3", 90000: "B2", 110000: "B1"}
+    mappingsView = {"B7": "Low Priority", "B6": "Block 6 (63k)", "B5": "Block 5 (70k)", "B4": "Block 4 (80k)", "B3": "Block 3 (85k)", "B2": "Block 2 (90k)", "B1": "Block 1 (110k)", "B0": "High Priority"}
+    for prio in tasks['Summary']:
+        name = None
+        if prio in mappings:
+            name = mappings[prio]
+        else:
+            name = 'B7' if prio < 63000 else 'B0'
+        newTasksDict.setdefault(name, {"Running": 0, "Idle": 0})
+        for key in tasks['Summary'][prio]:
+            newTasksDict[name][key] += tasks['Summary'][prio][key]
+    newTasksDict['Keys'] = mappingsView
+    tasks['Summary'] = newTasksDict
 
-def writeJson(workflows, gsites, output):
+
+
+def writeJson(workflows, gsites, output, taskInfo):
     """
     Write json output for monitoring
     """
@@ -191,7 +212,7 @@ def writeJson(workflows, gsites, output):
     now = int(time.time())
 
     dropObj(sites, output, "site_summary.json")
-    dropObj({"Running": running, "Idle": idle, "RequestCount": requests, "UniquePressure": uniq, "UpdateTime": now}, output, "totals.json")
+    dropObj({"Running": running, "Idle": idle, "RequestCount": requests, "UniquePressure": uniq, "Priorities": taskInfo['Summary'], "UpdateTime": now}, output, "totals.json")
 
     for site, siteDict in gsites.items():
         siteDir = os.path.join(output, site)
@@ -244,13 +265,24 @@ def writeJson(workflows, gsites, output):
         dropObj(finalObj, requestDir, "summary.json")
 
 
-def writeRrds(workflows, gsites, output):
+def writeRrds(workflows, gsites, output, taskInfo):
     """
     Create all rrds or update existing ones.
     """
-
+    createEmptyRRD(output, GSTARTUP)
     sites = {}
     running, idle, uniq = 0, 0, 0
+    # Update for priorities graph.
+    # This idealy shows in which status are more jobs (idle/running) compared to priority
+    # ----------------------------------------------------------------
+    for key in ['Running', 'Idle']:
+        fname = os.path.join(output, "priorities-%s.rrd" % key.lower())
+        tempKeys = ["DS:R%s:GAUGE:360:U:U" % x for x in range(0,8)]
+        stats = tuple([taskInfo['Summary'][x][key] if x in taskInfo['Summary'] and key in taskInfo['Summary'][x] else 0 for x in sorted(taskInfo["Summary"]["Keys"])])
+        tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
+        rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
+    # ----------------------------------------------------------------
+
     for requestDict in workflows.values():
         for site, siteDict in requestDict["Summary"]["Sites"].items():
             sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
@@ -334,8 +366,8 @@ def main():
     summarize(workflows, sites, taskInfo)
 
     if opts.prodview:
-        writeJson(workflows, sites, opts.prodview)
-        writeRrds(workflows, sites, opts.prodview)
+        writeJson(workflows, sites, opts.prodview, taskInfo)
+        writeRrds(workflows, sites, opts.prodview, taskInfo)
 
 if __name__ == "__main__":
     main()

@@ -41,6 +41,7 @@
             pool_stats1['NotQueued'] = data.NotQueued;
             pool_stats1['TaskCountR'] = data.TaskCountR;
             pool_stats1['TaskCountH'] = data.TaskCountH;
+            pool_stats1['UniquePressure'] = data.UniquePressure;
             pool_stats1['UpdateDate'] = new Date(data.UpdateTime*1000);
             drawPoolStats1(view, addition);
         }
@@ -51,6 +52,7 @@
             pool_stats_table.addClass("table");
             pool_stats_table.attr('id', 'overall_stats_table' + addition);
             pool_stats_table.append("<tr><th>Idle Jobs</th><td>" + pool_stats1.Idle + "</td></tr>");
+            pool_stats_table.append("<tr><th>Unique Pressure</th><td>" + pool_stats1.UniquePressure + "</td></tr>");
             pool_stats_table.append("<tr><th>Running Jobs</th><td>" + pool_stats1.Running + "</td></tr>");
             pool_stats_table.append("<tr><th>Not Queued Jobs</th><td>" + pool_stats1.NotQueued + "</td></tr>");
             pool_stats_table.append("<tr><th>User Count</th><td>" + pool_stats1.RequestCount + "</td></tr>");
@@ -86,6 +88,7 @@
             pool_stats['Running'] = data.Running;
             pool_stats['RequestCount'] = data.RequestCount;
             pool_stats['Idle'] = data.Idle;
+            pool_stats['UniquePressure'] = data.UniquePressure;
             pool_stats['UpdateDate'] = new Date(data.UpdateTime*1000);
             drawPoolStatsP();
         }
@@ -95,8 +98,12 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table");
             pool_stats_table.attr('id', 'overall_stats_tablep');
-            pool_stats_table.append("<tr><th>Running Jobs</th><th>Idle Jobs</th><th>Workflow Count</th><th>Last Data Update</th>");
-            pool_stats_table.append("<tr><td>" + pool_stats.Running + "</td><td>" + pool_stats.Idle + "</td><td>" + pool_stats.RequestCount + "</td><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
+            pool_stats_table.append("<tr><th>Idle Jobs</th><td>" + pool_stats.Idle + "</td></tr>");
+            pool_stats_table.append("<tr><th>Unique Pressure</th><td>" + pool_stats.UniquePressure + "</td></tr>");
+            pool_stats_table.append("<tr><th>Running Jobs</th><td>" + pool_stats.Running + "</td></tr>");
+            pool_stats_table.append("<tr><th>Workflow Count</th><td>" + pool_stats.RequestCount + "</td></tr>");
+            pool_stats_table.append("<tr><th>Update Time</th><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
+
             $("#request_slots_tablep").append(pool_stats_table);
 
             $('#overall_hourly_imgp').detach();

@@ -10,6 +10,7 @@ import optparse
 import ConfigParser
 import rrdtool
 import htcondor
+from functions import createEmptyRRD
 
 g_startup = int(time.time())
 
@@ -246,7 +247,7 @@ def update_rrd(fname, line):
         print line
 
 def write_rrds(workflows, gsites, output):
-
+    createEmptyRRD(output, g_startup)
     sites = {}
     running = 0
     idle = 0

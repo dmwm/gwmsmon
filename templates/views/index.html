@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!--<!DOCTYPE html>-->
 <html xmlns="http://www.w3.orgoogle-visualization-table-tableg/1999/xhtml" xmlns:py="http://genshi.edgewall.org/">
     <head>
         <title>
@@ -29,6 +29,7 @@
                 document.title = "CMS Production Overview";
                 document.getElementById("pagetitle").innerHTML = "Summary of production";
                 document.getElementById("navbar-brand").innerHTML = "Production Overview";
+         		document.getElementById("myTab").style.display = 'inline';
                 }
             else if (currentview == "/analysisview/"){
                 document.title = "CMS Analysis Overview";
@@ -72,7 +73,7 @@
                 else {
                     $.get(currentview.concat('/json/summary'), function(data){
                         gotSummarySchedd(data, currentview)});
-		        }
+                        }
             }
 
             // Finally, get the site summaries
@@ -87,14 +88,14 @@
                 $.get(currentview.concat('/json/totals'), function(data){
                    gotTotalsFactory(data, currentview)});
             }
-            
+
         }
 
         //
         // FUNCTIONS FOR factoryview
         //
         function gotTotalsFactory(data, currentview){
-          drawPoolStatsImgs(currentview);
+          drawPoolStatsImgs(currentview, 'summary', 'overall_top_img');
           $('#overall_stats_table').detach();
           pool_stats_table = $("<table></table>");
           pool_stats_table.addClass("table");
@@ -122,7 +123,7 @@
                   sdata = data[key].Summary;
                   var image_html = '<img src="/factoryview/graphs/' + key + '"/>';
                   var shtml = '<a href="/factoryview/' + key + '">' + key + '</a>';
-                  var siteview = '<img src="/factoryview/graphs/' + key + '/joint"/>';  
+                  var siteview = '<img src="/factoryview/graphs/' + key + '/joint"/>';
                   var idleview = '<img src="/factoryview/graphs/' + key + '/idle"/>';
                   var heldview = '<img src="/factoryview/graphs/' + key + '/held"/>';
                   table_data.addRow([shtml, sdata.Errors, sdata.Warnings, sdata.Run, sdata.Idle, sdata.Held, siteview, idleview, heldview]);
@@ -160,7 +161,7 @@
         table_data.addColumn("string", "Weekly History");
         for (schedd_key in data){
             if (schedd_key !== "Summary"){
-	        schedd_data = data[schedd_key];
+                schedd_data = data[schedd_key];
                 var image_htmlh = '<img src="/scheddview/graphs/' + schedd_key + '/hourly"/>';
                 var image_htmld = '<img src="/scheddview/graphs/' + schedd_key + '/daily"/>';
                 var image_htmlw = '<img src="/scheddview/graphs/' + schedd_key + '/weekly"/>';
@@ -174,8 +175,8 @@
                 else
                     schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Machine + '">Machine & Condor Metrics</a><br/>';
                 table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.TotalHeldJobs, schedd_data.PercentageUse, image_htmlh, image_htmld, image_htmlw]);
-	    }
-	}
+            }
+        }
         var dashboard = new google.visualization.Dashboard(document.getElementById('sites_summary'));
         var table = new google.visualization.ChartWrapper({
             chartType: 'Table',
@@ -254,6 +255,7 @@
             table_data.addColumn("string", "Site");
             table_data.addColumn("number", "Running");
             table_data.addColumn("number", "Matching Idle");
+            table_data.addColumn("number", "Unique Pressure")
             if (currentview == "/prodview/")
                 table_data.addColumn("number", "Workflow Count");
             else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/")
@@ -269,17 +271,18 @@
 
 
             for (site_key in data) {
+                if (site_key == "Summary") continue;
                 site = data[site_key];
                 var util_img = '<img src="/totalview/graphs/' + site_key + '/utilization/hourly"/>';
                 var site_img = '<img src="'+ currentview +'graphs/' + site_key + '"/>';
                 var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
                 if (currentview != "/totalview/")
-                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.RequestCount, util_img, site_img]);
+                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.UniquePressure, site.RequestCount, util_img, site_img]);
                 else{
                     var prod_img = '<img src="/prodview/graphs/' + site_key + '"/>';
                     var anal_img = '<img src="/analysisview/graphs/' + site_key + '"/>';
                     var acr2_img = '<img src="/analysiscrab2view/graphs/' + site_key + '"/>';
-                    table_data.addRow([site_html, site.Running, site.MatchingIdle, util_img, site_img, prod_img, anal_img, acr2_img]);
+                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.UniquePressure, util_img, site_img, prod_img, anal_img, acr2_img]);
                 }
             }
 
@@ -301,7 +304,6 @@
             });
 
             dashboard.draw(table_data);
-
             // Reset the reload button
             $("#loading-btn").button('reset');
             // Set the last updated
@@ -314,14 +316,16 @@
             pool_stats['Running'] = data.Running;
             pool_stats['RequestCount'] = data.RequestCount;
             pool_stats['Idle'] = data.Idle;
+            pool_stats['UniquePressure'] = data.UniquePressure;
             if (currentview == "/totalview/"){
                 pool_stats['UpdateDate'] = new Date(data.Summary.UpdateTime*1000);
             }
             else {
                 pool_stats['UpdateDate'] = new Date(data.UpdateTime*1000);
-	    }
+            }
 
             if (currentview == "/prodview/"){
+                pool_stats['Priorities'] = data.Priorities;
                 drawPoolStatsProd();
             }
             else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
@@ -334,21 +338,29 @@
                 pool_stats['AnalysisRunning'] = data.analysisview.Running;
                 pool_stats['AnalysisTRunning'] = data.analysisview.TaskCountR;
                 pool_stats['AnalysisIdle'] = data.analysisview.Idle;
+                pool_stats['AnalysisUniq'] = data.analysisview.UniquePressure;
 
                 pool_stats['ProdRunning'] = data.prodview.Running;
                 pool_stats['ProdTRunning'] = data.prodview.RequestCount;
                 pool_stats['ProdIdle'] = data.prodview.Idle;
+                pool_stats['ProdUniq'] = data.prodview.UniquePressure;
 
                 pool_stats['CRAB2Running'] = data.analysiscrab2view.Running;
                 pool_stats['CRAB2TRunning'] = data.analysiscrab2view.TaskCountR;
                 pool_stats['CRAB2Idle'] = data.analysiscrab2view.Idle;
+                pool_stats['CRAB2Uniq'] = data.analysiscrab2view.UniquePressure;
 
                 pool_stats['TotalRunning'] = data.Summary.Running;
                 pool_stats['TotalIdle'] = data.Summary.Idle;
                 pool_stats['TotalTRunning'] = pool_stats['AnalysisTRunning'] + pool_stats['ProdTRunning'] + pool_stats['CRAB2TRunning'];
+                pool_stats['TotalUniq'] = pool_stats['AnalysisUniq'] + pool_stats['ProdUniq'] + pool_stats['CRAB2Uniq'];
                 drawPoolStatsTotal();
             }
-            drawPoolStatsImgs(currentview);
+			drawPoolStatsImgs(currentview, 'summary', 'overall_top_img');
+			if (currentview == "/prodview/") {
+				drawPoolStatsImgs(currentview, 'prioritysummaryidle', 'priority_top_img');
+                drawPoolStatsImgs(currentview, 'prioritysummaryrunning', 'priority_top_img');
+			}
         }
 
         function drawPoolStatsProd() {
@@ -356,17 +368,35 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table table-nonfluid");
             pool_stats_table.attr('id', 'overall_stats_table');
-            pool_stats_table.append("<tr><th>Running Jobs</th><th>Idle Jobs</th><th>Workflow Count</th><th>Last Data Update</th>");
-            pool_stats_table.append("<tr><td>" + pool_stats.Running + "</td><td>" + pool_stats.Idle + "</td><td>" + pool_stats.RequestCount + "</td><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
+            pool_stats_table.append("<tr><th>Idle Jobs</th><td>" + pool_stats.Idle + "</td></tr>");
+            pool_stats_table.append("<tr><th>Unique Pressure</th><td>" + pool_stats.UniquePressure + "</td></tr>");
+            pool_stats_table.append("<tr><th>Running Jobs</th><td>" + pool_stats.Running + "</td></tr>");
+            pool_stats_table.append("<tr><th>Workflow Count</th><td>" + pool_stats.RequestCount + "</td></tr>");
+            pool_stats_table.append("<tr><th>Update Time</th><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#request_slots_table").append(pool_stats_table);
+
+            $('#overall_priority_table').detach();
+            pool_stats_table = $("<table></table>");
+            pool_stats_table.addClass("table table-nonfluid");
+            pool_stats_table.attr('id', 'overall_priority_table');
+            pool_stats_table.append("<tr><th>Priority Type</th><th>Running</th><th>Idle</th></tr>");
+            var keys = Object.keys(pool_stats.Priorities.Keys).sort();
+            for (keyName in keys){
+                if (keys[keyName] in pool_stats.Priorities){
+                    pool_stats_table.append("<tr><th>"+ pool_stats.Priorities.Keys[keys[keyName]] +"</th><td>" + pool_stats.Priorities[keys[keyName]].Running + "</td><td>" + pool_stats.Priorities[keys[keyName]].Idle + "</td></tr>");
+                }
+            }
+            $("#priority_slots_table").append(pool_stats_table);
+
         }
-        
+
         function drawPoolStatsAna() {
             $('#overall_stats_table').detach();
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table table-nonfluid");
             pool_stats_table.attr('id', 'overall_stats_table');
             pool_stats_table.append("<tr><th>Idle Jobs</th><td>" + pool_stats.Idle + "</td></tr>");
+            pool_stats_table.append("<tr><th>Unique Pressure</th><td>" + pool_stats.UniquePressure + "</td></tr>");
             pool_stats_table.append("<tr><th>Running Jobs</th><td>" + pool_stats.Running + "</td></tr>");
             pool_stats_table.append("<tr><th>Not Queued Jobs</th><td>" + pool_stats.NotQueued + "</td></tr>");
             pool_stats_table.append("<tr><th>User Count</th><td>" + pool_stats.RequestCount + "</td></tr>");
@@ -381,37 +411,29 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table table-nonfluid");
             pool_stats_table.attr('id', 'overall_stats_table');
-            pool_stats_table.append("<tr><th></th><th>Running</th><th>Idle</th><th>Tasks</th></tr>");
-            pool_stats_table.append("<tr><th>Total</th><td>" + pool_stats.TotalRunning + "</td><td>"+ pool_stats.TotalIdle +"</td><td>"+ pool_stats.TotalTRunning +"</td></tr>");
-            pool_stats_table.append("<tr><th>Production</th><td>" + pool_stats.ProdRunning + "</td><td>"+ pool_stats.ProdIdle +"</td><td>"+ pool_stats.ProdTRunning +"</td></tr>");
-            pool_stats_table.append("<tr><th>Analysis</th><td>" + pool_stats.AnalysisRunning + "</td><td>"+ pool_stats.AnalysisIdle +"</td><td>"+ pool_stats.AnalysisTRunning +"</td></tr>");
-            pool_stats_table.append("<tr><th>CRAB2</th><td>" + pool_stats.CRAB2Running + "</td><td>"+ pool_stats.CRAB2Idle +"</td><td>"+ pool_stats.CRAB2TRunning +"</td></tr>");
+            pool_stats_table.append("<tr><th></th><th>Running</th><th>Idle</th><th>Unique Pressure</th><th>Tasks</th></tr>");
+            pool_stats_table.append("<tr><th>Total</th><td>" + pool_stats.TotalRunning + "</td><td>"+ pool_stats.TotalIdle +"</td><td>"+ pool_stats.TotalUniq +"</td><td>"+ pool_stats.TotalTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><th>Production</th><td>" + pool_stats.ProdRunning + "</td><td>"+ pool_stats.ProdIdle +"</td><td>"+ pool_stats.ProdUniq +"</td><td>"+ pool_stats.ProdTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><th>Analysis</th><td>" + pool_stats.AnalysisRunning + "</td><td>"+ pool_stats.AnalysisIdle +"</td><td>"+ pool_stats.AnalysisUniq +"</td><td>"+ pool_stats.AnalysisTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><th>CRAB2</th><td>" + pool_stats.CRAB2Running + "</td><td>"+ pool_stats.CRAB2Idle +"</td><td>"+ pool_stats.CRAB2Uniq +"</td><td>"+ pool_stats.CRAB2TRunning +"</td></tr>");
             pool_stats_table.append("<tr><th>Update Time</th><td colspan=\"3\">" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#request_slots_table").append(pool_stats_table);
 
         }
 
-        function drawPoolStatsImgs(currentview){
-            $('#overall_hourly_img').detach();
+		function imagesByTag(url, tag, imgTag){
+			$(imgTag).detach();
             pool_hourly_img = $("<img></img>");
             pool_hourly_img.addClass("img");
-            pool_hourly_img.attr('id', 'overall_hourly_img');
-            pool_hourly_img.attr('src', currentview + 'graphs/summary/hourly');
-            $("#pool_hourly_img").append(pool_hourly_img);
-
-            $('#overall_daily_img').detach();
-            pool_daily_img = $("<img></img>");
-            pool_daily_img.addClass("img");
-            pool_daily_img.attr('id', 'overall_daily_img');
-            pool_daily_img.attr('src', currentview + 'graphs/summary/daily');
-            $("#pool_daily_img").append(pool_daily_img);
-
-            $('#overall_weekly_img').detach();
-            pool_weekly_img = $("<img></img>");
-            pool_weekly_img.addClass("img");
-            pool_weekly_img.attr('id', 'overall_weekly_img');
-            pool_weekly_img.attr('src', currentview + 'graphs/summary/weekly');
-            $("#pool_weekly_img").append(pool_weekly_img);
+            pool_hourly_img.attr('id', imgTag);
+            pool_hourly_img.attr('src', url);
+            $("#"+ tag).append(pool_hourly_img);
+		}
+		
+        function drawPoolStatsImgs(currentview, type, tag){
+			imagesByTag(currentview + 'graphs/' + type + '/hourly', tag + "1", tag + "11");
+			imagesByTag(currentview + 'graphs/' + type + '/daily', tag + "2", tag + "22");
+			imagesByTag(currentview + 'graphs/' + type + '/weekly', tag + "3", tag + "33");
         }
 //]]>
         </script>
@@ -439,28 +461,59 @@
           </ul>
           </div><!--/.nav-collapse -->
     </nav>
-       <div class="container-fluid">
-            <div class="row jumbotron" id="top_summary">
+
+  <div class="container-fluid tab-pane">
+  <ul class="nav nav-tabs" id="myTab" style="display:none">
+    <li class="active"><a href="#overviewMain">Overview</a></li>
+    <li><a href="#priorityOverview">Priority Overview</a></li>
+  </ul>
+      <div class="tab-content">
+       <div class="tab-pane active" id="overviewMain">
+            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
                 <div class="col-md-12">
                     <div class="col-md-3" style="padding-top:40px"><div id="request_slots_table"></div></div>
                     <div class="col-md-3">
                     <div class="row">
                         <h2>Last Hour</h2>
-                        <div id="pool_hourly_img"></div>
+                        <div id="overall_top_img1"></div>
                     </div>
                     </div>
                     <div class="col-md-3">
                     <div class="row">
                         <h2>Last Day</h2>
-                        <div id="pool_daily_img"></div>
+                        <div id="overall_top_img2"></div>
                     </div>
                     </div>
                     <div class="col-md-3">
                     <div class="row">
                         <h2>Last Week</h2>
-                        <div id="pool_weekly_img"></div>
-                    </div></div></div>
+                        <div id="overall_top_img3"></div>
+          </div></div></div>
+            </div></div>
+        <div class="tab-pane" id="priorityOverview">
+            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+                <div class="col-md-12">
+                    <div class="col-md-3" style="padding-top:40px"><div id="priority_slots_table"></div></div>
+                    <div class="col-md-3">
+                    <div class="row">
+                        <h2>Last Hour</h2>
+                        <div id="priority_top_img1"></div>
+                    </div>
+                    </div>
+                    <div class="col-md-3">
+                    <div class="row">
+                        <h2>Last Day</h2>
+                        <div id="priority_top_img2"></div>
+                    </div>
+                    </div>
+                    <div class="col-md-3">
+                    <div class="row">
+                        <h2>Last Week</h2>
+                        <div id="priority_top_img3"></div>
+          </div></div></div>
             </div>
+        </div>
+        </div>
             <div class="row">
                 <div class="col-md-1"></div>
                 <div id="subtasks" class="col-md-12">
@@ -495,5 +548,10 @@
   ga('create', 'UA-69774798-1', 'auto');
   ga('send', 'pageview');
   </script>
-
+<script>
+  $('#myTab a').click(function (e) {
+    e.preventDefault();
+    $(this).tab('show');
+  })
+</script>
 </html>

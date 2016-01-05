@@ -11,7 +11,7 @@ from functions import parseArgs
 from functions import getSchedds
 from functions import getFromURL
 from functions import rrdUpdate
-
+from functions import createEmptyRRD
 GSTARTUP = int(time.time())
 
 
@@ -252,10 +252,11 @@ def summarize(totals, sites, xmlout, sitesCompare, pilotUsage):
             for site, siteDict in typeDict.items():
                 if site and site != "Summary":
                     if site not in sites['Summary'].keys():
-                        sites['Summary'][site] = {"Running": 0, "MatchingIdle": 0}
+                        sites['Summary'][site] = {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0}
                     sites['Summary'][site]['Running'] += siteDict['Running']
                     sites['Summary'][site]['MatchingIdle'] += siteDict['MatchingIdle']
-                    sites['Summary'][site][type] = siteDict
+                    sites['Summary'][site]["UniquePressure"] += siteDict["UniquePressure"]
+                    sites['Summary'][site][typeK] = siteDict
                     if site in pilotUsage:
                         sites['Summary'][site]['PilotUsage'] = pilotUsage[site]
 
@@ -336,6 +337,7 @@ def writeJson(totals, sites, xmlout, output, factoryout):
 
 def writeRrds(totals, sites, xmlout, output, factoryout):
     """ TODO doc """
+    createEmptyRRD(output, GSTARTUP)
     running = totals['Summary']['Running']
     idle = totals['Summary']['Idle']
     fname = str(os.path.join(output, "summary.rrd"))
@@ -363,12 +365,6 @@ def writeRrds(totals, sites, xmlout, output, factoryout):
             tempKeys = ["DS:PartRunning:GAUGE:360:U:U", "DS:PartIdle:GAUGE:360:U:U", "DS:StatRunning:GAUGE:360:U:U", "DS:StatIdle:GAUGE:360:U:U"]
             tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, partR, partI, statR, statI)
             rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
-
-    # Create fake empty.rrd for sites which have no data.
-    fname = str(os.path.join(output, "empty.rrd"))
-    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:MaxRunning:GAUGE:360:U:U"]
-    tempUpdLine = "%d:0:0:0" % GSTARTUP
-    rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     fname = str(os.path.join(factoryout, 'summary.rrd'))
     summary = xmlout['Summary']
