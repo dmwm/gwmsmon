@@ -91,10 +91,12 @@ def query_schedd(ad, workflows, taskInfo):
         if not running_site:
             summary_internal.setdefault(jobinfo, 0)
             summary_internal[jobinfo] += 1
-            for site in desired_sites:
-                site_dict = subtask_dict.setdefault(site, {})
-                prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
-                prio_dict.setdefault(status, 0)
+        for site in desired_sites:
+            site_dict = subtask_dict.setdefault(site, {})
+            prio_dict = site_dict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+            prio_dict.setdefault(status, 0)
+            if status != "Running":
+                prio_dict[status] += 1
                 if len(desired_sites) == 1 and not running_site:
                     prio_dict['UniquePressure'] += 1
         if running_site:

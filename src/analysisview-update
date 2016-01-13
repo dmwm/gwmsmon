@@ -66,13 +66,14 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         if not runningSite:
             summaryInternal.setdefault(jobinfo, 0)
             summaryInternal[jobinfo] += 1
-            for site in desiredSites:
-                siteDict = subtaskDict.setdefault(site, {})
-                prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
-                prioDict.setdefault(status, 0)
+        for site in desiredSites:
+            siteDict = subtaskDict.setdefault(site, {})
+            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+            prioDict.setdefault(status, 0)
+            if status != "Running":
                 prioDict[status] += 1
-            if len(desiredSites) == 1 and not runningSite:
-                prioDict['UniquePressure'] += 1
+                if len(desiredSites) == 1 and not runningSite:
+                    prioDict['UniquePressure'] += 1
         if runningSite:
             siteDict = subtaskDict.setdefault(runningSite, {})
             prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
