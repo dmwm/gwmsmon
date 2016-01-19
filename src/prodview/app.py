@@ -300,7 +300,7 @@ def request_site_graph(environ, start_response):
     return [ rrd.request_site(_cp.get(_view, "basedir"), interval, request, site) ]
 
 
-_summary_graph_re = re.compile(r'^/*graphs/summary/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_summary_graph_re = re.compile(r'^/*graphs/(summary|negotiation|difference)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def summary_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -310,10 +310,10 @@ def summary_graph(environ, start_response):
     path = environ.get('PATH_INFO', '')
     m = _summary_graph_re.match(path)
     interval = "daily"
-    if m.groups()[0]:
-        interval=m.groups()[0]
+    if m.groups()[1]:
+        interval=m.groups()[1]
 
-    return [ rrd.summary(_cp.get(_view, "basedir"), interval) ]
+    return [ rrd.summary(_cp.get(_view, "basedir"), interval, m.groups()[0]) ]
 
 
 _request_re = re.compile(r'^/*([-_A-Za-z0-9]+)/?$')

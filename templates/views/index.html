@@ -45,10 +45,9 @@
                 document.getElementById("pagetitle").innerHTML = "";
                 document.getElementById("navbar-brand").innerHTML = "Total Overview";
             }
-            else if (currentview == "/scheddview/"){
+            else if (currentview == "/poolview/"){
                 document.getElementById("pagetitle").innerHTML = "Scheduler Overview";
                 document.getElementById("sitetitle").innerHTML = "";
-                document.getElementById("top_summary").style.display = 'none';
                 document.getElementById("navbar-brand").innerHTML = "Scheduler Overview";
             }
             else if (currentview == "/factoryview/"){
@@ -57,16 +56,16 @@
                 document.getElementById("navbar-brand").innerHTML = "Factory Overview";
             }
 
-            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view/ or /totalview/ or /scheddview/ or /factoryview/
+            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view/ or /totalview/ or /poolview/ or /factoryview/
 
             // First, get the CMS-wide totals
-            if (currentview !== "/scheddview/" && currentview !== "/factoryview/"){
+            if (currentview !== "/poolview/" && currentview !== "/factoryview/"){
                 $.get(currentview.concat('/json/totals'), function(data){
                     gotTotals(data, currentview)});
             }
             // Next get the workflow summaries
             if (currentview != "/totalview/" && currentview !== "/factoryview/"){
-                if (currentview != "/scheddview/"){
+                if (currentview != "/poolview/"){
                     $.get(currentview.concat('/json/summary'), function(data){
                         gotSummary(data, currentview)});
                 }
@@ -77,7 +76,7 @@
             }
 
             // Finally, get the site summaries
-            if (currentview !== "/scheddview/" && currentview !== "/factoryview/"){
+            if (currentview !== "/poolview/" && currentview !== "/factoryview/"){
                 $.get(currentview.concat('/json/site_summary'), function(data){
                     gotSiteSummary(data, currentview)});
             }
@@ -148,6 +147,22 @@
         }
         // TODO: Replace someday all this code below with these if`s!
         function gotSummarySchedd(data, currentview) {
+        $('#overall_stats_table').detach();
+        pool_stats_table = $("<table></table>");
+        pool_stats_table.addClass("table");
+        pool_stats_table.attr('id', 'overall_stats_table');
+        pool_stats_table.append("<tr><th colspan=\"2\">"+data.Collector.INFO+"</th></tr>");
+        pool_stats_table.append("<tr><th>Difference</th><td>" + data.Collector.DIFF + "</td></tr>");
+        for (coll_key in data.Collector){
+            if (coll_key !== "DIFF" && coll_key !== "INFO"){
+                pool_stats_table.append("<tr><th>Running "+ coll_key +"</th><td>" + data.Collector[coll_key] + "</td></tr>");
+            }
+        }
+        pool_stats_table.append("<tr><th>Negotiation time</th><td>" + data.Negotiation + "</td></tr>");
+        pool_stats_table.append("<tr><th>Update time</th><td>" + new Date(data.Summary.UpdateTime*1000).toLocaleString() + "</td></tr>");
+        $("#request_slots_table").append(pool_stats_table);
+        drawPoolStatsImgs(currentview, 'negotiation', 'overall_top_img');
+        drawPoolStatsImgs(currentview, 'difference', 'overall_top_img');
         var table_data = new google.visualization.DataTable();
         table_data.addColumn("string", "Name");
         table_data.addColumn("string", "Status");
@@ -160,11 +175,11 @@
         table_data.addColumn("string", "Daily History");
         table_data.addColumn("string", "Weekly History");
         for (schedd_key in data){
-            if (schedd_key !== "Summary"){
+            if (schedd_key !== "Summary" && schedd_key !== "Collector" && schedd_key !== "Negotiation"){
                 schedd_data = data[schedd_key];
-                var image_htmlh = '<img src="/scheddview/graphs/' + schedd_key + '/hourly"/>';
-                var image_htmld = '<img src="/scheddview/graphs/' + schedd_key + '/daily"/>';
-                var image_htmlw = '<img src="/scheddview/graphs/' + schedd_key + '/weekly"/>';
+                var image_htmlh = '<img src="/poolview/graphs/' + schedd_key + '/hourly"/>';
+                var image_htmld = '<img src="/poolview/graphs/' + schedd_key + '/daily"/>';
+                var image_htmlw = '<img src="/poolview/graphs/' + schedd_key + '/weekly"/>';
 
                 var schedd_html = schedd_data.Name;
                 schedd_html += '<br/>';
@@ -456,7 +471,7 @@
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
               <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
-              <li><a href="/scheddview">Schedd Overview</a></li>
+              <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>
           </div><!--/.nav-collapse -->

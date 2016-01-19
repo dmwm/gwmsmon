@@ -62,7 +62,7 @@
                 }
             // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view
 
-            $.get('/scheddview/json/totals', function(data){
+            $.get('/poolview/json/totals', function(data){
                 factory_data = data;
             })
             // First, get the CMS-wide totals
@@ -71,7 +71,7 @@
 
             // Next get the workflow summaries
             $.get('json/$request/summary', function(data){
-                $.get('/scheddview/json/summary', function(schedddata){
+                $.get('/poolview/json/summary', function(schedddata){
                 gotSummary(data, schedddata, currentview)})});
 
             // Finally, get the site summaries
@@ -153,7 +153,7 @@
                 taskInfo += '<td>' + workflow_data.TaskInfo.MaxWallTimeMins + '</td>';
                 taskInfo += '<td>' + workflow_data.TaskInfo.RequestMemory + '</td>';
                 taskInfo += '</tr></table><br/>';
-                taskInfo += 'Scheduler: <a href="/scheddview">' + workflow_data.TaskInfo.Schedd + '</a>';
+                taskInfo += 'Scheduler: <a href="/poolview">' + workflow_data.TaskInfo.Schedd + '</a>';
 
                 table_data.addRow([taskInfo, workflow_data.TaskInfo.DAG_NodesTotal, workflow_data.TaskInfo.DAG_NodesReady, workflow_data.Idle, workflow_data.Running, workflow_data.TaskInfo.DAG_NodesDone, workflow_data.TaskInfo.DAG_NodesFailed, workflow_data.SiteCount, image_html]);
                 }}
@@ -354,7 +354,7 @@
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
               <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
-              <li><a href="/scheddview">Schedd Overview</a></li>
+              <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>
           </div><!--/.nav-collapse -->

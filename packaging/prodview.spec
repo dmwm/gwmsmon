@@ -47,7 +47,7 @@ mkdir -p $RPM_BUILD_ROOT/var/www/analysisview
 mkdir -p $RPM_BUILD_ROOT/var/www/analysiscrab2view
 mkdir -p $RPM_BUILD_ROOT/var/www/totalview
 mkdir -p $RPM_BUILD_ROOT/var/www/factoryview
-mkdir -p $RPM_BUILD_ROOT/var/www/scheddview
+mkdir -p $RPM_BUILD_ROOT/var/www/poolview
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -68,7 +68,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0755,apache,apache) %dir /var/www/analysiscrab2view
 %attr(0755,apache,apache) %dir /var/www/totalview
 %attr(0755,apache,apache) %dir /var/www/factoryview
-%attr(0755,apache,apache) %dir /var/www/scheddview
+%attr(0755,apache,apache) %dir /var/www/poolview
 
 %changelog
 * Tue Jan 05 2016 Justas Balcas <justas.balcas@cern.ch>  - 0.7-1

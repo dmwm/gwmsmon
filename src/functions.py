@@ -21,7 +21,7 @@ def parseArgs():
             {"key": "analysiscrab2view", "subkey": "basedir", "variable": "analysiscrab2view"},
             {"key": "analysisview", "subkey": "basedir", "variable": "analysisview"},
             {"key": "totalview", "subkey": "basedir", "variable": "totalview"},
-            {"key": "scheddview", "subkey": "basedir", "variable": "scheddview"},
+            {"key": "poolview", "subkey": "basedir", "variable": "poolview"},
             {"key": "factoryview", "subkey": "basedir", "variable": "factoryview"},
             {"key": "htcondor", "subkey": "pool", "variable": "pool"}, {"key": "htcondor", "subkey": "pool1", "variable": "pool1"},
             {"key": "utilization", "subkey": "timespan", "variable": "utilization"}]

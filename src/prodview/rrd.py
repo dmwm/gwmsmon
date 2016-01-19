@@ -281,12 +281,13 @@ def site_util(basedir, interval, site):
     return clean_and_return(fd, pngpath)
 
 
-def summary(basedir, interval):
+def summary(basedir, interval, fileName):
     fd, pngpath = tempfile.mkstemp(".png")
-    fname = os.path.join(basedir, "summary.rrd")
+    fname = os.path.join(basedir, "%s.rrd" % fileName)
     if not os.path.exists(fname):
-        raise ValueError("No information present" % site)
-    rrdtool.graph(pngpath,
+        raise ValueError("No information present %s" % fname)
+    if fileName == 'summary':
+        rrdtool.graph(pngpath,
             "--imgformat", "PNG",
             "--width", "250",
             "--start", "-1%s" % get_rrd_interval(interval),
@@ -309,7 +310,51 @@ def summary(basedir, interval):
             "GPRINT:Idle:MAX:%-6.0lf",
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
-            )
+                )
+## TODO
+    elif fileName == 'negotiation':
+        rrdtool.graph(pngpath,
+                "--imgformat", "PNG",
+             "--width", "250",
+             "--start", "-1%s" % get_rrd_interval(interval),
+             "--vertical-label", "Jobs",
+             "--lower-limit", "0",
+             "--title", "Negotiation time",
+             "DEF:NegotiationTime=%s:NegotiationTime:AVERAGE" % fname,
+             "DEF:Ideally=%s:Ideally:AVERAGE" % fname,
+             "LINE1:NegotiationTime#000000:NegotiationTime",
+             "LINE2:Ideally#0000FF:Ideally",
+             "COMMENT:\\n",
+             "COMMENT:                   max     avg     cur\\n",
+             "COMMENT:Negotiation Time ",
+             "GPRINT:NegotiationTime:MAX:%-6.0lf",
+             "GPRINT:NegotiationTime:AVERAGE:%-6.0lf",
+             "GPRINT:NegotiationTime:LAST:%-6.0lf",
+             "COMMENT:\\n",
+             "COMMENT:Ideally          ",
+             "GPRINT:Ideally:MAX:%-6.0lf",
+             "GPRINT:Ideally:AVERAGE:%-6.0lf",
+             "GPRINT:Ideally:LAST:%-6.0lf\\n",
+             )
+## TODO
+    elif fileName == 'difference':
+        rrdtool.graph(pngpath,
+             "--imgformat", "PNG",
+             "--width", "250",
+             "--start", "-1%s" % get_rrd_interval(interval),
+             "--vertical-label", "Jobs",
+             "--lower-limit", "0",
+             "--title", "Difference between collectors",
+             "DEF:Current=%s:Current:AVERAGE" % fname,
+             "LINE1:Current#000000:Current",
+             "LINE2:0#0000FF:0",
+             "COMMENT:\\n",
+             "COMMENT:              max     avg     cur\\n",
+             "COMMENT:Difference  ",
+             "GPRINT:Current:MAX:%-6.0lf",
+             "GPRINT:Current:AVERAGE:%-6.0lf",
+             "GPRINT:Current:LAST:%-6.0lf\\n",
+        )
     return clean_and_return(fd, pngpath)
 
 def request_held(basedir, interval, request, site):

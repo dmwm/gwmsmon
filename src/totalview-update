@@ -50,6 +50,17 @@ def summarizeSchedds(scheddsInfo, scheddAds):
         scheddsInfo[name] = {}
         scheddsInfo[name]['FileName'] = name
         scheddsInfo[name]['CMSGWMS_Type'] = ad['CMSGWMS_Type'] if 'CMSGWMS_Type' in ad else 'CRAB2'
+        if scheddsInfo[name]['CMSGWMS_Type'] == 'crabschedd':
+            temp = str(ad['StartSchedulerUniverse']).split(" ")
+            maxSchedulers = 0
+            for item in temp:
+                try:
+                    maxSchedulers = int(item)
+                except:
+                    continue
+            scheddsInfo[name]['MaxSchedulersRunning'] = maxSchedulers
+            scheddsInfo[name]['TotalSchedulerJobsRunning'] = ad['TotalSchedulerJobsRunning'] if 'TotalSchedulerJobsRunning' in ad else 0
+            scheddsInfo[name]['TotalSchedulerJobsIdle'] = ad['TotalSchedulerJobsIdle'] if 'TotalSchedulerJobsIdle' in ad else 0
         keys = ['Name', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning']
         for key in keys:
             scheddsInfo[name][key] = ad[key]
@@ -191,14 +202,27 @@ def writeScheddInfo(basedir, scheddsInfo, factInfo):
     scheddsInfo['Summary']['UpdateTime'] = now
     dropObj(scheddsInfo, basedir, 'summary.json')
     for scheddName, scheddDict in scheddsInfo.items():
+        if scheddName in ['Negotiation', 'Collector']:
+            continue
         if 'Name' not in scheddDict:
             continue
         requestDir = os.path.join(basedir, scheddName)
         fname = os.path.join(requestDir, "request.rrd")
         tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
         tempUpdLine = "%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"])
+        if scheddDict['CMSGWMS_Type'] == 'crabschedd':
+            tempKeys.append("DS:MaxDagmans:GAUGE:360:U:U")
+            tempKeys.append("DS:RunningDagmans:GAUGE:360:U:U")
+            tempKeys.append("DS:IdleDagmans:GAUGE:360:U:U")
+            tempUpdLine = "%d:%d:%d:%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"],
+                                                 scheddDict["MaxSchedulersRunning"], scheddDict["TotalSchedulerJobsRunning"], scheddDict["TotalSchedulerJobsIdle"])
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
     dropObj(factInfo, basedir, 'totals.json')
+    #Diff between pools and Negotiation
+    fname = os.path.join(basedir, 'difference.rrd')
+    rrdUpdate(fname, ["DS:Current:GAUGE:360:U:U"], "%d:%d" % (GSTARTUP, scheddsInfo['Collector']['DIFF']), GSTARTUP)
+    fname = os.path.join(basedir, 'negotiation.rrd')
+    rrdUpdate(fname, ["DS:NegotiationTime:GAUGE:360:U:U", "DS:Ideally:GAUGE:360:U:U"], "%d:%d:%d" % (GSTARTUP, scheddsInfo['Negotiation'], 300), GSTARTUP)
     return
 
 
@@ -397,6 +421,32 @@ def writeRrds(totals, sites, xmlout, output, factoryout):
                                                          factoryInfo['nowHeld'], factoryInfo['maxIdle'], factoryInfo['maxHeld'])
                     rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
+def queryWithRetries(pool, queryType, const, values, retries=2):
+    retried = 0
+    while retried < retries:
+        coll = htcondor.Collector(pool)
+        entries = coll.query(queryType, const, values)
+        if len(entries) > 0:
+            return entries
+        else:
+            retried += 1
+    return []
+
+def poolDiffNeg(scheddsInfo, opts):
+    scheddsInfo['Collector'] = {}
+    scheddsInfo['Negotiation'] = 0
+    for item in [opts.pool, opts.pool1]:
+        entries = queryWithRetries(item, htcondor.AdTypes.Any, 'State=?="Claimed"', ['Name'])
+        scheddsInfo['Collector'][item] = len(entries)
+    # See the diff
+    scheddsInfo['Collector']['DIFF'] = (scheddsInfo['Collector'][opts.pool] - scheddsInfo['Collector'][opts.pool1])
+    scheddsInfo['Collector']['INFO'] = "Difference between collector total job counts: %s (%s) - %s (%s) = %s" % (scheddsInfo['Collector'][opts.pool], opts.pool, scheddsInfo['Collector'][opts.pool1], opts.pool1, scheddsInfo['Collector']['DIFF'])
+    # Negotiation time
+    for item in [opts.pool, opts.pool1]:
+        entries = queryWithRetries(item, htcondor.AdTypes.Negotiator, 'True', ['LastNegotiationCycleDuration0'])
+        for ad in entries:
+            if 'LastNegotiationCycleDuration0' in ad:
+                scheddsInfo['Negotiation'] = ad['LastNegotiationCycleDuration0']
 
 def main():
     """ Main function """
@@ -415,10 +465,13 @@ def main():
     scheddsInfo = {}
 
     scheddAds, coll = getSchedds(opts, opts.pool, 'True', ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs',
-                                                           'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical'])
+                                                           'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical',
+                                                           'TotalSchedulerJobsRunning', 'TotalSchedulerJobsIdle', 'StartSchedulerUniverse'])
+
     if scheddAds:
         summarizeSchedds(scheddsInfo, scheddAds)
-    writeScheddInfo(opts.scheddview, scheddsInfo, factOut)
+    poolDiffNeg(scheddsInfo, opts)
+    writeScheddInfo(opts.poolview, scheddsInfo, factOut)
 
     pilotUsage = {}
     totals = {}
