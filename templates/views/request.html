@@ -200,6 +200,7 @@
             {
                 table_data.addColumn("string", "Total Max Running Achieved")
                 table_data.addColumn("string", "Site history for production");
+                table_data.addColumn("string", "Site history for this workflow");
             }
             else if (currentview == "/analysisview/"){
                 table_data.addColumn("string", "Total Max Running Achieved")
@@ -216,6 +217,7 @@
                     var site_util = '<img src="/totalview/graphs/' + site_key + '/utilization/"/>';
                     var site_img = '<img src="' + currentview + 'graphs/' + site_key + '"/>';
                     var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
+                    var workf_site_img = '<img src="' + currentview + 'graphs/$request/' + site_key + '"/>';
                     if (site_key in factory_data){
                        var entries = factory_data[site_key];
                        site_html += '<table border="1"><tr><th>Num</th><th>MaxWallTime</th><th>MaxMemory</th></tr>'
@@ -229,7 +231,7 @@
                     else {
                        site_html += "PROBLEM. Not in the factory.";
                     }
-                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site_util, site_img]);
+                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site_util, site_img, workf_site_img]);
                 }
             }
             else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
