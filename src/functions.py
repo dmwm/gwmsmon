@@ -115,6 +115,11 @@ def querySchedd(ad, const, keys):
         print "Failed querying", ad["Name"], e
     return output
 
+def getCollectors(pool, pool1):
+    """Get both collectors"""
+    coll = htcondor.Collector(pool)
+    coll1 = htcondor.Collector(pool1)
+    return coll, coll1
 
 def getSchedds(opts, pool, query, keys):
     """TODO doc"""

@@ -9,6 +9,7 @@ import htcondor
 import classad
 from functions import parseArgs
 from functions import getSchedds
+from functions import getCollectors
 from functions import getFromURL
 from functions import rrdUpdate
 from functions import createEmptyRRD
@@ -81,16 +82,19 @@ def summarizeSchedds(scheddsInfo, scheddAds):
         scheddsInfo[name]['Status'] = scheddStatus
 
 
-def pilotUsageInfo(coll, pilotUsage):
+def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot):
     """ TODO """
     pilots = []
     try:
         pilots = coll.query(htcondor.AdTypes.Any, 'GLIDEIN_CMSSite isnt undefined && SlotType isnt undefined',
-                            ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State'])
+                            ['Name', 'PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State'])
     except IOError as er:
         print 'Got IOError %s' % er
         return
     for item in pilots:
+        if item['Name'] in alreadyKnownPilot:
+            continue
+        alreadyKnownPilot.append(item['Name'])
         if 'PartitionableSlot' in item:
             # Means we have partitionable slot and some info about it
             # and we don`t care about state as in Static
@@ -487,7 +491,10 @@ def main():
     totals = {}
     sites = {}
 
-    pilotUsageInfo(coll, pilotUsage)
+    coll1, coll2 = getCollectors(opts.pool, opts.pool1)
+    alreadyKnownPilot = []
+    pilotUsageInfo(coll1, pilotUsage, alreadyKnownPilot)
+    pilotUsageInfo(coll2, pilotUsage, alreadyKnownPilot)
     loadPoolData(totals, sites, opts.analysisview, "analysisview")
     loadPoolData(totals, sites, opts.prodview, "prodview")
     loadPoolData(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
