@@ -425,7 +425,10 @@ def queryWithRetries(pool, queryType, const, values, retries=2):
     retried = 0
     while retried < retries:
         coll = htcondor.Collector(pool)
-        entries = coll.query(queryType, const, values)
+        try:
+            entries = coll.query(queryType, const, values)
+        except IOError:
+            pass
         if len(entries) > 0:
             return entries
         else:

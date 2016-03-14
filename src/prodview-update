@@ -11,8 +11,6 @@ from functions import rrdUpdate
 from functions import createEmptyRRD
 
 GSTARTUP = int(time.time())
-
-
 def analyzeScheddOutput(ad, workflows, taskInfo):
     """
     Main function which gets all information from schedds
@@ -24,7 +22,15 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
     for job in jobs:
         request = job['WMAgent_RequestName']
         subTask = job['WMAgent_SubTaskName'].split("/")[-1]
-        desiredSites = job['DESIRED_Sites'].split(",")
+        desiredSites = ""
+        strDes = ""
+        try:
+            desiredSites = job['DESIRED_Sites'].split(",")
+            strDes = job['DESIRED_Sites']
+        except AttributeError:
+            desiredSites = job['DESIRED_Sites'].eval()
+            strDes = desiredSites
+            desiredSites = desiredSites.split(",")
         desiredSites.sort()
         desiredSites = tuple(desiredSites)
         runningSite = job.get("MATCH_EXP_JOBGLIDEIN_CMSSite")
@@ -46,12 +52,12 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         mainSubTask = mainTaskInfo.setdefault(subTask, {})
         memory = 0 if 'RequestMemory' not in job.keys() else validateInt(job['RequestMemory'])
         walltime = 0 if 'MaxWallTimeMins' not in job.keys() else validateInt(job['MaxWallTimeMins'])
-        key = "||".join([str(memory), str(walltime), str(job['DESIRED_Sites']), ad['Name']])
+        key = "||".join([str(memory), str(walltime), str(strDes), ad['Name']])
         mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': ''})
         mainSubTaskdebug['Schedd'] = ad['Name']
         mainSubTaskdebug['Memory'] = memory
         mainSubTaskdebug['WallTime'] = walltime
-        mainSubTaskdebug['DesiredSites'] = job['DESIRED_Sites']
+        mainSubTaskdebug['DesiredSites'] = strDes
         if job['JobStatus'] == 2:
             mainSubTaskdebug['Running'] += 1
             prioPriorityDict['Running'] += 1

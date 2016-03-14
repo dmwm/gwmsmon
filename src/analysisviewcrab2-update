@@ -44,6 +44,8 @@ def parse_args():
 
 
 def query_schedd(ad, workflows, taskInfo):
+    if ad['Name'].startswith("server"):
+        return
     schedd = htcondor.Schedd(ad)
     try:
         jobs = schedd.xquery("BLTaskID isnt null && JobStatus =!= 5", ["BLTaskID","AccountingGroup", "ClusterId", "RequestMemory", "MaxWallTimeMins", "JobStatus", "DESIRED_Sites", "MATCH_EXP_JOB_GLIDEIN_CMSSite"])
