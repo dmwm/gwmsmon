@@ -22,6 +22,7 @@
             setInterval(load_data, 300000);
         });
 
+        var factory_data = {};
         function load_data() {
             var currentview = window.location['pathname'].split("/")[1];
             var currentview = "/".concat(currentview, "/");
@@ -56,6 +57,9 @@
                 document.getElementById("navbar-brand").innerHTML = "Factory Overview";
             }
 
+            $.get('/poolview/json/totals', function(data){
+                 factory_data = data;
+            })              
             // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view/ or /totalview/ or /poolview/ or /factoryview/
 
             // First, get the CMS-wide totals
@@ -297,7 +301,21 @@
                     var prod_img = '<img src="/prodview/graphs/' + site_key + '"/>';
                     var anal_img = '<img src="/analysisview/graphs/' + site_key + '"/>';
                     var acr2_img = '<img src="/analysiscrab2view/graphs/' + site_key + '"/>';
-                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.UniquePressure, util_img, site_img, prod_img, anal_img, acr2_img]);
+                    if (site_key in factory_data){
+                        var entries = factory_data[site_key];
+                        site_html += '<table border="1"><tr><th>Num</th><th>MaxWallTime</th><th>MaxMemory</th><th>MaxCpus</th></tr>'
+                            for (i = 0; i< entries.length; i++){
+                                site_html += '<tr><td>'+ i + '</td>';
+                                site_html += '<td>' + entries[i]['MaxWallTime'] + '</td>';
+                                site_html += '<td>' + entries[i]['MaxMemMB'] + '</td>';
+                                site_html += '<td>' + entries[i]['MaxCpus'] + '</td></tr>';
+                            }
+                        site_html += '</table><br/>';
+                    }
+                    else{
+                        site_html += "PROBLEM. Not in the factory.";
+                    }
+                        table_data.addRow([site_html, site.Running, site.MatchingIdle, site.UniquePressure, util_img, site_img, prod_img, anal_img, acr2_img]);
                 }
             }
 
