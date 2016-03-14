@@ -29,8 +29,14 @@ def queryFactory(coll, output):
             entry['GLIDEIN_MaxMemMBs'] = 0
         if 'GLIDEIN_Max_Walltime' not in entry:
             entry['GLIDEIN_Max_Walltime'] = 0
+            # Seems the hack is also needed for T0... so make it one week.
+            if entry['GLIDEIN_CMSSite'] == 'T0_CH_CERN':
+                entry['GLIDEIN_Max_Walltime'] = 600000
         if 'GLIDEIN_CPUS' not in entry:
-            entry['GLIDEIN_CPUS'] = 1
+            entry['GLIDEIN_CPUS'] = 1 # This is a hack, but seems HLT is not setting correct CPUS.
+            # Due to HLT, lets make another hack, which I don`t like
+            if entry['GLIDEIN_CMSSite'] == 'T2_CH_CERN_HLT':
+                entry['GLIDEIN_CPUS'] = 8
         dataAppend = {'MaxMemMB': entry['GLIDEIN_MaxMemMBs'], 'MaxWallTime': int(entry['GLIDEIN_Max_Walltime']/60), 'MaxCpus': int(entry['GLIDEIN_CPUS'])}
         if entry['GLIDEIN_CMSSite'] not in output:
             output[entry['GLIDEIN_CMSSite']] = []
@@ -424,6 +430,7 @@ def writeRrds(totals, sites, xmlout, output, factoryout):
 def queryWithRetries(pool, queryType, const, values, retries=2):
     retried = 0
     while retried < retries:
+        entries = []
         coll = htcondor.Collector(pool)
         try:
             entries = coll.query(queryType, const, values)
