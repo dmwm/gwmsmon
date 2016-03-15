@@ -23,12 +23,44 @@
             setInterval(load_data, 300000);
         });
 
+        function draw_table(elID, table_vals){
+        var dashboard = new google.visualization.Dashboard(document.getElementById(elID));
+        var tableName = elID + '_table';
+        var controlName = elID + '_control';
+        var table = new google.visualization.ChartWrapper(
+                {chartType: 'Table',
+                 containerId: tableName,
+                 options: {sortColumn: 0,
+                           sortAscending: false,
+                           allowHtml: true,
+                           page: 'enable',
+                           cssClassNames: {headerRow: '1',
+                                           tableRow: '1',
+                                           oddTableRow: '1',
+                                           selectedTableRow: '1',
+                                           hoverTableRow: '1',
+                                           headerCell: '1',
+                                           tableCell: '1',
+                                           rowNumberCell:'1'}}});
+        var control = new google.visualization.ControlWrapper({
+                 controlType: 'StringFilter',
+                 containerId: controlName,
+                 options: {filterColumnIndex: 0, matchType: 'any'}});
+        dashboard.bind([control], [table]); 
+        // I hate google table class. Sorry ;)
+        google.visualization.events.addListener(table, 'ready', function(){
+             $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');});
+        dashboard.draw(table_vals);
+        }
+
+
         function load_data() {
             var currentview = window.location['pathname'].split("/")[1];
             var currentview = "/".concat(currentview, "/");
             document.getElementById('navbar-brand').setAttribute('href', currentview);
             document.getElementById("factory_entries").style.display = 'none';
             document.getElementById("pilots").style.display = 'none';
+            document.getElementById("pilotsdebug").style.display = 'none';
             if (currentview == "/prodview/"){
                 document.getElementById("navbar-brand").innerHTML = "Production Overview";
                 $.get('json/$site', function(data){
@@ -55,6 +87,8 @@
                 document.getElementById("factory_entries").style.display = 'inline';
                 document.getElementById("pilots").style.marginLeft = '1px';
                 document.getElementById("pilots").style.display = 'inline';
+                document.getElementById("pilotsdebug").style.marginLeft = '1px';
+                document.getElementById("pilotsdebug").style.display = 'inline';
 
                 document.getElementById("navbar-brand").innerHTML = "Total Overview";
                 document.getElementById("title").innerHTML = "Total Overview";
@@ -62,7 +96,7 @@
                   gotSummaryT(data, currentview)});
                 $.get('/factoryview/json/$site/summary', function(data){
                   $.get('/factoryview/json/summary', function(data1){
-                     gotSummaryFactory(data, data1, currentview, false, 'factory_entries', 'factory_entries_r_table', 'factory_entries_r_control')})});
+                     gotSummaryFactory(data, data1, currentview, false, 'factory_entries_r')})});
             }
             else if (currentview == '/factoryview/' ){
                 document.getElementById("workflows").style.marginLeft = '1px';
@@ -70,11 +104,11 @@
                 document.getElementById("title").innerHTML = "Factory Overview";
                $.get('json/$site/summary', function(data){
                  $.get(currentview.concat('/json/summary'), function(data1){
-                    gotSummaryFactory(data, data1, currentview, true, 'running_workflows', 'running_workflows_table', 'running_workflows_control')})})
+                    gotSummaryFactory(data, data1, currentview, true, 'running_workflows')})})
             }
         }
 
-        function gotSummaryFactory(data, data1, currentview, showTopStats, DataTable, DataTableID, DataTableControl){
+        function gotSummaryFactory(data, data1, currentview, showTopStats, DataTable){
         var init = typeof showTopStats === "undefined" ? true : showTopStats;
         if (init)
         {
@@ -152,24 +186,7 @@
                   table_data.addRow([details, errors, warnings, sdata.nowRunn, sdata.nowIdle, sdata.nowHeld, siteview, idleview, heldview]);
                   
             }}}
-        var dashboard = new google.visualization.Dashboard(document.getElementById(DataTable));
-        var table = new google.visualization.ChartWrapper({
-                      chartType: 'Table',
-                      containerId: DataTableID,
-                      options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable', cssClassNames: {headerRow: '1', tableRow: '1', oddTableRow: '1', selectedTableRow: '1', hoverTableRow: '1', headerCell: '1', tableCell: '1', rowNumberCell: '1'}}
-                  });
-        var control = new google.visualization.ControlWrapper({
-                      controlType: 'StringFilter',
-                      containerId: DataTableControl,
-                      options: {filterColumnIndex: 0, matchType: 'any'}
-                  });
-        dashboard.bind([control], [table]);
-        // I hate google table class. Sorry ;)
-        google.visualization.events.addListener(table, 'ready', function(){
-          $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');
-        });
-
-        dashboard.draw(table_data);
+        draw_table(DataTable, table_data);
         }
 
         function gotSummaryT(data, currentview){
@@ -256,26 +273,7 @@
                 var type_html = '<a href="/analysiscrab2view/$site">CRAB2</a>';
                 table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
             }
-
-            var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));
-            var table = new google.visualization.ChartWrapper({
-                chartType: 'Table',
-                containerId: 'running_workflows_table',
-                options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable', cssClassNames: {headerRow: '1', tableRow: '1', oddTableRow: '1', selectedTableRow: '1', hoverTableRow: '1', headerCell: '1', tableCell: '1', rowNumberCell: '1'}}
-            });
-            var control = new google.visualization.ControlWrapper({
-                controlType: 'StringFilter',
-                containerId: 'running_workflows_control',
-                options: {filterColumnIndex: 0, matchType: 'any'}
-            });
-
-            dashboard.bind([control], [table]);
-            // I hate google table class. Sorry ;)
-            google.visualization.events.addListener(table, 'ready', function(){
-              $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');
-            });
-
-            dashboard.draw(table_data);
+            draw_table('running_workflows', table_data);
 
             // Pilots usage graphs
             if ('PilotUsage' in data){
@@ -299,7 +297,7 @@
                  table_data.addRow(['Partitionable', pilots_html_hourly, pilots_html_daily, pilots_html_weekly]);
              }
              
-             if ('Partitionable' in data['PilotUsage']){
+             if ('Static' in data['PilotUsage']){
               
                  var pilots_html_hourly = '<img src="/totalview/graphs/$site/static/hourly"/>';
                  var pilots_html_daily = '<img src="/totalview/graphs/$site/static/daily"/>';
@@ -307,28 +305,24 @@
                  table_data.addRow(['Static', pilots_html_hourly, pilots_html_daily, pilots_html_weekly]);
              
              }
-             var dashboard = new google.visualization.Dashboard(document.getElementById('pilots_usage'));
-             var table = new google.visualization.ChartWrapper({
-                 chartType: 'Table',
-                 containerId: 'pilots_usage_table',
-                 options: {sortColumn: 0, sortAscending: false, allowHtml: true, page: 'enable', cssClassNames: {headerRow: '1', tableRow: '1', oddTableRow: '1', selectedTableRow: '1', hoverTableRow: '1', headerCell: '1', tableCell: '    1', rowNumberCell: '1'}}
-             });
-             var control = new google.visualization.ControlWrapper({
-                 controlType: 'StringFilter',
-                 containerId: 'pilots_usage_control',
-                 options: {filterColumnIndex: 0, matchType: 'any'}
-             });
-             dashboard.bind([control], [table]);
-             // I hate google table class. Sorry ;)
-             google.visualization.events.addListener(table, 'ready', function(){
-               $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');
-             });
+             draw_table('pilots_usage', table_data);
 
-             dashboard.draw(table_data);
-            
-            
-            }
-        }
+             if ('PilotUsage' in data){
+               if ('Partitionable' in data['PilotUsage']){
+                   if ('Utilization' in data['PilotUsage']['Partitionable']){
+                     var table_data_debug = new google.visualization.DataTable();
+                     table_data_debug.addColumn("number", "Counter");
+                     table_data_debug.addColumn("number", 'Total Memory Available');
+                     table_data_debug.addColumn("number", 'Memory Left');
+                     table_data_debug.addColumn("number", 'Total Cpus');
+                     table_data_debug.addColumn("number", 'Cpus Free');
+
+                     for (key in data['PilotUsage']['Partitionable']['Utilization']){
+                       var itemvals = data['PilotUsage']['Partitionable']['Utilization'][key];
+                       table_data_debug.addRow([itemvals.Counter, itemvals.TotalMemory, itemvals.Memory, itemvals.TotalSlotCpus, itemvals.Cpus]);
+                     }
+                     draw_table('pilotsdebugin', table_data_debug);
+        }}}}}
 
 
         function gotSummary(data, currentview) {
@@ -357,27 +351,7 @@
                 else
                     table_data.addRow([workflow_html, workflow_data.Running, workflow_data.MatchingIdle, workflow_data.MatchingSites, image_html]);
             }
-
-            var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));
-            var table = new google.visualization.ChartWrapper({
-                chartType: 'Table',
-                containerId: 'running_workflows_table',
-                options: {sortColumn: 1, sortAscending: false, allowHtml: true, page: 'enable', cssClassNames: {headerRow: '1', tableRow: '1', oddTableRow: '1', selectedTableRow: '1', hoverTableRow: '1', headerCell: '1', tableCell: '    1', rowNumberCell: '1'}}
-            });
-            var control = new google.visualization.ControlWrapper({
-                controlType: 'StringFilter',
-                containerId: 'running_workflows_control',
-                options: {filterColumnIndex: 0, matchType: 'any'}
-            });
-
-            dashboard.bind([control], [table]);
-            // I hate google table class. Sorry ;)
-            google.visualization.events.addListener(table, 'ready', function(){
-              $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');
-            });
-
-            dashboard.draw(table_data);
-
+            draw_table('running_workflows', table_data);
         }
 
         var pool_stats = new Array();
@@ -495,6 +469,16 @@
                    <div id="pilots_usage">
                       <div id="pilots_usage_control"></div>
                       <div id="pilots_usage_table"></div>
+                   </div>
+                </div>
+                <div class="col-md-1"></div>
+                <div id="pilotsdebug" class="col-md-12">
+                   <h2 id="title">
+                    Partitionable Pilots Info
+                   </h2>
+                   <div id="pilotsdebugin">
+                      <div id="pilotsdebugin_control"></div>
+                      <div id="pilotsdebugin_table"></div>
                    </div>
                 </div>
                 <div class="col-md-1"></div>
