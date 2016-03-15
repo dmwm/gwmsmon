@@ -18,7 +18,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
     """
     jobs = querySchedd(ad, "WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null",
                        ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite",
-                        "JobPrio", "JobStatus", "RequestMemory", "MaxWallTimeMins"])
+                        "JobPrio", "JobStatus", "RequestMemory", "MaxWallTimeMins", "RequestCpus"])
     for job in jobs:
         request = job['WMAgent_RequestName']
         subTask = job['WMAgent_SubTaskName'].split("/")[-1]
@@ -52,11 +52,13 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         mainSubTask = mainTaskInfo.setdefault(subTask, {})
         memory = 0 if 'RequestMemory' not in job.keys() else validateInt(job['RequestMemory'])
         walltime = 0 if 'MaxWallTimeMins' not in job.keys() else validateInt(job['MaxWallTimeMins'])
-        key = "||".join([str(memory), str(walltime), str(strDes), ad['Name']])
-        mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': ''})
+        requestCpus = 0 if 'RequestCpus' not in job.keys() else validateInt(job['RequestCpus'])
+        key = "||".join([str(memory), str(requestCpus), str(walltime), str(strDes), ad['Name']])
+        mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': '', 'Cpus': requestCpus})
         mainSubTaskdebug['Schedd'] = ad['Name']
         mainSubTaskdebug['Memory'] = memory
         mainSubTaskdebug['WallTime'] = walltime
+        mainSubTaskdebug['Cpus'] = requestCpus
         mainSubTaskdebug['DesiredSites'] = strDes
         if job['JobStatus'] == 2:
             mainSubTaskdebug['Running'] += 1

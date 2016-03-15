@@ -238,6 +238,7 @@
                 table_data.addColumn("number", "Total");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Idle");
+                table_data.addColumn("number", "Tasks Running");
                 table_data.addColumn("number", "Matching Site Count");
                 table_data.addColumn("string", 'User History');
 
@@ -245,7 +246,7 @@
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="'+ currentview +'graphs/' + workflow_key + '"/>';
                     var workflow_html = '<a href="'+ currentview + workflow_key + '">' + workflow_key + '</a>';
-                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.SiteCount, image_html]);
+                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.TaskCount, workflow_data.SiteCount, image_html]);
                 }}
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));

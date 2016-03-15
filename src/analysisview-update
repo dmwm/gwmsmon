@@ -15,7 +15,7 @@ GSTARTUP = int(time.time())
 
 def analyzeScheddOutput(ad, workflows, taskInfo):
     """ TODO doc """
-    keys = ["CRAB_UserHN", "CRAB_ReqName", "ClusterId", "RequestMemory", "MaxWallTimeMins",
+    keys = ["CRAB_UserHN", "CRAB_ReqName", "ClusterId", "RequestMemory", 'RequestCpus', "MaxWallTimeMins",
             "JobStatus", "TaskType", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite",
             "CRAB_UserWebDir", "JobPrio", "DAG_NodesReady", "DAG_NodesUnready",
             "DAG_NodesTotal", "DAG_NodesFailed", "DAG_NodesDone", "QDate"]
@@ -32,7 +32,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             mainUserTask['Schedd'] = ad['Name']
             mainUserTask['QDate'] = job['QDate']
             mainUserTask['TaskName'] = mainTaskName
-            keysFromMainTask = ['CRAB_UserWebDir', 'DAG_NodesTotal', 'DAG_NodesReady', 'DAG_NodesUnready',
+            keysFromMainTask = ['CRAB_UserWebDir', 'DAG_NodesTotal', 'DAG_NodesReady', 'DAG_NodesUnready', "RequestCpus",
                                 'DAG_NodesFailed', 'DAG_NodesDone', 'RequestMemory', 'MaxWallTimeMins', 'JobStatus']
             for keyName in keysFromMainTask:
                 if keyName in job.keys():
@@ -186,6 +186,7 @@ def writeJson(workflows, gsites, taskInfo, output, sitesview):
     for request, requestDict in workflows.items():
         finalObj[request] = dict(requestDict["Summary"])
         finalObj[request]["SiteCount"] = len(finalObj[request]["Sites"])
+        finalObj[request]["TaskCount"] = len(requestDict)-1
         del finalObj[request]["Sites"]
         requestSummary = dict(finalObj[request])
         requestSummary['UpdateTime'] = now
