@@ -33,6 +33,7 @@
                  options: {sortColumn: 0,
                            sortAscending: false,
                            allowHtml: true,
+                           alternatingRowStyle: false,
                            page: 'enable',
                            cssClassNames: {headerRow: '1',
                                            tableRow: '1',
@@ -316,11 +317,40 @@
                      table_data_debug.addColumn("number", 'Memory Left');
                      table_data_debug.addColumn("number", 'Total Cpus');
                      table_data_debug.addColumn("number", 'Cpus Free');
-
+                     table_data_debug.addColumn("string", 'Retire Time');
+                     var pool_stats1 = new Array();
+                     pool_stats1['NumberOfPilots'] = 0;
+                     pool_stats1['NumberOfPilotsRetire'] = 0;
+                     pool_stats1['NumberOfCpusFree'] = 0;
+                     pool_stats1['NumberOfCpusUse'] = 0;
+                     var rowCounter = 0;
                      for (key in data['PilotUsage']['Partitionable']['Utilization']){
                        var itemvals = data['PilotUsage']['Partitionable']['Utilization'][key];
-                       table_data_debug.addRow([itemvals.Counter, itemvals.TotalMemory, itemvals.Memory, itemvals.TotalSlotCpus, itemvals.Cpus]);
+                       var retireTimemili = itemvals.RetireTime * 1000;
+                       var retireTime = new Date(retireTimemili)
+                       var milliseconds = new Date().getTime();
+                       table_data_debug.addRow([itemvals.Counter, itemvals.TotalMemory, itemvals.Memory, itemvals.TotalSlotCpus, itemvals.Cpus,     retireTime.toLocaleString()]);
+                       pool_stats1['NumberOfPilots'] += itemvals.Counter;
+                       if (milliseconds > retireTimemili)
+                       {
+                           pool_stats1['NumberOfPilotsRetire'] += itemvals.Counter;
+                           pool_stats1['NumberOfCpusFree'] += (itemvals.Counter * itemvals.Cpus);
+                           pool_stats1['NumberOfCpusUse'] += (itemvals.Counter * (itemvals.TotalSlotCpus - itemvals.Cpus));
+                           for (var i = 0; i <= 5; i++) {
+                               table_data_debug.setProperty(rowCounter, i, 'style', 'background-color: #FF5050; color: black;');
+                           }}
+                       rowCounter = rowCounter + 1; 
                      }
+                     pool_stats1_table = $("<table></table>");
+                     pool_stats1_table.addClass("table");
+                     pool_stats1_table.attr('id', 'pilotsdebugtext_table');
+                     pool_stats1_table.append("<tr><th>Information type</th><th>Numbers</th>");
+                     pool_stats1_table.append("<tr><td>Number of Total Pilots</td><td>" + pool_stats1.NumberOfPilots + "</td>");
+                     pool_stats1_table.append("<tr><td>Number of Pilots over the Retire time</td><td>" + pool_stats1.NumberOfPilotsRetire + "</td>");
+                     pool_stats1_table.append("<tr><td>Number of CPUs in use in Pilots which are over the Retire time</td><td>" + pool_stats1.NumberOfCpusUse + "</td>");
+                     pool_stats1_table.append("<tr><td>Number of CPUs free in Pilots which are over the Retire time</td><td>" + pool_stats1.NumberOfCpusFree + "</td>");
+                      $("#pilotsdebugtext").append(pool_stats1_table);
+
                      draw_table('pilotsdebugin', table_data_debug);
         }}}}}
 
@@ -471,8 +501,7 @@
                       <div id="pilots_usage_table"></div>
                    </div>
                 </div>
-                <div class="col-md-1"></div>
-                <div id="pilotsdebug" class="col-md-12">
+                <div id="pilotsdebug" class="col-md-4">
                    <h2 id="title">
                     Partitionable Pilots Info
                    </h2>
@@ -481,6 +510,7 @@
                       <div id="pilotsdebugin_table"></div>
                    </div>
                 </div>
+                <div id="pilotsdebugtexttop" class="col-md-4"><h2>Grouped Statistics</h2><br/><div id="pilotsdebugtext"></div></div>
                 <div class="col-md-1"></div>
             </div>
         </div>

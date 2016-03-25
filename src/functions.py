@@ -8,7 +8,8 @@ import ConfigParser
 import rrdtool
 import urllib2
 import htcondor
-
+import datetime
+import time
 
 def parseArgs():
     """ parse all arguments from config file. """
@@ -148,3 +149,16 @@ def rrdUpdate(fname, createVars, updateLine, gstartup):
     if not os.path.exists(fname):
         rrdtool.create(fname, *createVars)
     updateRrdLine(fname, updateLine)
+
+
+def roundTime(dt=None, roundTo=60):
+    """Round a datetime object to any time laps in seconds
+    dt : datetime.datetime object, default now.
+    roundTo : Closest number of seconds to round to, default 1 minute.
+    """
+    dt = datetime.datetime.fromtimestamp(dt)
+    if dt == None : dt = datetime.datetime.now()
+    seconds = (dt - dt.min).seconds
+    # // is a floor division, not a comment on following line:
+    rounding = (seconds+roundTo/2) // roundTo * roundTo
+    return int(time.mktime((dt + datetime.timedelta(0,rounding-seconds,-dt.microsecond)).timetuple()))

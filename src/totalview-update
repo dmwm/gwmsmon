@@ -13,6 +13,8 @@ from functions import getCollectors
 from functions import getFromURL
 from functions import rrdUpdate
 from functions import createEmptyRRD
+from functions import roundTime
+
 GSTARTUP = int(time.time())
 
 
@@ -87,7 +89,7 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot):
     pilots = []
     try:
         pilots = coll.query(htcondor.AdTypes.Any, 'GLIDEIN_CMSSite isnt undefined && SlotType isnt undefined',
-                            ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State', 'Memory', 'TotalMemory', 'ChildMemory', 'ChildCpus'])
+                            ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State', 'Memory', 'TotalMemory', 'ChildMemory', 'ChildCpus', 'GLIDEIN_ToRetire'])
     except IOError as er:
         print 'Got IOError %s' % er
         return
@@ -103,8 +105,17 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot):
             slotInfo['CpusUse'] += int(item['TotalSlotCpus'] - item['Cpus'])
             # Lets make some analysis and group requirements
             summaryInfo = slotInfo.setdefault('Utilization', {})
-            tempKey = '%s|%s|%s|%s' % (item['TotalSlotCpus'], item['Cpus'], item['TotalMemory'], item['Memory'])
-            tempsummaryInfo = summaryInfo.setdefault(tempKey, {'TotalSlotCpus': 0, 'Cpus': 0, 'TotalMemory': 0, 'Memory': 0, 'ChildMemory': [], 'ChildCpus': [], 'Counter' : 0})
+            # Round the time to nearest 10 mins value.
+            # As we don`t want to end up with billion of values with 1 second resolution
+            endTime = 0
+            if 'GLIDEIN_ToRetire' not in item:
+                if item['GLIDEIN_CMSSite'] == 'T2_CH_CERN_HLT':
+                    endTime = GSTARTUP
+            else:
+                endTime = item['GLIDEIN_ToRetire']
+            endTime = roundTime(endTime, 10*60)
+            tempKey = '%s|%s|%s|%s|%s' % (item['TotalSlotCpus'], item['Cpus'], item['TotalMemory'], item['Memory'], endTime)
+            tempsummaryInfo = summaryInfo.setdefault(tempKey, {'TotalSlotCpus': 0, 'Cpus': 0, 'TotalMemory': 0, 'Memory': 0, 'ChildMemory': [], 'ChildCpus': [], 'Counter' : 0, 'RetireTime': endTime})
             if tempsummaryInfo['TotalSlotCpus'] == 0 and tempsummaryInfo['TotalMemory'] == 0:
                 for key in ['TotalSlotCpus', 'Cpus', 'TotalMemory', 'Memory']:
                     tempsummaryInfo[key] = item[key]
