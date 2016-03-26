@@ -89,7 +89,7 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot):
     pilots = []
     try:
         pilots = coll.query(htcondor.AdTypes.Any, 'GLIDEIN_CMSSite isnt undefined && SlotType isnt undefined',
-                            ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State', 'Memory', 'TotalMemory', 'ChildMemory', 'ChildCpus', 'GLIDEIN_ToRetire'])
+                            ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State', 'Memory', 'TotalMemory', 'ChildMemory', 'ChildCpus', 'GLIDEIN_ToRetire', 'GLIDEIN_ToDie'])
     except IOError as er:
         print 'Got IOError %s' % er
         return
@@ -107,15 +107,15 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot):
             summaryInfo = slotInfo.setdefault('Utilization', {})
             # Round the time to nearest 10 mins value.
             # As we don`t want to end up with billion of values with 1 second resolution
-            endTime = 0
-            if 'GLIDEIN_ToRetire' not in item:
-                if item['GLIDEIN_CMSSite'] == 'T2_CH_CERN_HLT':
-                    endTime = GSTARTUP
-            else:
-                endTime = item['GLIDEIN_ToRetire']
-            endTime = roundTime(endTime, 10*60)
-            tempKey = '%s|%s|%s|%s|%s' % (item['TotalSlotCpus'], item['Cpus'], item['TotalMemory'], item['Memory'], endTime)
-            tempsummaryInfo = summaryInfo.setdefault(tempKey, {'TotalSlotCpus': 0, 'Cpus': 0, 'TotalMemory': 0, 'Memory': 0, 'ChildMemory': [], 'ChildCpus': [], 'Counter' : 0, 'RetireTime': endTime})
+            endTime = {}
+            for timeKey in ['GLIDEIN_ToRetire', 'GLIDEIN_ToDie']:
+                if timeKey not in item:
+                    endTime[timeKey] = GSTARTUP
+                else:
+                    endTime[timeKey] = item[timeKey]
+                endTime[timeKey] = roundTime(endTime[timeKey], 10*60)
+            tempKey = '%s|%s|%s|%s|%s|%s' % (item['TotalSlotCpus'], item['Cpus'], item['TotalMemory'], item['Memory'], endTime['GLIDEIN_ToRetire'], endTime['GLIDEIN_ToDie'])
+            tempsummaryInfo = summaryInfo.setdefault(tempKey, {'TotalSlotCpus': 0, 'Cpus': 0, 'TotalMemory': 0, 'Memory': 0, 'ChildMemory': [], 'ChildCpus': [], 'Counter' : 0, 'RetireTime': endTime['GLIDEIN_ToRetire'], 'DieTime': endTime['GLIDEIN_ToDie']})
             if tempsummaryInfo['TotalSlotCpus'] == 0 and tempsummaryInfo['TotalMemory'] == 0:
                 for key in ['TotalSlotCpus', 'Cpus', 'TotalMemory', 'Memory']:
                     tempsummaryInfo[key] = item[key]

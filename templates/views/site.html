@@ -20,7 +20,7 @@
         google.load('visualization', '1', {packages:['table', 'controls']});
         $(document).ready(function() {
             load_data();
-            setInterval(load_data, 300000);
+            //setInterval(load_data, 300000);
         });
 
         function draw_table(elID, table_vals){
@@ -318,26 +318,39 @@
                      table_data_debug.addColumn("number", 'Total Cpus');
                      table_data_debug.addColumn("number", 'Cpus Free');
                      table_data_debug.addColumn("string", 'Retire Time');
+                     table_data_debug.addColumn("string", 'Die Time');
                      var pool_stats1 = new Array();
                      pool_stats1['NumberOfPilots'] = 0;
                      pool_stats1['NumberOfPilotsRetire'] = 0;
-                     pool_stats1['NumberOfCpusFree'] = 0;
-                     pool_stats1['NumberOfCpusUse'] = 0;
+                     pool_stats1['NumberOfPilotsDie'] = 0;
+                     pool_stats1['NumberOfCpusFreeRetire'] = 0;
+                     pool_stats1['NumberOfCpusUseRetire'] = 0;
+                     pool_stats1['NumberOfCpusFreeDie'] = 0;
+                     pool_stats1['NumberOfCpusUseDie'] = 0;
                      var rowCounter = 0;
                      for (key in data['PilotUsage']['Partitionable']['Utilization']){
                        var itemvals = data['PilotUsage']['Partitionable']['Utilization'][key];
                        var retireTimemili = itemvals.RetireTime * 1000;
                        var retireTime = new Date(retireTimemili)
                        var milliseconds = new Date().getTime();
-                       table_data_debug.addRow([itemvals.Counter, itemvals.TotalMemory, itemvals.Memory, itemvals.TotalSlotCpus, itemvals.Cpus,     retireTime.toLocaleString()]);
+                       var dieTime = new Date(itemvals.DieTime *1000);
+                       table_data_debug.addRow([itemvals.Counter, itemvals.TotalMemory, itemvals.Memory, itemvals.TotalSlotCpus, itemvals.Cpus,     retireTime.toLocaleString(), dieTime.toLocaleString()]);
                        pool_stats1['NumberOfPilots'] += itemvals.Counter;
-                       if (milliseconds > retireTimemili)
+                       var dieTimemili = (itemvals.DieTime - 3600) * 1000;
+                       if (milliseconds > dieTimemili){
+                          pool_stats1['NumberOfPilotsDie'] += itemvals.Counter;
+                          pool_stats1['NumberOfCpusFreeDie'] += (itemvals.Counter * itemvals.Cpus);
+                          pool_stats1['NumberOfCpusUseDie'] += (itemvals.Counter * (itemvals.TotalSlotCpus - itemvals.Cpus));
+                          for (var i = 0; i <= 6; i++) {
+                             table_data_debug.setProperty(rowCounter, i, 'style', 'background-color: #FF5050; color: black;');
+                          }}
+                       else if (milliseconds > retireTimemili)
                        {
                            pool_stats1['NumberOfPilotsRetire'] += itemvals.Counter;
-                           pool_stats1['NumberOfCpusFree'] += (itemvals.Counter * itemvals.Cpus);
-                           pool_stats1['NumberOfCpusUse'] += (itemvals.Counter * (itemvals.TotalSlotCpus - itemvals.Cpus));
-                           for (var i = 0; i <= 5; i++) {
-                               table_data_debug.setProperty(rowCounter, i, 'style', 'background-color: #FF5050; color: black;');
+                           pool_stats1['NumberOfCpusFreeRetire'] += (itemvals.Counter * itemvals.Cpus);
+                           pool_stats1['NumberOfCpusUseRetire'] += (itemvals.Counter * (itemvals.TotalSlotCpus - itemvals.Cpus));
+                           for (var i = 0; i <= 6; i++) {
+                               table_data_debug.setProperty(rowCounter, i, 'style', 'background-color: #FFFACD; color: black;');
                            }}
                        rowCounter = rowCounter + 1; 
                      }
@@ -347,8 +360,11 @@
                      pool_stats1_table.append("<tr><th>Information type</th><th>Numbers</th>");
                      pool_stats1_table.append("<tr><td>Number of Total Pilots</td><td>" + pool_stats1.NumberOfPilots + "</td>");
                      pool_stats1_table.append("<tr><td>Number of Pilots over the Retire time</td><td>" + pool_stats1.NumberOfPilotsRetire + "</td>");
-                     pool_stats1_table.append("<tr><td>Number of CPUs in use in Pilots which are over the Retire time</td><td>" + pool_stats1.NumberOfCpusUse + "</td>");
-                     pool_stats1_table.append("<tr><td>Number of CPUs free in Pilots which are over the Retire time</td><td>" + pool_stats1.NumberOfCpusFree + "</td>");
+                     pool_stats1_table.append("<tr><td>Number of CPUs in use in Pilots which are over the Retire time</td><td>" + pool_stats1.NumberOfCpusUseRetire + "</td>");
+                     pool_stats1_table.append("<tr><td>Number of CPUs free in Pilots which are over the Retire time</td><td>" + pool_stats1.NumberOfCpusFreeRetire + "</td>");
+                     pool_stats1_table.append("<tr><td>Number of Pilots will die in ~1 hour range</td><td>" + pool_stats1.NumberOfPilotsDie + "</t    d>");
+                     pool_stats1_table.append("<tr><td>Number of CPUs in use in Pilots which are near die time (~1h range)</td><td>" + pool_stats1.NumberOfCpusUseDie + "</td>");
+                     pool_stats1_table.append("<tr><td>Number of CPUs free in Pilots which are near die time (~1h range)</td><td>" + pool_stats1.NumberOfCpusFreeDie + "</td>");
                       $("#pilotsdebugtext").append(pool_stats1_table);
 
                      draw_table('pilotsdebugin', table_data_debug);
@@ -501,7 +517,7 @@
                       <div id="pilots_usage_table"></div>
                    </div>
                 </div>
-                <div id="pilotsdebug" class="col-md-4">
+                <div id="pilotsdebug" class="col-md-5">
                    <h2 id="title">
                     Partitionable Pilots Info
                    </h2>
