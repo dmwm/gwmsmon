@@ -1,0 +1,2 @@
+MAILTO=""
+*/10 * * * * root history-update > /dev/null

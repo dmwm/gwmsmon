@@ -1,0 +1,136 @@
+#!/usr/bin/python
+import os
+import re
+import time
+import json
+import urllib
+import urllib2
+from functions import parseArgs, dropObj
+
+
+# ExitCodesQueries
+# --------------------------------------------------------------------------------
+prodExitCodes = '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}'
+#######
+# Prod uses - key1: WorkflowRAW and analysis is User
+prodExitCodesForWorkflow = '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}'
+# Prod uses - key1: WorkflowRAW , key2: TaskType and analysis is key1: User, key2: WorkflowRAW
+prodExitCodesForWorkflowSub = '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}'
+# --------------------------------------------------------------------------------
+# Memory Usage
+# --------------------------------------------------------------------------------
+prodMemoryUsage = '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}'
+prodMemoryUsageForWorkflow = '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}'
+prodMemoryUsageForWorkflowSub = '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}'
+# --------------------------------------------------------------------------------
+# Runtime
+# --------------------------------------------------------------------------------
+prodRuntimeUsage = '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}'
+prodRuntimeUsageForWorkflow = '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}'
+prodRuntimeUsageForWorkflowSub = '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}'
+
+site_regex = re.compile(r"^T[0-9](_[A-Z]{2}((_[A-Za-z0-9]+)|_?\*$)+|_?\*)$")
+crab_regex = re.compile(r"^([0-9]{6}_[0-9]{6})([A-Za-z0-9_\-]+)$")
+queryCounter = 0
+
+def queryES(values, destinationDir, fileName, analysis):
+     global queryCounter
+     url = "http://juztas.cern.ch:9200/job_history_prod/_search"
+     if analysis:
+         url = "http://juztas.cern.ch:9200/job_history_crab3/_search"
+     #print values
+     queryCounter += 1
+     valueslen = len(values)
+     req = urllib2.Request(url, values, {'Content-Type': 'application/json', 'Content-Length': valueslen})
+     response = urllib2.urlopen(req)
+     the_page = response.read()
+     the_page = json.loads(the_page)
+     dropObj(the_page, destinationDir, fileName)
+
+
+def getListOfWorkflows(directory, analysis):
+    """Returns a list of workflows and subtasks"""
+    #print [x[0].split("/")[-1] for x in os.walk(directory)]
+    dirnames = [x[0][len(directory):] for x in os.walk(directory)]
+    output = []
+    for item in dirnames:
+        if not site_regex.match(item):
+            temp = item.split("/")
+            if analysis:
+                newTemp = []
+                for i in range(len(temp)):
+                   m = crab_regex.match(temp[i])
+                   if m:
+                       newTemp.append(str(m.group(1) + ":" + m.group(2)))
+                   else:
+                       newTemp.append(temp[i])
+                temp = newTemp
+            output.append(temp)
+    return output
+
+def timestampdefine(lastrange, inputDict, timestampNow):
+    if lastrange in [1, 24, 720]:
+        inputDict["lte"] = int(timestampNow * 1000)
+        inputDict["gte"] = int((timestampNow - (3600 * lastrange)) * 1000)
+        return inputDict
+    else:
+        raise
+
+
+def main(sourcedir, destination, defaultdict, analysis=False):
+    """ """
+    timestampNow = int(time.time())
+    workflowsList = getListOfWorkflows(sourcedir, analysis)
+    for item in [1, 24, 720]:
+        defaultdict = timestampdefine(item, defaultdict, timestampNow)
+        queryES(prodExitCodes % defaultdict, destination, str('exitcodes' + str(item) + '.json'), analysis)
+        queryES(prodMemoryUsage % defaultdict, destination, str('memoryusage' + str(item) + '.json'), analysis)
+        queryES(prodRuntimeUsage % defaultdict, destination, str('runtime' + str(item) + '.json'), analysis)
+    for item in workflowsList:
+        if item[0] == 'history':
+            continue
+        print item
+        tempDict = defaultdict
+        if len(item) == 1:
+            if len(item[0]) == 0:
+                continue
+            tempDict['workflow'] = item[0]
+            tempDir = destination + item[0]
+            for timerange in [1, 24, 720]:
+                defaultdict = timestampdefine(timerange, defaultdict, timestampNow)
+                queryES(prodExitCodesForWorkflow % defaultdict, tempDir, str('exitcodes' + str(timerange) + '.json'), analysis)
+                queryES(prodMemoryUsageForWorkflow % defaultdict, tempDir, str('memoryusage' + str(timerange) + '.json'), analysis)
+                queryES(prodRuntimeUsageForWorkflow % defaultdict, tempDir, str('runtime' + str(timerange) + '.json'), analysis)
+        elif len(item) == 2:
+            tempDict['workflow'] = item[0]
+            tempDict['tasktype'] = item[1]
+            tempDir = destination + item[0] + "/" + item[1].replace(":", "")
+            for timerange in [1, 24, 720]:
+                defaultdict = timestampdefine(timerange, defaultdict, timestampNow)
+                queryES(prodExitCodesForWorkflow % defaultdict, tempDir, str('exitcodes' + str(timerange) + '.json'), analysis)
+                queryES(prodMemoryUsageForWorkflow % defaultdict, tempDir, str('memoryusage' + str(timerange) + '.json'), analysis)
+                queryES(prodRuntimeUsageForWorkflow % defaultdict, tempDir, str('runtime' + str(timerange) + '.json'), analysis)
+
+if __name__ == '__main__':
+    opts, dummyargs = parseArgs()
+    # Check if lock file is available. If yes. Exit. If no, create and start processing
+    #
+    try:
+        if os.path.exists('lockFile'):
+            print 'Lock file is there. Exit'
+            exit(0)
+        else:
+            with open('lockFile', 'w') as fd:
+                msg = str("Lets start: %s" % int(time.time()))
+                fd.write(msg)
+        if opts.prodview and opts.prodviewhistory:
+            defaultdict = {"key1": "WorkflowRAW", "key2": "TaskType"}
+            main(opts.prodview, opts.prodviewhistory, defaultdict)
+        if opts.analysisview and opts.analysisviewhistory:
+            defaultdict = {"key1": "User", "key2": "WorkflowRAW"}
+            main(opts.analysisview, opts.analysisviewhistory, defaultdict, True)
+        print queryCounter
+    except:
+        print 'I got failure!'
+    finally:
+        os.remove('lockFile')
