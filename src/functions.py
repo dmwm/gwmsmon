@@ -18,9 +18,9 @@ def parseArgs():
     parser.add_option("-p", "--pool", help="HTCondor pool to analyze", dest="pool")
     parser.add_option("-o", "--output", help="Top-level output dir", dest="output")
     opts, args = parser.parse_args()
-    keys = [{"key": "prodview", "subkey": "basedir", "variable": "prodview"},
+    keys = [{"key": "prodview", "subkey": "basedir", "variable": "prodview"}, {"key": "prodview", "subkey": "historydir", "variable": "prodviewhistory"},
             {"key": "analysiscrab2view", "subkey": "basedir", "variable": "analysiscrab2view"},
-            {"key": "analysisview", "subkey": "basedir", "variable": "analysisview"},
+            {"key": "analysisview", "subkey": "basedir", "variable": "analysisview"}, {"key": "analysisview", "subkey": "historydir", "variable": "analysisviewhistory"},
             {"key": "totalview", "subkey": "basedir", "variable": "totalview"},
             {"key": "poolview", "subkey": "basedir", "variable": "poolview"},
             {"key": "factoryview", "subkey": "basedir", "variable": "factoryview"},

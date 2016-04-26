@@ -14,8 +14,8 @@ setup(name='prodview',
                   ('/var/www/wsgi-scripts/', ['packaging/prodview.wsgi']),
                   ('/usr/share/prodview/templates/', ['templates/views/index.html', 'templates/views/request.html', 'templates/views/site.html']),
                   ('/etc/httpd/conf.d/', ['packaging/prodview-httpd.conf', 'packaging/welcome.conf']),
-                  ('/etc/cron.d/', ['packaging/prodview.cron', 'packaging/analysisview.cron', 'packaging/analysiscrab2.cron', 'packaging/totalview.cron', 'packaging/utilization.cron']),
+                  ('/etc/cron.d/', ['packaging/prodview.cron', 'packaging/analysisview.cron', 'packaging/analysiscrab2.cron', 'packaging/totalview.cron', 'packaging/utilization.cron', 'packaging/history.cron']),
                   ('/var/www/html/', ['templates/index.html', 'templates/css/bootstrap.css', 'templates/css/bootstrap.min.css', 'templates/js/bootstrap.min.js', 'templates/js/jquery.min.js']),
                  ],
-      scripts=["src/prodview-update", "src/analysisview-update", "src/analysisviewcrab2-update", "src/totalview-update", "src/utilization", "src/functions.py"]
+      scripts=["src/prodview-update", "src/analysisview-update", "src/analysisviewcrab2-update", "src/totalview-update", "src/utilization", "src/functions.py", "src/history-update"]
      )

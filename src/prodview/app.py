@@ -127,6 +127,27 @@ def request_site_summary_json(environ, start_response):
     for result in serve_static_file(fname, environ, start_response):
         yield result
 
+#_history_stats_re, history_stats
+_history_stats_re = re.compile(r'^/*json/history/(memoryusage1|memoryusage24|memoryusage720|exitcodes1|exitcodes24|exitcodes720|runtime1|runtime24|runtime720)/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9]+)?')
+def history_stats(environ, start_response):
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+
+    path = environ.get('PATH_INFO', '')
+    m = _history_stats_re.match(path)
+    request = ""
+    fileName = m.groups()[0]
+    if m.groups()[1]:
+        request = os.path.join(request, m.groups()[1])
+    if m.groups()[2]:
+        request = os.path.join(request, m.groups()[2])
+    fname = os.path.join(_cp.get(_view, "historydir"), request, str(fileName + ".json"))
+    for result in serve_static_file(fname, environ, start_response):
+        yield result
+# fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
+
 
 _request_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_graph(environ, start_response):
@@ -377,6 +398,7 @@ subtask_site_graph = not_found
 # Add url's here for new pages
 urls = [
     (re.compile(r'^/*$'), index),
+    (_history_stats_re, history_stats),
     (_totals_json_re, totals_json),
     (_summary_json_re, summary_json),
     (_max_used_json_re, max_used),
