@@ -36,14 +36,13 @@ def analyseProdRrds(saveDir, totalviewDir, timespan):
     """Get all list of sites, and average value for last <timespan> days"""
     fname = os.path.join(totalviewDir, 'site_summary.json')
 
-    now = datetime.datetime.now()
-    then = now - datetime.timedelta(days=int(timespan))
-    # Also I don`t need hour, mins, seconds, microseconds
-    then = then - datetime.timedelta(hours=then.hour, minutes=then.minute, seconds=then.second, microseconds=then.microsecond)
-
     output = {}
 
     for siteName in json.load(open(fname)).keys():
+        now = datetime.datetime.now()
+        then = now - datetime.timedelta(days=int(timespan))
+        # Also I don`t need hour, mins, seconds, microseconds
+        then = then - datetime.timedelta(hours=then.hour, minutes=then.minute, seconds=then.second, microseconds=then.microsecond)
         output[siteName] = {}
         output[siteName]['per_day_values'] = {}
         try:

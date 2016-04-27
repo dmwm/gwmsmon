@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import os
 import re
+import sys
 import time
 import json
 import urllib
@@ -51,6 +52,7 @@ def queryES(values, destinationDir, fileName, analysis):
 def getListOfWorkflows(directory, analysis):
     """Returns a list of workflows and subtasks"""
     #print [x[0].split("/")[-1] for x in os.walk(directory)]
+    print 'Get all dirnames'
     dirnames = [x[0][len(directory):] for x in os.walk(directory)]
     output = []
     for item in dirnames:
@@ -79,6 +81,7 @@ def timestampdefine(lastrange, inputDict, timestampNow):
 
 def main(sourcedir, destination, defaultdict, analysis=False):
     """ """
+    print 'Main'
     timestampNow = int(time.time())
     workflowsList = getListOfWorkflows(sourcedir, analysis)
     for item in [1, 24, 720]:
@@ -86,19 +89,28 @@ def main(sourcedir, destination, defaultdict, analysis=False):
         queryES(prodExitCodes % defaultdict, destination, str('exitcodes' + str(item) + '.json'), analysis)
         queryES(prodMemoryUsage % defaultdict, destination, str('memoryusage' + str(item) + '.json'), analysis)
         queryES(prodRuntimeUsage % defaultdict, destination, str('runtime' + str(item) + '.json'), analysis)
+    print 'workflowList'
+    sizeOf = len(workflowsList)
+    workingOn = 0
     for item in workflowsList:
         if item[0] == 'history':
             continue
-        print item
+
+        print "%s from %s and item %s " % (workingOn, sizeOf, item)
+        workingOn += 1
         tempDict = defaultdict
         if len(item) == 1:
             if len(item[0]) == 0:
                 continue
+            #if item[0].startswith('PromptReco') or item[0].startswith('Repack_') or item[0].startswith('Express_'):
+            #    continue
             tempDict['workflow'] = item[0]
             tempDir = destination + item[0]
             for timerange in [1, 24, 720]:
                 defaultdict = timestampdefine(timerange, defaultdict, timestampNow)
                 queryES(prodExitCodesForWorkflow % defaultdict, tempDir, str('exitcodes' + str(timerange) + '.json'), analysis)
+                if item[0].startswith('PromptReco') or item[0].startswith('Repack_') or item[0].startswith('Express_'):
+                    continue
                 queryES(prodMemoryUsageForWorkflow % defaultdict, tempDir, str('memoryusage' + str(timerange) + '.json'), analysis)
                 queryES(prodRuntimeUsageForWorkflow % defaultdict, tempDir, str('runtime' + str(timerange) + '.json'), analysis)
         elif len(item) == 2:
@@ -107,30 +119,38 @@ def main(sourcedir, destination, defaultdict, analysis=False):
             tempDir = destination + item[0] + "/" + item[1].replace(":", "")
             for timerange in [1, 24, 720]:
                 defaultdict = timestampdefine(timerange, defaultdict, timestampNow)
-                queryES(prodExitCodesForWorkflow % defaultdict, tempDir, str('exitcodes' + str(timerange) + '.json'), analysis)
-                queryES(prodMemoryUsageForWorkflow % defaultdict, tempDir, str('memoryusage' + str(timerange) + '.json'), analysis)
-                queryES(prodRuntimeUsageForWorkflow % defaultdict, tempDir, str('runtime' + str(timerange) + '.json'), analysis)
+                queryES(prodExitCodesForWorkflowSub % defaultdict, tempDir, str('exitcodes' + str(timerange) + '.json'), analysis)
+                if item[0].startswith('PromptReco') or item[0].startswith('Repack_') or item[0].startswith('Express_'):
+                    continue
+                queryES(prodMemoryUsageForWorkflowSub % defaultdict, tempDir, str('memoryusage' + str(timerange) + '.json'), analysis)
+                queryES(prodRuntimeUsageForWorkflowSub % defaultdict, tempDir, str('runtime' + str(timerange) + '.json'), analysis)
 
 if __name__ == '__main__':
     opts, dummyargs = parseArgs()
+    print opts.type
     # Check if lock file is available. If yes. Exit. If no, create and start processing
     #
+    print 'start'
+    filename = '/tmp/lockFile' + str(opts.type)
+    other = True
     try:
-        if os.path.exists('lockFile'):
+        if os.path.exists(filename):
             print 'Lock file is there. Exit'
+            other = False
             exit(0)
         else:
-            with open('lockFile', 'w') as fd:
+            with open(filename, 'w') as fd:
                 msg = str("Lets start: %s" % int(time.time()))
                 fd.write(msg)
-        if opts.prodview and opts.prodviewhistory:
+        if opts.type == 'production':
             defaultdict = {"key1": "WorkflowRAW", "key2": "TaskType"}
             main(opts.prodview, opts.prodviewhistory, defaultdict)
-        if opts.analysisview and opts.analysisviewhistory:
+        elif opts.type == 'analysis':
             defaultdict = {"key1": "User", "key2": "WorkflowRAW"}
             main(opts.analysisview, opts.analysisviewhistory, defaultdict, True)
         print queryCounter
-    except:
+    except IOError as er:
         print 'I got failure!'
     finally:
-        os.remove('lockFile')
+        if other:
+            os.remove(filename)

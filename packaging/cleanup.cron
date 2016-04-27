@@ -1,0 +1,2 @@
+MAILTO=""
+* */4 * * * root sh /etc/prodview/cleanup.sh > /dev/null

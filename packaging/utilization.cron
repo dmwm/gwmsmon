@@ -1,2 +1,2 @@
 MAILTO=""
-10 */6 * * * root utilization > /dev/null
+10 */1 * * * root utilization > /dev/null

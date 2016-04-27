@@ -1,2 +1,3 @@
 MAILTO=""
-*/10 * * * * root history-update > /dev/null
+*/10 * * * * root history-update -t production > /dev/null
+*/10 * * * * root history-update -t analysis > /dev/null

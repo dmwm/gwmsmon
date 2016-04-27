@@ -17,6 +17,7 @@ def parseArgs():
     parser.add_option("-c", "--config", help="Prodview configuration file", dest="config", default=None)
     parser.add_option("-p", "--pool", help="HTCondor pool to analyze", dest="pool")
     parser.add_option("-o", "--output", help="Top-level output dir", dest="output")
+    parser.add_option("-t", "--type", help="Type which to execute", dest="type")
     opts, args = parser.parse_args()
     keys = [{"key": "prodview", "subkey": "basedir", "variable": "prodview"}, {"key": "prodview", "subkey": "historydir", "variable": "prodviewhistory"},
             {"key": "analysiscrab2view", "subkey": "basedir", "variable": "analysiscrab2view"},
