@@ -14,6 +14,7 @@
 
         <script type='text/javascript' src='https://www.google.com/jsapi'></script>
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <script src="/loader.js"></script>
         <script type="text/javascript">
         <!--
         function toggle_visibility(id) {
@@ -33,13 +34,71 @@
         </script>
         <script type='text/javascript'>
 //<![CDATA[
-        google.load('visualization', '1', {packages:['table', 'controls']});
+        google.load('visualization', '1', {packages:['table', 'controls', 'corechart']});
         $(document).ready(function() {
             load_data();
             //setInterval(load_data, 300000);
         });
 
         var factory_data = "";
+
+        function draw_pie_chart(elID, tableVals, graphTitle, backColor="#eeeeee"){
+            document.getElementById(elID).style.display = 'block';
+            var data = google.visualization.arrayToDataTable(tableVals);
+            var options = {
+                           pieHole: 0.2,
+                           is3D: true,
+                           legend: 'none',
+                           pieSliceText: 'label',
+                           backgroundColor: backColor,
+                           chartArea:{left:0,top:0,width:300,height:300},
+                          width: 300,
+                           height: 300
+                          };
+            if (graphTitle !== 'none'){
+                options[title] = graphTitle;
+            }
+            var chart = new google.visualization.PieChart(document.getElementById(elID));
+            chart.draw(data, options);
+        }
+
+
+        function loadDocument(docLink){
+            var result = null;
+            $.ajax({url: docLink, 
+                    type: 'get',
+                    async: false,
+                    success: function(data){ 
+                       result = data;}
+                   })
+            return result;
+        }
+        function loadExitCodes(fullLink, msg='none', times = [1, 24, 720]){
+        var OriginMsg = msg;
+        for (timeVal in times){
+            var temOut = loadDocument(fullLink.replace('%s%', times[timeVal]));
+            if ('aggregations' in temOut){
+                if ('2' in temOut['aggregations']){
+                    if ('buckets' in temOut['aggregations']['2']){
+                        var newarr = new Array();
+                        var temparr = new Array();
+                        temparr.push('Key');
+                        temparr.push('Counter');
+                        newarr.push(temparr);
+                        for (item in temOut['aggregations']['2']['buckets']){
+                            var temparr = new Array();
+                            temparr.push(temOut['aggregations']['2']['buckets'][item]['key'].toString());
+                            temparr.push(temOut['aggregations']['2']['buckets'][item]['doc_count']);
+                            newarr.push(temparr);
+                            }
+                        msg = OriginMsg.replace('%s%', times[timeVal]);
+                        draw_pie_chart('piechart_top_img'.concat(times[timeVal]), newarr, msg); 
+                    }
+                }
+            }
+        }}
+           
+
         function load_data() {
             var currentview = window.location['pathname'].split("/")[1];
             var currentview = "/".concat(currentview, "/");
@@ -77,7 +136,13 @@
             // Finally, get the site summaries
             $.get('json/$request/site_summary', function(data){
                  gotSiteSummary(data, currentview)});
-            
+
+            if (currentview == "/prodview/" || currentview == "/analysisview/"){
+                document.getElementById("myTab").style.display = 'inline';
+                loadExitCodes(currentview.concat('/json/history/exitcodes%s%/$request'));
+            } 
+
+           
         }
         function gotSummary(data, schedddata, currentview) {
             var table_data = new google.visualization.DataTable();
@@ -366,9 +431,14 @@
           </div><!--/.nav-collapse -->
     </nav>
         <div class="container-fluid">
-            <div class="row jumbotron">
-                <div class="col-md-12">
-                    <div class="col-md-3" style="padding-top:60px"><div id="request_slots_table"></div></div>
+            <ul class="nav nav-tabs" id="myTab" style="display:none">
+                <li class="active"><a href="#overviewMain">Overview</a></li>
+                <li><a href="#exitCodesOverview">Exit Codes Overview</a></li>
+            </ul>
+            <div class="tab-content">
+                <div class="tab-pane active" id="overviewMain">
+                <div class="row jumbotron" id="top_summary" style="padding-top:10px"> 
+                   <div class="col-md-3" style="padding-top:60px"><div id="request_slots_table"></div></div>
                     <div class="col-md-3">
                     <div class="row">
                         <h2 id="first_column">Last Day</h2>
@@ -386,6 +456,29 @@
                         <h2 id="third_column">Last Week</h2>
                         <div id="overall_weekly_img"></div>
                     </div></div></div>
+             </div>
+       <div class="tab-pane" id="exitCodesOverview">
+            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+                 <div class="col-md-12">
+                      <div class="col-md-3" style="padding-top:40px"><div id="exitcodes_slots_table"></div></div>
+                      <div class="col-md-3">
+                      <div class="row">
+                           <h2>Last Hour</h2>
+                           <div id="piechart_top_img1" style="width: 300px; height: 300px; display: none;"></div>
+                     </div>
+                     </div>
+                     <div class="col-md-3">
+                     <div class="row">
+                           <h2>Last Day</h2>
+                           <div id="piechart_top_img24" style="width: 300px; height: 300px; display: none"></div>
+                     </div>
+                     </div>
+                     <div class="col-md-3">
+                     <div class="row">
+                           <h2>Last Month</h2>
+                           <div id="piechart_top_img720" style="width: 300px; height: 300px; display: none"></div>
+                     </div></div>
+       </div></div></div>
             </div>
             <div class="row">
                 <div class="col-md-1"></div>
@@ -423,5 +516,11 @@
   ga('create', 'UA-69774798-1', 'auto');
   ga('send', 'pageview');
   </script>
+<script>
+  $('#myTab a').click(function (e) {
+    e.preventDefault();
+    $(this).tab('show');
+  })
+</script>
 </html>
 

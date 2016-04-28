@@ -11,18 +11,41 @@
         <link rel="stylesheet" href="/bootstrap.min.css"/>
         <!-- Latest compiled and minified JavaScript -->
         <script src="/bootstrap.min.js"></script>
+        <script src="/loader.js"></script>
 
         <script type='text/javascript' src='https://www.google.com/jsapi'></script>
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
         <script type='text/javascript'>
 //<![CDATA[
-        google.load('visualization', '1', {packages:['table', 'controls']});
+        google.load('visualization', '1', {packages:['table', 'controls', 'corechart']});
+        //google.charts.load('current', {'packages':['corechart']});
+        google.charts.setOnLoadCallback(draw_pie_chart);
         $(document).ready(function() {
             load_data();
             //setInterval(load_data, 300000);
         });
 
         var factory_data = {};
+
+        function draw_pie_chart(elID, tableVals, graphTitle, backColor="#eeeeee"){
+            document.getElementById(elID).style.display = 'block';
+            var data = google.visualization.arrayToDataTable(tableVals);
+            var options = {
+                           pieHole: 0.2,
+                           is3D: true,
+                           legend: 'none',
+                           pieSliceText: 'label',
+                           backgroundColor: backColor,
+                           chartArea:{left:0,top:0,width:300,height:300},
+                           width: 300,
+                           height: 300
+                          };
+            if (graphTitle !== 'none'){
+                options[title] = graphTitle;
+            }
+            var chart = new google.visualization.PieChart(document.getElementById(elID));
+            chart.draw(data, options);
+        }
         function load_data() {
             var currentview = window.location['pathname'].split("/")[1];
             var currentview = "/".concat(currentview, "/");
@@ -31,11 +54,13 @@
                 document.getElementById("pagetitle").innerHTML = "Summary of production";
                 document.getElementById("navbar-brand").innerHTML = "Production Overview";
          		document.getElementById("myTab").style.display = 'inline';
+                document.getElementById("priorityOverviewTAB").style.display = 'block';
                 }
             else if (currentview == "/analysisview/"){
                 document.title = "CMS Analysis Overview";
                 document.getElementById("pagetitle").innerHTML = "Summary of analysis";
                 document.getElementById("navbar-brand").innerHTML = "Analysis Overview";
+                document.getElementById("myTab").style.display = 'inline';
                 }
             else if (currentview == "/analysiscrab2view/"){
                 document.title = "CMS Analysis Overview (CRAB2)";
@@ -91,9 +116,48 @@
                 $.get(currentview.concat('/json/totals'), function(data){
                    gotTotalsFactory(data, currentview)});
             }
+            if (currentview == "/prodview/" || currentview == "/analysisview/"){
+                loadExitCodes(currentview.concat('/json/history/exitcodes%s%'));
+            }
 
         }
 
+        function loadDocument(docLink){
+            var result = null;
+            $.ajax({url: docLink, 
+                    type: 'get',
+                    async: false,
+                    success: function(data){ 
+                       result = data;}
+                   })
+            return result;
+        }
+        function loadExitCodes(fullLink, msg='none', times = [1, 24, 720]){
+        var OriginMsg = msg;
+        for (timeVal in times){
+            var temOut = loadDocument(fullLink.replace('%s%', times[timeVal]));
+            if ('aggregations' in temOut){
+                if ('2' in temOut['aggregations']){
+                    if ('buckets' in temOut['aggregations']['2']){
+                        var newarr = new Array();
+                        var temparr = new Array();
+                        temparr.push('Key');
+                        temparr.push('Counter');
+                        newarr.push(temparr);
+                        for (item in temOut['aggregations']['2']['buckets']){
+                            var temparr = new Array();
+                            temparr.push(temOut['aggregations']['2']['buckets'][item]['key'].toString());
+                            temparr.push(temOut['aggregations']['2']['buckets'][item]['doc_count']);
+                            newarr.push(temparr);
+                            }
+                        msg = OriginMsg.replace('%s%', times[timeVal]);
+                        draw_pie_chart('piechart_top_img'.concat(times[timeVal]), newarr, msg); 
+                    }
+                }
+            }
+        }
+                
+        }
         //
         // FUNCTIONS FOR factoryview
         //
@@ -499,11 +563,12 @@
   <div class="container-fluid tab-pane">
   <ul class="nav nav-tabs" id="myTab" style="display:none">
     <li class="active"><a href="#overviewMain">Overview</a></li>
-    <li><a href="#priorityOverview">Priority Overview</a></li>
+    <li><a href="#priorityOverview" id="priorityOverviewTAB" style="display:none">Priority Overview</a></li>
+    <li><a href="#exitCodesOverview">Exit Codes Overview</a></li>
   </ul>
       <div class="tab-content">
        <div class="tab-pane active" id="overviewMain">
-            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+            <div class="row jumbotron" id="top_summary" style="padding-top:10px; padding-bottom:10px">
                 <div class="col-md-12">
                     <div class="col-md-3" style="padding-top:40px"><div id="request_slots_table"></div></div>
                     <div class="col-md-3">
@@ -522,8 +587,8 @@
                     <div class="row">
                         <h2>Last Week</h2>
                         <div id="overall_top_img3"></div>
-          </div></div></div>
-            </div></div>
+                    </div></div>
+        </div></div></div>
         <div class="tab-pane" id="priorityOverview">
             <div class="row jumbotron" id="top_summary" style="padding-top:10px">
                 <div class="col-md-12">
@@ -544,9 +609,30 @@
                     <div class="row">
                         <h2>Last Week</h2>
                         <div id="priority_top_img3"></div>
-          </div></div></div>
-            </div>
-        </div>
+                    </div></div>
+      </div></div></div>
+       <div class="tab-pane" id="exitCodesOverview">
+            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+                 <div class="col-md-12">
+                      <div class="col-md-3" style="padding-top:40px"><div id="exitcodes_slots_table"></div></div>
+                      <div class="col-md-3">
+                      <div class="row">
+                           <h2>Last Hour</h2>
+                           <div id="piechart_top_img1" style="width: 300px; height: 300px; display: none;"></div>
+                     </div>
+                     </div>
+                     <div class="col-md-3">
+                     <div class="row">
+                           <h2>Last Day</h2>
+                           <div id="piechart_top_img24" style="width: 300px; height: 300px; display: none"></div>
+                     </div>
+                     </div>
+                     <div class="col-md-3">
+                     <div class="row">
+                           <h2>Last Month</h2>
+                           <div id="piechart_top_img720" style="width: 300px; height: 300px; display: none"></div>
+                     </div></div>
+       </div></div></div>
         </div>
             <div class="row">
                 <div class="col-md-1"></div>
