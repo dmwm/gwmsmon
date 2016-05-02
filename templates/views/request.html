@@ -136,7 +136,6 @@
             // Finally, get the site summaries
             $.get('json/$request/site_summary', function(data){
                  gotSiteSummary(data, currentview)});
-
             if (currentview == "/prodview/" || currentview == "/analysisview/"){
                 document.getElementById("myTab").style.display = 'inline';
                 loadExitCodes(currentview.concat('/json/history/exitcodes%s%/$request'));

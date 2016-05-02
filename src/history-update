@@ -36,9 +36,9 @@ queryCounter = 0
 
 def queryES(values, destinationDir, fileName, analysis):
      global queryCounter
-     url = "http://juztas.cern.ch:9200/job_history_prod/_search"
+     url = "http://juztas.cern.ch:9200//job_history_prod/_search"
      if analysis:
-         url = "http://juztas.cern.ch:9200/job_history_crab3/_search"
+         url = "http://juztas.cern.ch:9200//job_history_crab3/_search"
      #print values
      queryCounter += 1
      valueslen = len(values)

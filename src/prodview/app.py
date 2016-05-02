@@ -1,6 +1,10 @@
 
 import os
 import re
+import time
+import json
+import urllib
+import urllib2
 import ConfigParser
 
 import genshi.template
@@ -11,6 +15,20 @@ _initialized = None
 _loader = None
 _cp = None
 _view = None
+
+# memoryusage|exitcodes|runtime
+# ExitCodesQueries
+# --------------------------------------------------------------------------------
+QUERIES = {'exitcodes': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}', 
+            'exitcodes1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}',
+            'exitcodes2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}',
+            'memoryusage': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
+            'memoryusage1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
+            'memoryusage2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
+            'runtime': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
+            'runtime1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
+            'runtime2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}'}
+
 
 def check_initialized(environ):
     global _initialized
@@ -58,6 +76,15 @@ def serve_static_file(fname, environ, start_response):
             break
         yield buffer
 
+def database_output_server(values, url, index):
+    url = url + "/" + index + "/_search"
+    print values
+    print url
+    valueslen = len(values)
+    req = urllib2.Request(url, values, {'Content-Type': 'application/json', 'Content-Length': valueslen})
+    response = urllib2.urlopen(req)
+    the_page = response.read()
+    return the_page
 
 _totals_json_re = re.compile(r'^/*json/totals$')
 totals_json = static_file_server("totals.json")
@@ -128,24 +155,40 @@ def request_site_summary_json(environ, start_response):
         yield result
 
 #_history_stats_re, history_stats
-_history_stats_re = re.compile(r'^/*json/history/(memoryusage1|memoryusage24|memoryusage720|exitcodes1|exitcodes24|exitcodes720|runtime1|runtime24|runtime720)/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9]+)?')
+_history_stats_re = re.compile(r'^/*json/history/(memoryusage|exitcodes|runtime)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9]+)?$')
 def history_stats(environ, start_response):
+    if _view not in ['prodview', 'analysisview']:
+        return not_found(environ, start_response)
+    timeNow = int(time.time())
+    url = _cp.get('elasticserver', "baseurl")
+    index = _cp.get('elasticserver', _view)
+
     status = '200 OK'
-    headers = [('Content-type', 'image/png'),
+    headers = [('Content-type', 'application/json'),
                ('Cache-Control', 'max-age=60, public')]
     start_response(status, headers)
-
     path = environ.get('PATH_INFO', '')
     m = _history_stats_re.match(path)
-    request = ""
-    fileName = m.groups()[0]
-    if m.groups()[1]:
-        request = os.path.join(request, m.groups()[1])
-    if m.groups()[2]:
-        request = os.path.join(request, m.groups()[2])
-    fname = os.path.join(_cp.get(_view, "historydir"), request, str(fileName + ".json"))
-    for result in serve_static_file(fname, environ, start_response):
-        yield result
+    defaultDict = {}
+    if _view == 'prodview':
+        defaultDict = {"key1": "WorkflowRAW", "key2": "TaskType"}
+    else:
+        defaultDict = {"key1": "User", "key2": "WorkflowRAW"}
+    queryType = m.groups()[0]
+    try:
+        daysBefore = int(m.groups()[1])
+        defaultDict["lte"] = int(timeNow * 1000)
+        defaultDict["gte"] = int((timeNow - (3600 * daysBefore)) * 1000)
+        if m.groups()[3]:
+            defaultDict['workflow'] = m.groups()[2]
+            tempDict['tasktype'] = m.groups()[3]
+            queryType += '2'
+        elif m.groups()[2]:
+            defaultDict['workflow'] = m.groups()[2]
+            queryType += '1'
+        return [ database_output_server(QUERIES[queryType] % defaultDict, url, index) ]
+    except OSError as er:
+        return ['Failed to get data. Contact Experts!']
 # fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
 
 
