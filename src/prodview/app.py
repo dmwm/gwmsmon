@@ -181,7 +181,7 @@ def history_stats(environ, start_response):
         defaultDict["gte"] = int((timeNow - (3600 * daysBefore)) * 1000)
         if m.groups()[3]:
             defaultDict['workflow'] = m.groups()[2]
-            tempDict['tasktype'] = m.groups()[3]
+            defaultDict['tasktype'] = m.groups()[3]
             queryType += '2'
         elif m.groups()[2]:
             defaultDict['workflow'] = m.groups()[2]
