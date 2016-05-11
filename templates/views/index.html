@@ -74,7 +74,7 @@
             else if (currentview == "/poolview/"){
                 document.getElementById("pagetitle").innerHTML = "Scheduler Overview";
                 document.getElementById("sitetitle").innerHTML = "";
-                document.getElementById("navbar-brand").innerHTML = "Scheduler Overview";
+                document.getElementById("navbar-brand").innerHTML = "Pool Overview";
             }
             else if (currentview == "/factoryview/"){
                 document.getElementById("pagetitle").innerHTML = "Factory Overview";
@@ -239,6 +239,7 @@
         table_data.addColumn("number", "Total Idle");
         table_data.addColumn("number", "Total Held");
         table_data.addColumn("number", "Percentage in use");
+        table_data.addColumn("string", "Schedd Status");
         table_data.addColumn("string", "Hourly History");
         table_data.addColumn("string", "Daily History");
         table_data.addColumn("string", "Weekly History");
@@ -248,6 +249,7 @@
                 var image_htmlh = '<img src="/poolview/graphs/' + schedd_key + '/hourly"/>';
                 var image_htmld = '<img src="/poolview/graphs/' + schedd_key + '/daily"/>';
                 var image_htmlw = '<img src="/poolview/graphs/' + schedd_key + '/weekly"/>';
+                var image_htmls = '<img src="/poolview/graphs/scheddwarning/' + schedd_key + '/hourly"/>';
 
                 var schedd_html = schedd_data.Name;
                 schedd_html += '<br/>';
@@ -257,7 +259,7 @@
                 }
                 else
                     schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Machine + '">Machine & Condor Metrics</a><br/>';
-                table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.TotalHeldJobs, schedd_data.PercentageUse, image_htmlh, image_htmld, image_htmlw]);
+                table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.TotalHeldJobs, schedd_data.PercentageUse, image_htmls, image_htmlh, image_htmld, image_htmlw]);
             }
         }
         var dashboard = new google.visualization.Dashboard(document.getElementById('sites_summary'));

@@ -192,7 +192,7 @@ def history_stats(environ, start_response):
 # fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
 
 
-_request_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_request_graph_re = re.compile(r'^/*graphs/(scheddwarning|dagmans)?/?([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -202,9 +202,14 @@ def request_graph(environ, start_response):
     path = environ.get('PATH_INFO', '')
     m = _request_graph_re.match(path)
     interval = "daily"
-    request = m.groups()[0]
-    if m.groups()[1]:
-        interval=m.groups()[1]
+    request = m.groups()[1]
+    if m.groups()[2]:
+        interval=m.groups()[2]
+    if m.groups()[0]:
+        if m.groups()[0] == 'scheddwarning':
+            return [ rrd.scheddwarning(_cp.get(_view, "basedir"), interval, request) ]
+        elif m.groups()[0] == 'dagmans':
+            return [ rrd.dagmans(_cp.get(_view, "basedir"), interval, request) ]
     return [ rrd.request(_cp.get(_view, "basedir"), interval, request) ]
 
 _priority_summary_graph_re = re.compile(r'^/*graphs/prioritysummary(idle|running)/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -306,10 +311,9 @@ def site_graph(environ, start_response):
     path = environ.get('PATH_INFO', '')
     m = _request_graph_re.match(path)
     interval = "daily"
-    site = m.groups()[0]
-    if m.groups()[1]:
-        interval=m.groups()[1]
-
+    site = m.groups()[1]
+    if m.groups()[2]:
+        interval=m.groups()[2]
     return [ rrd.site(_cp.get(_view, "basedir"), interval, site) ]
 
 _site_graph_util_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/utilization/?(hourly|weekly|daily|monthly|yearly)?/?$')

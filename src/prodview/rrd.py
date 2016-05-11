@@ -1,4 +1,3 @@
-
 import os
 import tempfile
 
@@ -148,6 +147,81 @@ def request(basedir, interval, request):
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
             )
+    return clean_and_return(fd, pngpath)
+
+def scheddwarning(basedir, interval, request):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, request, "request.rrd")
+    if not os.path.exists(fname):
+        raise ValueError("No information present (request=%s)" % request)
+    rrdtool.graph(pngpath,
+                  "--imgformat", "PNG",
+                  "--width", "250",
+                  "--start", "-1%s" % get_rrd_interval(interval),
+                  "--vertical-label", "Jobs",
+                  "--lower-limit", "0",
+                  "--title", "Scheduler %s status" % request,
+                  "DEF:OK=%s:OK:AVERAGE" % fname,
+                  "DEF:WARNING=%s:WARNING:AVERAGE" % fname,
+                  "DEF:CRITICAL=%s:CRITICAL:AVERAGE" % fname,
+                  "DEF:UNKNOWN=%s:UNKNOWN:AVERAGE" % fname,
+                  "AREA:OK#00FF00:OK",
+                  "AREA:WARNING#FFFF00:WARNING",
+                  "AREA:CRITICAL#FF0000:CRITICAL",
+                  "AREA:UNKNOWN#000000:UNKNOWN",
+                  "COMMENT:\\n",
+                  "COMMENT:              cur\\n",
+                  "COMMENT:OK         ",
+                  "GPRINT:OK:LAST:%-6.0lf",
+                  "COMMENT:\\n",
+                  "COMMENT:WARNING    ",
+                  "GPRINT:WARNING:LAST:%-6.0lf",
+                  "COMMENT:\\n",
+                  "COMMENT:CRITICAL   ",
+                  "GPRINT:CRITICAL:LAST:%-6.0lf",
+                  "COMMENT:\\n",
+                  "COMMENT:UNKNOWN    ",
+                  "GPRINT:UNKNOWN:LAST:%-6.0lf\\n",
+                  )
+    return clean_and_return(fd, pngpath)
+
+
+def dagmans(basedir, interval, request):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, request, "request.rrd")
+    if not os.path.exists(fname):
+        raise ValueError("No information present (request=%s)" % request)
+    rrdtool.graph(pngpath,
+                  "--imgformat", "PNG",
+                  "--width", "250",
+                  "--start", "-1%s" % get_rrd_interval(interval),
+                  "--vertical-label", "Jobs",
+                  "--lower-limit", "0",
+                  "--title", "Dagmans on %s Counts" % request,
+                  "DEF:MaxDagmans=%s:MaxDagmans:AVERAGE" % fname,
+                  "DEF:RunningDagmans=%s:RunningDagmans:AVERAGE" % fname,
+                  "DEF:IdleDagmans=%s:IdleDagmans:AVERAGE" % fname,
+                  "LINE1:MaxDagmans#FF0000:MaxDagmans",
+                  "LINE2:RunningDagmans#00FF00:RunningDagmans",
+                  "LINE3:IdleDagmans#0000FF:IdleDagmans",
+                  "COMMENT:Dagmans Statistics",
+                  "COMMENT:\\n",
+                  "COMMENT:                  max     avg     cur\\n",
+                  "COMMENT:MaxDagmans     ",
+                  "GPRINT:MaxDagmans:MAX:%-6.0lf",
+                  "GPRINT:MaxDagmans:AVERAGE:%-6.0lf",
+                  "GPRINT:MaxDagmans:LAST:%-6.0lf",
+                  "COMMENT:\\n",
+                  "COMMENT:RunningDagmans ",
+                  "GPRINT:RunningDagmans:MAX:%-6.0lf",
+                  "GPRINT:RunningDagmans:AVERAGE:%-6.0lf",
+                  "GPRINT:RunningDagmans:LAST:%-6.0lf",
+                  "COMMENT:\\n",
+                  "COMMENT:IdleDagmans    ",
+                  "GPRINT:IdleDagmans:MAX:%-6.0lf",
+                  "GPRINT:IdleDagmans:AVERAGE:%-6.0lf",
+                  "GPRINT:IdleDagmans:LAST:%-6.0lf\\n",
+                  )
     return clean_and_return(fd, pngpath)
 
 

@@ -241,13 +241,28 @@ def writeScheddInfo(basedir, scheddsInfo, factInfo):
         fname = os.path.join(requestDir, "request.rrd")
         tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
         tempUpdLine = "%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"])
+        # keys for warnings
+        warningsKeys = ["DS:OK:GAUGE:360:U:U", "DS:WARNING:GAUGE:360:U:U", "DS:CRITICAL:GAUGE:360:U:U", "DS:UNKNOWN:GAUGE:360:U:U"]
+        warnings = [0, 0, 0, 0]  # 0 - is ok, 1 - is warning, 2 - is critical
+        if scheddDict['Status'] == "OK":
+            warnings[0] += 1
+        elif scheddDict['Status'] == "WARNING":
+            warnings[1] += 1
+        elif scheddDict['Status'] == "CRITICAL":
+            warnings[2] += 1
+        else:
+            warnings[3] += 1
+        tempUpdLine = str("%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"])) + ":" + str(":".join(["%d"]*len(warnings)) % tuple(warnings))
         if scheddDict['CMSGWMS_Type'] == 'crabschedd':
             tempKeys.append("DS:MaxDagmans:GAUGE:360:U:U")
             tempKeys.append("DS:RunningDagmans:GAUGE:360:U:U")
             tempKeys.append("DS:IdleDagmans:GAUGE:360:U:U")
-            tempUpdLine = "%d:%d:%d:%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"],
-                                                 scheddDict["MaxSchedulersRunning"], scheddDict["TotalSchedulerJobsRunning"], scheddDict["TotalSchedulerJobsIdle"])
+            tempUpdLine = str("%d:%d:%d:%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"],
+                          scheddDict["MaxSchedulersRunning"], scheddDict["TotalSchedulerJobsRunning"], scheddDict["TotalSchedulerJobsIdle"])) + ":" + \
+                          str(":".join(["%d"]*len(warnings)) % tuple(warnings))
+        tempKeys.extend(warningsKeys)
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
+
     dropObj(factInfo, basedir, 'totals.json')
     #Diff between pools and Negotiation
     fname = os.path.join(basedir, 'difference.rrd')
@@ -518,7 +533,7 @@ def main():
     pilotUsageInfo(coll1, pilotUsage, alreadyKnownPilot)
     print '%s querying %s' % (int(time.time()), opts.pool1)
     #pilotUsageInfo(coll2, pilotUsage, alreadyKnownPilot)
-    print '%s done querying'
+    print '%s done querying' % int(time.time())
     loadPoolData(totals, sites, opts.analysisview, "analysisview")
     loadPoolData(totals, sites, opts.prodview, "prodview")
     loadPoolData(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
