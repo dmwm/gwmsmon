@@ -42,7 +42,8 @@
 
         var factory_data = "";
 
-        function draw_pie_chart(elID, tableVals, graphTitle, backColor="#eeeeee"){
+        function draw_pie_chart(elID, tableVals, graphTitle, backColor){
+            if (backColor == null){backColor="#eeeeee";}
             document.getElementById(elID).style.display = 'block';
             var data = google.visualization.arrayToDataTable(tableVals);
             var options = {
@@ -73,7 +74,9 @@
                    })
             return result;
         }
-        function loadExitCodes(fullLink, msg='none', times = [1, 24, 720]){
+        function loadExitCodes(fullLink, msg, times){
+        if (msg == null){msg='none';}
+        if (times == null){times = [1, 24, 720];}
         var OriginMsg = msg;
         for (timeVal in times){
             var temOut = loadDocument(fullLink.replace('%s%', times[timeVal]));
@@ -437,6 +440,7 @@
             <div class="tab-content">
                 <div class="tab-pane active" id="overviewMain">
                 <div class="row jumbotron" id="top_summary" style="padding-top:10px"> 
+                    <div class="col-md-12">
                    <div class="col-md-3" style="padding-top:60px"><div id="request_slots_table"></div></div>
                     <div class="col-md-3">
                     <div class="row">
@@ -455,7 +459,7 @@
                         <h2 id="third_column">Last Week</h2>
                         <div id="overall_weekly_img"></div>
                     </div></div></div>
-             </div>
+                </div></div>
        <div class="tab-pane" id="exitCodesOverview">
             <div class="row jumbotron" id="top_summary" style="padding-top:10px">
                  <div class="col-md-12">

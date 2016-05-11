@@ -27,7 +27,8 @@
 
         var factory_data = {};
 
-        function draw_pie_chart(elID, tableVals, graphTitle, backColor="#eeeeee"){
+        function draw_pie_chart(elID, tableVals, graphTitle, backColor){
+            if (backColor == null) {backColor="#eeeeee";}
             document.getElementById(elID).style.display = 'block';
             var data = google.visualization.arrayToDataTable(tableVals);
             var options = {
@@ -132,7 +133,9 @@
                    })
             return result;
         }
-        function loadExitCodes(fullLink, msg='none', times = [1, 24, 720]){
+        function loadExitCodes(fullLink, msg, times){
+        if (msg == null){msg = 'none';}
+        if (times == null){ times = [1, 24, 720];}
         var OriginMsg = msg;
         for (timeVal in times){
             var temOut = loadDocument(fullLink.replace('%s%', times[timeVal]));
