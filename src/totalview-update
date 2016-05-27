@@ -73,7 +73,11 @@ def summarizeSchedds(scheddsInfo, scheddAds):
         keys = ['Name', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning']
         for key in keys:
             scheddsInfo[name][key] = ad[key]
-        scheddsInfo[name]['PercentageUse'] = 0 if ad['TotalRunningJobs'] == 0 else int((ad['TotalRunningJobs']*100)/ad['MaxJobsRunning'])
+        try:
+            scheddsInfo[name]['PercentageUse'] = 0 if ad['TotalRunningJobs'] == 0 else int((ad['TotalRunningJobs']*100)/ad['MaxJobsRunning'])
+        except ZeroDivisionError:
+            print 'No key', name, scheddsInfo[name], ad
+            scheddsInfo[name]['PercentageUse'] = 0
         scheddStatus = "UNKNOWN"
         try:
             statusExpr = classad.ExprTree('ifThenElse(IsOK is undefined, "UNKNOWN", ifThenElse(IsOK,"OK", ifThenElse(IsCritical, "CRITICAL", "WARNING")))')
