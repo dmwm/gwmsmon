@@ -569,7 +569,8 @@ def main():
     urls = [{"FNAL Factory": "http://cmsgwms-factory.fnal.gov:8319/factory/monitor/"},
             {"GOC Factory": "http://glidein.grid.iu.edu/factory/monitor/"},
             {"UCSD Factory": "http://gfactory-1.t2.ucsd.edu/factory/monitor/"},
-            {"CERN Factory": "http://vocms0305.cern.ch/monitor/"}]
+            {"CERN Factory": "http://vocms0305.cern.ch/monitor/"},
+            {"CERN NewFactory": "http://vocms0342.cern.ch/monitor/"}]
     appends = ['descript.xml', 'rrd_Status_Attributes.xml']
     errors = xmlOut.setdefault("Errors", [])
     for appendId in [0, 1]:
