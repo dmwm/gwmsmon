@@ -12,7 +12,6 @@ from functions import createEmptyRRD
 
 GSTARTUP = int(time.time())
 
-
 def analyzeScheddOutput(ad, workflows, taskInfo):
     """ TODO doc """
     keys = ["CRAB_UserHN", "CRAB_ReqName", "ClusterId", "RequestMemory", 'RequestCpus', "MaxWallTimeMins",
@@ -65,7 +64,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         prio = 10
         jobinfo = (prio, desiredSites)
         summaryDict.setdefault('CpusPending', 0)
-        if not runningSite:
+        if not runningSite and status != "Running":
             summaryInternal.setdefault(jobinfo, 0)
             summaryInternal[jobinfo] += 1
             summaryDict['CpusPending'] += cpusCount
@@ -77,7 +76,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
                 prioDict[status] += 1
                 if len(desiredSites) == 1 and not runningSite:
                     prioDict['UniquePressure'] += 1
-        if runningSite:
+        if runningSite and status == "Running":
             siteDict = subtaskDict.setdefault(runningSite, {})
             prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
             prioDict.setdefault(status, 0)
