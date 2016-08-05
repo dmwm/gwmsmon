@@ -74,6 +74,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             prioDict.setdefault(status, 0)
             if status != "Running":
                 prioDict[status] += 1
+                prioDict['CpusPending'] += cpusCount
                 if len(desiredSites) == 1 and not runningSite:
                     prioDict['UniquePressure'] += 1
         if runningSite and status == "Running":
