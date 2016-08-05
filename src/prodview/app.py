@@ -210,6 +210,8 @@ def request_graph(environ, start_response):
             return [ rrd.scheddwarning(_cp.get(_view, "basedir"), interval, request) ]
         elif m.groups()[0] == 'dagmans':
             return [ rrd.dagmans(_cp.get(_view, "basedir"), interval, request) ]
+    if _view == 'poolview':
+        return [ rrd.oldrequest(_cp.get(_view, "basedir"), interval, request) ]
     return [ rrd.request(_cp.get(_view, "basedir"), interval, request) ]
 
 _priority_summary_graph_re = re.compile(r'^/*graphs/prioritysummary(idle|running)/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -381,6 +383,8 @@ def summary_graph(environ, start_response):
     if m.groups()[1]:
         interval=m.groups()[1]
 
+    if _view == 'factoryview':
+        return [ rrd.summary(_cp.get(_view, "basedir"), interval, 'oldsummary') ]
     return [ rrd.summary(_cp.get(_view, "basedir"), interval, m.groups()[0]) ]
 
 

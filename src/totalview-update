@@ -311,14 +311,22 @@ def summarize(totals, sites, xmlout, sitesCompare, pilotUsage):
     """ TODO doc """
     totalR = 0
     totalI = 0
+    totalCU = 0
+    totalCP = 0
     for dummytype, typeDict in totals.items():
         if 'Running' in typeDict.keys():
             totalR += typeDict['Running']
         if 'Idle' in typeDict.keys():
             totalI += typeDict['Idle']
+        if 'CpusInUse' in typeDict.keys():
+            totalCU += typeDict['CpusInUse']
+        if 'CpusPending' in typeDict.keys():
+            totalCP += typeDict['CpusPending']
     totals['Summary'] = {}
     totals['Summary']['Running'] = totalR
     totals['Summary']['Idle'] = totalI
+    totals['Summary']['CpusInUse'] = totalCU
+    totals['Summary']['CpusPending'] = totalCP
 
     sites['Summary'] = {}
     for typeK, typeDict in sites.items():
@@ -326,23 +334,26 @@ def summarize(totals, sites, xmlout, sitesCompare, pilotUsage):
             for site, siteDict in typeDict.items():
                 if site and site != "Summary":
                     if site not in sites['Summary'].keys():
-                        sites['Summary'][site] = {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0}
+                        sites['Summary'][site] = {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0}
                     sites['Summary'][site]['Running'] += siteDict['Running']
                     sites['Summary'][site]['MatchingIdle'] += siteDict['MatchingIdle']
                     sites['Summary'][site]["UniquePressure"] += siteDict["UniquePressure"]
+                    sites['Summary'][site]['CpusInUse'] += siteDict['CpusInUse']
+                    sites['Summary'][site]['CpusPending'] += siteDict['CpusPending']
                     sites['Summary'][site][typeK] = siteDict
                     if site in pilotUsage:
                         sites['Summary'][site]['PilotUsage'] = pilotUsage[site]
 
     # Double check with what maximum was
     for site, siteDict in sites['Summary'].items():
-        if site in sitesCompare and 'MaxWasRunning' in sitesCompare[site]:
-            if siteDict['Running'] > sitesCompare[site]['MaxWasRunning']:
-                sites['Summary'][site]['MaxWasRunning'] = siteDict['Running']
+        for item in [['MaxWasRunning', 'Running'], ['MaxWasCpusUse', 'CpusInUse']]:
+            if site in sitesCompare and item[0] in sitesCompare[site]:
+                if siteDict[item[1]] > sitesCompare[site][item[0]]:
+                    sites['Summary'][site][item[0]] = siteDict[item[1]]
+                else:
+                    sites['Summary'][site][item[0]] = sitesCompare[site][item[0]]
             else:
-                sites['Summary'][site]['MaxWasRunning'] = sitesCompare[site]['MaxWasRunning']
-        else:
-            sites['Summary'][site]['MaxWasRunning'] = siteDict['Running']
+                sites['Summary'][site][item[0]] = siteDict[item[1]]
 
     xmlout['Summary'] = {'Held': 0, 'Idle': 0, 'Run': 0, 'MHeld': 0, 'MIdle': 0, 'Errors': 0, 'Warnings': 0}
     for siteName, entriesDict in xmlout.items():
@@ -414,20 +425,22 @@ def writeRrds(totals, sites, xmlout, output, factoryout):
     createEmptyRRD(output, GSTARTUP)
     running = totals['Summary']['Running']
     idle = totals['Summary']['Idle']
+    cpususe = totals['Summary']['CpusInUse']
+    cpuspen = totals['Summary']['CpusPending']
     fname = str(os.path.join(output, "summary.rrd"))
-    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
-    tempUpdLine = "%d:%d:%d" % (GSTARTUP, running, idle)
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U" ]
+    tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, running, idle, cpususe, cpuspen)
     rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     for site, siteDict in sites['Summary'].items():
         fname = str(os.path.join(output, "%s.rrd" % site))
-        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
-        tempUpdLine = "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"])
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"], siteDict["CpusInUse"], siteDict["CpusPending"])
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
         fname = str(os.path.join(output, "%s-UTIL.rrd" % site))
-        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MaxRunning:GAUGE:360:U:U"]
-        tempUpdLine = "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MaxWasRunning"])
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MaxRunning:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:MaxCpusUse:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MaxWasRunning"], siteDict["CpusInUse"], siteDict["MaxWasCpusUse"])
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
         if 'PilotUsage' in siteDict:

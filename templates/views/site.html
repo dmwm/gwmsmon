@@ -76,13 +76,6 @@
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)})
             }
-            else if (currentview == "/analysiscrab2view/"){
-                document.getElementById("navbar-brand").innerHTML = "Analysis CRAB2 Overview";
-                $.get('json/$site', function(data){
-                  gotTotals(data, currentview)});
-                $.get('json/$site/summary', function(data){
-                  gotSummary(data, currentview)});
-            }
             else if (currentview == "/totalview/"){
                 document.getElementById("factory_entries").style.marginLeft = '1px';
                 document.getElementById("factory_entries").style.display = 'inline';
@@ -200,23 +193,17 @@
                 total_tasks += data.analysisview.RequestCount;
             if ('prodview' in data)
                 total_tasks += data.prodview.RequestCount;
-            if ('analysiscrab2view' in data)
-                total_tasks += data.analysiscrab2view.RequestCount;
 
-            pool_stats_table.append("<tr><th></th><th>Running</th><th>Idle</th><th>Tasks</th></tr>");
-            pool_stats_table.append("<tr><td>Total</td><td>" + data.Running + "</td><td>"+ data.MatchingIdle +"</td><td>"+ total_tasks +"</td></tr>");
+            pool_stats_table.append("<tr><th></th><th>Running/CpusUse</th><th>Idle/CpusPen</th><th>Tasks</th></tr>");
+            pool_stats_table.append("<tr><td>Total</td><td>" + data.Running + " / " + data.CpusInUse + "</td><td>"+ data.MatchingIdle +" / " + data.CpusPending + "</td><td>"+ total_tasks +"</td></tr>");
             if ('prodview' in data)
-                pool_stats_table.append("<tr><td>Production</td><td>" + data.prodview.Running + "</td><td>"+ data.prodview.MatchingIdle +"</td><td>"+ data.prodview.RequestCount +"</td></tr>");
+                pool_stats_table.append("<tr><td>Production</td><td>" + data.prodview.Running + " / " + data.prodview.CpusInUse + "</td><td>"+ data.prodview.MatchingIdle + " / " + data.prodview.CpusPending + "</td><td>"+ data.prodview.RequestCount +"</td></tr>");
             else
                 pool_stats_table.append("<tr><td>Production</td><td>0</td><td>0</td><td>0</td></tr>");
             if ('analysisview' in data)
-                pool_stats_table.append("<tr><td>Analysis</td><td>" + data.analysisview.Running + "</td><td>"+ data.analysisview.MatchingIdle +"</td><td>"+ data.analysisview.RequestCount +"</td></tr>");
+                pool_stats_table.append("<tr><td>Analysis</td><td>" + data.analysisview.Running + " / " + data.analysisview.CpusInUse +  "</td><td>"+ data.analysisview.MatchingIdle + " / " + data.analysisview.CpusPending +"</td><td>"+ data.analysisview.RequestCount +"</td></tr>");
             else
                 pool_stats_table.append("<tr><td>Analysis</td><td>0</td><td>0</td><td>0</td></tr>");
-            if ('analysiscrab2view' in data)
-                pool_stats_table.append("<tr><td>CRAB2</td><td>" + data.analysiscrab2view.Running + "</td><td>"+ data.analysiscrab2view.MatchingIdle +"</td><td>"+ data.analysiscrab2view.RequestCount +"</td></tr>");
-            else
-                pool_stats_table.append("<tr><td>CRAB2</td><td>0</td><td>0</td><td>0</td></tr>");
 
             $("#site_slots_table").append(pool_stats_table);
 
@@ -265,13 +252,6 @@
                 var image_html_daily = '<img src="/analysisview/graphs/$site/daily"/>';
                 var image_html_weekly = '<img src="/analysisview/graphs/$site/weekly"/>';
                 var type_html = '<a href="/analysisview/$site">Analysis</a>';
-                table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
-            }
-            if ('analysiscrab2view' in data){
-                var image_html_hourly = '<img src="/analysiscrab2view/graphs/$site/hourly"/>';
-                var image_html_daily = '<img src="/analysiscrab2view/graphs/$site/daily"/>';
-                var image_html_weekly = '<img src="/analysiscrab2view/graphs/$site/weekly"/>';
-                var type_html = '<a href="/analysiscrab2view/$site">CRAB2</a>';
                 table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
             }
             draw_table('running_workflows', table_data);
@@ -377,13 +357,17 @@
                 table_data.addColumn("string", "Workflow");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Matching Idle");
+                table_data.addColumn("number", "CpusUse");
+                table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Matching Sites");
                 table_data.addColumn("number", "Priority");
             }
-            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
+            else if (currentview == "/analysisview/"){
                 table_data.addColumn("string", "User");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Matching Idle");
+                table_data.addColumn("number", "CpusUse");
+                table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Matching Sites");
             }
             table_data.addColumn("string", 'Workflow History');
@@ -393,9 +377,9 @@
                 var image_html = '<img src="' + currentview + 'graphs/' + workflow_key + '/$site"/>';
                 var workflow_html = '<a href="' + currentview + workflow_key + '">' + workflow_key + '</a>';
                 if (currentview == "/prodview/")
-                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.MatchingIdle, workflow_data.MatchingSites, workflow_data.BasePrio, image_html]);
+                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.MatchingIdle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.MatchingSites, workflow_data.BasePrio, image_html]);
                 else
-                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.MatchingIdle, workflow_data.MatchingSites, image_html]);
+                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.MatchingIdle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.MatchingSites, image_html]);
             }
             draw_table('running_workflows', table_data);
         }
@@ -405,6 +389,8 @@
             pool_stats['Running'] = data.Running;
             pool_stats['RequestCount'] = data.RequestCount;
             pool_stats['MatchingIdle'] = data.MatchingIdle;
+            pool_stats['CpusInUse'] = data.CpusInUse;
+            pool_stats['CpusPending'] = data.CpusPending;
             pool_stats['UpdateDate'] = new Date(data.UpdateTime*1000);
             drawPoolStats(currentview);
         }
@@ -414,8 +400,8 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table");
             pool_stats_table.attr('id', 'overall_stats_table');
-            pool_stats_table.append("<tr><th>Running Jobs</th><th>Matching Idle Jobs</th><th>Request Count</th><th>Last Data Update</th>");
-            pool_stats_table.append("<tr><td>" + pool_stats.Running + "</td><td>" + pool_stats.MatchingIdle + "</td><td>" + pool_stats.RequestCount + "</td><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
+            pool_stats_table.append("<tr><th>Running Jobs/CpusUse</th><th>Matching Idle Jobs/CpusPen</th><th>Request Count</th><th>Last Data Update</th>");
+            pool_stats_table.append("<tr><td>" + pool_stats.Running + " / " + pool_stats.CpusInUse  + "</td><td>" + pool_stats.MatchingIdle + " / " + pool_stats.CpusPending  + "</td><td>" + pool_stats.RequestCount + "</td><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#site_slots_table").append(pool_stats_table);
 
             $('#overall_hourly_img').detach();
@@ -459,7 +445,6 @@
               <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
-              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>

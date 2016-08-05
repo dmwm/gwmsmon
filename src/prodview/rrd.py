@@ -3,6 +3,24 @@ import tempfile
 
 import rrdtool
 
+COLORS = {"Idle": "#A52A2A",
+        "MatchingIdle": "#A52A2A",
+        "Running": "#000000",
+        "MaxHeld": "#0000FF",
+        "Held": "#FF0000",
+        "CpusUse": "#0000FF",
+        "CpusPen": "#FF0000",
+        "MaxCpusUse": "#FF0000",
+        "MaxRunning": "#008000",
+        "PartCpusUse": "#0000FF",
+        "PartIdle": "#FF0000",
+        "StatRunning": "#000000",
+        "StatIdle": "#FFFF00",
+        "NegTime": "#000000",
+        "Ideally": "#0000FF",
+        "DiffCurrent": "#000000",
+        "0line": "#0000FF"}
+
 def get_rrd_interval(interval):
     if interval == "hourly":
         rrd_interval = "h"
@@ -38,8 +56,12 @@ def subtask_site(basedir, interval, request, subtask, site):
             "--title", "%s Job Counts" % site,
             "DEF:Running=%s:Running:AVERAGE" % fname,
             "DEF:MatchingIdle=%s:MatchingIdle:AVERAGE" % fname,
-            "LINE1:Running#000000:Running",
-            "LINE2:MatchingIdle#FF0000:MatchingIdle",
+            "DEF:CpusUse=%s:Running:AVERAGE" % fname,
+            "DEF:CpusPen=%s:Running:AVERAGE" % fname,
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:MatchingIdle%s:MatchingIdle" % COLORS['MatchingIdle'],
+            "LINE3:CpusUse%s:CpusUse" % COLORS['CpusUse'],
+            "LINE4:CpusPen%s:CpusPen" % COLORS['CpusPen'],
             "COMMENT:%s" % site,
             "COMMENT:\\n",
             "COMMENT:                max     avg     cur\\n",
@@ -52,6 +74,14 @@ def subtask_site(basedir, interval, request, subtask, site):
             "GPRINT:MatchingIdle:MAX:%-6.0lf",
             "GPRINT:MatchingIdle:AVERAGE:%-6.0lf",
             "GPRINT:MatchingIdle:LAST:%-6.0lf\\n",
+            "COMMENT:CpusUse ",
+            "GPRINT:CpusUse:MAX:%-6.0lf",
+            "GPRINT:CpusUse:AVERAGE:%-6.0lf",
+            "GPRINT:CpusUse:LAST:%-6.0lf\\n",
+            "COMMENT:CpusPen ",
+            "GPRINT:CpusPen:MAX:%-6.0lf",
+            "GPRINT:CpusPen:AVERAGE:%-6.0lf",
+            "GPRINT:CpusPen:LAST:%-6.0lf\\n",
             )
     return clean_and_return(fd, pngpath)
 
@@ -70,8 +100,12 @@ def subtask(basedir, interval, request, subtask):
             "--title", "Subtask %s Job Counts" % subtask,
             "DEF:Running=%s:Running:AVERAGE" % fname,
             "DEF:Idle=%s:Idle:AVERAGE" % fname,
-            "LINE1:Running#000000:Running",
-            "LINE2:Idle#FF0000:Idle",
+            "DEF:CpusUse=%s:CpusUse:AVERAGE" % fname,
+            "DEF:CpusPen=%s:CpusPen:AVERAGE" % fname,
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:Idle%s:Idle" % COLORS['Idle'],
+            "LINE3:CpusUse%s:CpusUse"% COLORS['CpusUse'],
+            "LINE4:CpusPen%s:CpusPen" % COLORS['CpusPen'],
             "COMMENT:%s" % subtask,
             "COMMENT:\\n",
             "COMMENT:           max     avg     cur\\n",
@@ -84,6 +118,14 @@ def subtask(basedir, interval, request, subtask):
             "GPRINT:Idle:MAX:%-6.0lf",
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
+            "COMMENT:CpusUse ",
+            "GPRINT:CpusUse:MAX:%-6.0lf",
+            "GPRINT:CpusUse:AVERAGE:%-6.0lf",
+            "GPRINT:CpusUse:LAST:%-6.0lf\\n",
+            "COMMENT:CpusPen ",
+            "GPRINT:CpusPen:MAX:%-6.0lf",
+            "GPRINT:CpusPen:AVERAGE:%-6.0lf",
+            "GPRINT:CpusPen:LAST:%-6.0lf\\n",
             )
     return clean_and_return(fd, pngpath)
 
@@ -117,6 +159,37 @@ def priority_summary_graph(basedir, interval, jobType):
                   'AREA:R7#000000:Low Priority:STACK')
     return clean_and_return(fd, pngpath)
 
+def oldrequest(basedir, interval, request):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, request, "request.rrd")
+    if not os.path.exists(fname):
+        raise ValueError("No information present (request=%s)" % request)
+    rrdtool.graph(pngpath,
+	    "--imgformat", "PNG",
+            "--width", "250",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "Request %s Job Counts" % request,
+            "DEF:Running=%s:Running:AVERAGE" % fname,
+            "DEF:Idle=%s:Idle:AVERAGE" % fname,
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:Idle%s:Idle" % COLORS['Idle'],
+            "COMMENT:Request Statistics",
+            "COMMENT:\\n",
+            "COMMENT:\\n",
+            "COMMENT:           max     avg     cur\\n",
+            "COMMENT:Running ",
+            "GPRINT:Running:MAX:%-6.0lf",
+            "GPRINT:Running:AVERAGE:%-6.0lf",
+            "GPRINT:Running:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:Idle    ",
+            "GPRINT:Idle:MAX:%-6.0lf",
+            "GPRINT:Idle:AVERAGE:%-6.0lf",
+            "GPRINT:Idle:LAST:%-6.0lf\\n",
+            )
+    return clean_and_return(fd, pngpath)
 
 def request(basedir, interval, request):
     fd, pngpath = tempfile.mkstemp(".png")
@@ -132,8 +205,12 @@ def request(basedir, interval, request):
             "--title", "Request %s Job Counts" % request,
             "DEF:Running=%s:Running:AVERAGE" % fname,
             "DEF:Idle=%s:Idle:AVERAGE" % fname,
-            "LINE1:Running#000000:Running",
-            "LINE2:Idle#FF0000:Idle",
+            "DEF:CpusUse=%s:CpusUse:AVERAGE" % fname,
+            "DEF:CpusPen=%s:CpusPen:AVERAGE" % fname,
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:Idle%s:Idle" % COLORS['Idle'],
+            "LINE3:CpusUse%s:CpusUse" % COLORS['CpusUse'],
+            "LINE4:CpusPen%s:CpusPen" % COLORS['CpusPen'],
             "COMMENT:Request Statistics",
             "COMMENT:\\n",
             "COMMENT:           max     avg     cur\\n",
@@ -146,6 +223,14 @@ def request(basedir, interval, request):
             "GPRINT:Idle:MAX:%-6.0lf",
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
+            "COMMENT:CpusUse ",
+            "GPRINT:CpusUse:MAX:%-6.0lf",
+            "GPRINT:CpusUse:AVERAGE:%-6.0lf",
+            "GPRINT:CpusUse:LAST:%-6.0lf\\n",
+            "COMMENT:CpusPen ",
+            "GPRINT:CpusPen:MAX:%-6.0lf",
+            "GPRINT:CpusPen:AVERAGE:%-6.0lf",
+            "GPRINT:CpusPen:LAST:%-6.0lf\\n",
             )
     return clean_and_return(fd, pngpath)
 
@@ -270,8 +355,12 @@ def request_site(basedir, interval, request, site):
             "--title", "%s Job Counts" % site,
             "DEF:Running=%s:Running:AVERAGE" % fname,
             "DEF:MatchingIdle=%s:MatchingIdle:AVERAGE" % fname,
-            "LINE1:Running#000000:Running",
-            "LINE2:MatchingIdle#FF0000:MatchingIdle",
+            "DEF:CpusUse=%s:CpusUse:AVERAGE" % fname,
+            "DEF:CpusPen=%s:CpusPen:AVERAGE" % fname,
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:MatchingIdle%s:MatchingIdle" % COLORS['MatchingIdle'],
+            "LINE3:CpusUse%s:CpusUse" % COLORS['CpusUse'],
+            "LINE4:CpusPen%s:CpusPen" % COLORS['CpusPen'],
             "COMMENT:%s" % site,
             "COMMENT:\\n",
             "COMMENT:                max     avg     cur\\n",
@@ -284,6 +373,14 @@ def request_site(basedir, interval, request, site):
             "GPRINT:MatchingIdle:MAX:%-6.0lf",
             "GPRINT:MatchingIdle:AVERAGE:%-6.0lf",
             "GPRINT:MatchingIdle:LAST:%-6.0lf\\n",
+            "COMMENT:CpusUse ",
+            "GPRINT:CpusUse:MAX:%-6.0lf",
+            "GPRINT:CpusUse:AVERAGE:%-6.0lf",
+            "GPRINT:CpusUse:LAST:%-6.0lf\\n",
+            "COMMENT:CpusPen ",
+            "GPRINT:CpusPen:MAX:%-6.0lf",
+            "GPRINT:CpusPen:AVERAGE:%-6.0lf",
+            "GPRINT:CpusPen:LAST:%-6.0lf\\n",
             )
     return clean_and_return(fd, pngpath)
 
@@ -303,8 +400,12 @@ def site(basedir, interval, site):
             "--title", "%s Job Counts" % site,
             "DEF:Running=%s:Running:AVERAGE" % fname,
             "DEF:MatchingIdle=%s:MatchingIdle:AVERAGE" % fname,
-            "LINE1:Running#000000:Running",
-            "LINE2:MatchingIdle#FF0000:MatchingIdle",
+            "DEF:CpusUse=%s:CpusUse:AVERAGE" % fname,
+            "DEF:CpusPen=%s:CpusPen:AVERAGE" % fname,
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:MatchingIdle%s:MatchingIdle" % COLORS['MatchingIdle'],
+            "LINE3:CpusUse%s:CpusUse" % COLORS['CpusUse'],
+            "LINE4:CpusPen%s:CpusPen" % COLORS['CpusPen'],
             "COMMENT:%s" % site,
             "COMMENT:\\n",
             "COMMENT:                max     avg     cur\\n",
@@ -317,6 +418,14 @@ def site(basedir, interval, site):
             "GPRINT:MatchingIdle:MAX:%-6.0lf",
             "GPRINT:MatchingIdle:AVERAGE:%-6.0lf",
             "GPRINT:MatchingIdle:LAST:%-6.0lf\\n",
+            "COMMENT:CpusUse ",
+            "GPRINT:CpusUse:MAX:%-6.0lf",
+            "GPRINT:CpusUse:AVERAGE:%-6.0lf",
+            "GPRINT:CpusUse:LAST:%-6.0lf\\n",
+            "COMMENT:CpusPen ",
+            "GPRINT:CpusPen:MAX:%-6.0lf",
+            "GPRINT:CpusPen:AVERAGE:%-6.0lf",
+            "GPRINT:CpusPen:LAST:%-6.0lf\\n",
             )
     return clean_and_return(fd, pngpath)
 
@@ -337,8 +446,12 @@ def site_util(basedir, interval, site):
             "--title", "%s Max Running Achieved" % site,
             "DEF:Running=%s:Running:AVERAGE" % fname,
             "DEF:MaxRunning=%s:MaxRunning:AVERAGE" % fname,
-            "LINE1:Running#000000:Running",
-            "LINE2:MaxRunning#0000FF:MaxRunning",
+            "DEF:CpusUse=%s:CpusUse:AVERAGE" % fname,
+            "DEF:MaxCpusUse=%s:MaxCpusUse:AVERAGE" % fname,
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:MaxRunning%s:MaxRunning" % COLORS['MaxRunning'],
+            "LINE3:CpusUse%s:CpusUse" % COLORS['CpusUse'],
+            "LINE4:MaxCpusUse%s:MaxCpusUse" % COLORS['MaxCpusUse'],
             "COMMENT:%s" % site,
             "COMMENT:\\n",
             "COMMENT:              max     avg     cur\\n",
@@ -351,6 +464,14 @@ def site_util(basedir, interval, site):
             "GPRINT:MaxRunning:MAX:%-6.0lf",
             "GPRINT:MaxRunning:AVERAGE:%-6.0lf",
             "GPRINT:MaxRunning:LAST:%-6.0lf\\n",
+            "COMMENT:CpusUse ",
+            "GPRINT:CpusUse:MAX:%-6.0lf",
+            "GPRINT:CpusUse:AVERAGE:%-6.0lf",
+            "GPRINT:CpusUse:LAST:%-6.0lf\\n",
+            "COMMENT:MaxCpusUse ",
+            "GPRINT:MaxCpusUse:MAX:%-6.0lf",
+            "GPRINT:MaxCpusUse:AVERAGE:%-6.0lf",
+            "GPRINT:MaxCpusUse:LAST:%-6.0lf\\n",
             )
     return clean_and_return(fd, pngpath)
 
@@ -358,9 +479,11 @@ def site_util(basedir, interval, site):
 def summary(basedir, interval, fileName):
     fd, pngpath = tempfile.mkstemp(".png")
     fname = os.path.join(basedir, "%s.rrd" % fileName)
+    if fileName == 'oldsummary':
+        fname = os.path.join(basedir, "summary.rrd")
     if not os.path.exists(fname):
         raise ValueError("No information present %s" % fname)
-    if fileName == 'summary':
+    if fileName == 'oldsummary':
         rrdtool.graph(pngpath,
             "--imgformat", "PNG",
             "--width", "250",
@@ -370,8 +493,8 @@ def summary(basedir, interval, fileName):
             "--title", "Pool Summary",
             "DEF:Running=%s:Running:AVERAGE" % fname,
             "DEF:Idle=%s:Idle:AVERAGE" % fname,
-            "LINE1:Running#000000:Running",
-            "LINE2:Idle#FF0000:Idle",
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:Idle%s:Idle" % COLORS['Idle'],
             "COMMENT:Pool Summary",
             "COMMENT:\\n",
             "COMMENT:           max     avg     cur\\n",
@@ -384,6 +507,43 @@ def summary(basedir, interval, fileName):
             "GPRINT:Idle:MAX:%-6.0lf",
             "GPRINT:Idle:AVERAGE:%-6.0lf",
             "GPRINT:Idle:LAST:%-6.0lf\\n",
+                )
+    elif fileName == 'summary':
+        rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "250",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "Pool Summary",
+            "DEF:Running=%s:Running:AVERAGE" % fname,
+            "DEF:Idle=%s:Idle:AVERAGE" % fname,
+            "DEF:CpusUse=%s:CpusUse:AVERAGE" % fname,
+            "DEF:CpusPen=%s:CpusPen:AVERAGE" % fname,
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:Idle%s:Idle" % COLORS['Idle'],
+            "LINE3:CpusUse%s:CpusUse" % COLORS['CpusUse'],
+            "LINE4:CpusPen%s:CpusPen" % COLORS['CpusPen'],
+            "COMMENT:Pool Summary",
+            "COMMENT:\\n",
+            "COMMENT:           max     avg     cur\\n",
+            "COMMENT:Running ",
+            "GPRINT:Running:MAX:%-6.0lf",
+            "GPRINT:Running:AVERAGE:%-6.0lf",
+            "GPRINT:Running:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:Idle    ",
+            "GPRINT:Idle:MAX:%-6.0lf",
+            "GPRINT:Idle:AVERAGE:%-6.0lf",
+            "GPRINT:Idle:LAST:%-6.0lf\\n",
+            "COMMENT:CpusUse ",
+            "GPRINT:CpusUse:MAX:%-6.0lf",
+            "GPRINT:CpusUse:AVERAGE:%-6.0lf",
+            "GPRINT:CpusUse:LAST:%-6.0lf\\n",
+            "COMMENT:CpusPen ",
+            "GPRINT:CpusPen:MAX:%-6.0lf",
+            "GPRINT:CpusPen:AVERAGE:%-6.0lf",
+            "GPRINT:CpusPen:LAST:%-6.0lf\\n",
                 )
 ## TODO
     elif fileName == 'negotiation':
@@ -449,8 +609,8 @@ def request_held(basedir, interval, request, site):
             "--title", "%s Held Counts" % site,
             "DEF:Held=%s:Held:AVERAGE" % fname,
             "DEF:MaxHeld=%s:MaxHeld:AVERAGE" % fname,
-            "LINE1:Held#FF0000:Held",
-            "LINE2:MaxHeld#0000FF:MaxHeld",
+            "LINE1:Held%s:Held" % COLORS['Held'],
+            "LINE2:MaxHeld%s:MaxHeld" % COLORS['MaxHeld'],
             "COMMENT:%s" % site,
             "COMMENT:\\n",
             "COMMENT:           max     avg     cur\\n",
@@ -485,7 +645,7 @@ def request_idle(basedir, interval, request, site):
             "DEF:Idle=%s:Idle:AVERAGE" % fname,
             "DEF:MaxIdle=%s:MaxIdle:AVERAGE" % fname,
             "DEF:Running=%s:Running:AVERAGE" % fname,
-            "LINE1:Idle#FFFF00:Idle",
+            "LINE1:Idle#A52A2A:Idle",
             "LINE2:MaxIdle#0000FF:MaxIdle",
             "LINE2:Running#000000:Running",
             "COMMENT:%s" % site,
@@ -529,10 +689,10 @@ def request_joint(basedir, interval, request, site):
             "DEF:Running=%s:Running:AVERAGE" % fname,
             "DEF:MaxHeld=%s:MaxHeld:AVERAGE" % fname,
             "DEF:Held=%s:Held:AVERAGE" % fname,
-            "LINE1:Idle#FFFF00:Idle",
-            "LINE2:Running#000000:Running",
-            "LINE2:MaxHeld#0000FF:MaxHeld",
-            "LINE2:Held#FF0000:Held",
+            "LINE1:Idle%s:Idle" % COLORS['Idle'],
+            "LINE2:Running%s:Running" % COLORS['Running'],
+            "LINE2:MaxHeld%s:MaxHeld" % COLORS['MaxHeld'],
+            "LINE2:Held%s:Held" % COLORS['Held'],
             "COMMENT:%s" % site,
             "COMMENT:\\n",
             "COMMENT:           max     avg     cur\\n",

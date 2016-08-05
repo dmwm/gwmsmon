@@ -116,13 +116,7 @@
                 document.getElementById("first_column").innerHTML = "Last Hour";
                 document.getElementById("second_column").innerHTML = "Last Day";
                 }
-            else if (currentview == "/analysiscrab2view/"){
-                document.title = "CMS Analysis Overview (CRAB2)";
-                document.getElementById("first_column").innerHTML = "Last Hour";
-                document.getElementById("second_column").innerHTML = "Last Day";
-                document.getElementById("navbar-brand").innerHTML = "Analysis Overview (CRAB2)";
-                }
-            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view
+            // currentview will be /analysisview/ or /prodview/
 
             $.get('/poolview/json/totals', function(data){
                 factory_data = data;
@@ -153,6 +147,8 @@
                 table_data.addColumn("string", "Debugger");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Idle");
+                table_data.addColumn("number", "CpusUse");
+                table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Priority");
                 table_data.addColumn("string", 'Workflow History');
 
@@ -192,7 +188,7 @@
                     taskInfo1 += '<td>' + warnings + '</td></tr>';
                     }                                           
                     taskInfo1 += '</tr></table><br/>';                  
-                    table_data.addRow([taskInfo, taskInfo1, workflow_data.Running, workflow_data.Idle, workflow_data.BasePrio, image_html]);
+                    table_data.addRow([taskInfo, taskInfo1, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.BasePrio, image_html]);
                 }}
             else if (currentview == "/analysisview/" ){
             table_data.addColumn("string", "Task Info")
@@ -200,6 +196,8 @@
             table_data.addColumn("number", "Not Queued");
             table_data.addColumn("number", "Idle");
             table_data.addColumn("number", "Running");
+            table_data.addColumn("number", "CpusUse");
+            table_data.addColumn("number", "CpusPen");
             table_data.addColumn("number", "Done");
             table_data.addColumn("number", "Failed");
             table_data.addColumn("number", "Matching Site Count");
@@ -224,19 +222,7 @@
                 taskInfo += '</tr></table><br/>';
                 taskInfo += 'Scheduler: <a href="/poolview">' + workflow_data.TaskInfo.Schedd + '</a>';
 
-                table_data.addRow([taskInfo, workflow_data.TaskInfo.DAG_NodesTotal, workflow_data.TaskInfo.DAG_NodesReady, workflow_data.Idle, workflow_data.Running, workflow_data.TaskInfo.DAG_NodesDone, workflow_data.TaskInfo.DAG_NodesFailed, workflow_data.SiteCount, image_html]);
-                }}
-            else if (currentview == "/analysiscrab2view/"){
-                table_data.addColumn("string", "Workflow");
-                table_data.addColumn("number", "Running");
-                table_data.addColumn("number", "Idle");
-                table_data.addColumn("number", "Matching Site Count");
-                table_data.addColumn("string", 'Workflow History');
-                for (workflow_key in data) {
-                    workflow_data = data[workflow_key];
-                    var image_html = '<img src="/analysiscrab2view/graphs/$request/' + workflow_key + '"/>';
-                    var workflow_html = workflow_key;
-                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.SiteCount, image_html]);
+                table_data.addRow([taskInfo, workflow_data.TaskInfo.DAG_NodesTotal, workflow_data.TaskInfo.DAG_NodesReady, workflow_data.Idle, workflow_data.Running, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskInfo.DAG_NodesDone, workflow_data.TaskInfo.DAG_NodesFailed, workflow_data.SiteCount, image_html]);
                 }}
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('running_subtasks'));
@@ -277,7 +263,6 @@
             }
             else if (currentview == "/analysisview/"){
                 table_data.addColumn("string", "Total Max Running Achieved")
-                table_data.addColumn("string", "Site history for Analysis(CRAB2)");
             }
 
             if (currentview == "/prodview/"){
@@ -304,7 +289,7 @@
                     table_data.addRow([site_html, site.Running, site.MatchingIdle, site_util, site_img, workf_site_img]);
                 }
             }
-            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
+            else if (currentview == "/analysisview/"){
                 for (site_key in data) {
                     site = data[site_key];
                     var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
@@ -426,7 +411,6 @@
               <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
-              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>

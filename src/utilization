@@ -35,7 +35,7 @@ def getAverageLastN(inp, keys):
 def analyseProdRrds(saveDir, totalviewDir, timespan):
     """Get all list of sites, and average value for last <timespan> days"""
     fname = os.path.join(totalviewDir, 'site_summary.json')
-
+    possibleDates = []
     output = {}
 
     for siteName in json.load(open(fname)).keys():
@@ -105,8 +105,6 @@ def main():
     if opts.utilization and opts.totalview:
         if opts.prodview:
             analyseProdRrds(opts.prodview, opts.totalview, opts.utilization)
-        if opts.analysiscrab2view:
-            analyseProdRrds(opts.analysiscrab2view, opts.totalview, opts.utilization)
         if opts.analysisview:
             analyseProdRrds(opts.analysisview, opts.totalview, opts.utilization)
         # Also do for totalview

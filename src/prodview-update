@@ -42,7 +42,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             continue
         prio = job["JobPrio"]
         priorityDict = taskInfo.setdefault("Summary", {})
-        prioPriorityDict  = priorityDict.setdefault(int(prio), {"Running": 0, "Idle": 0})
+        prioPriorityDict  = priorityDict.setdefault(int(prio), {"Running": 0, "Idle": 0, "CpusInUse": 0, "CpusPending": 0})
         requestDict = workflows.setdefault(request, {})
         subtaskDict = requestDict.setdefault(subTask, {})
         summaryDict = subtaskDict.setdefault('Summary', {})
@@ -54,7 +54,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         walltime = 0 if 'MaxWallTimeMins' not in job.keys() else validateInt(job['MaxWallTimeMins'])
         requestCpus = 0 if 'RequestCpus' not in job.keys() else validateInt(job['RequestCpus'])
         key = "||".join([str(memory), str(requestCpus), str(walltime), str(strDes), ad['Name']])
-        mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': '', 'Cpus': requestCpus})
+        mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': '', 'Cpus': requestCpus, 'CpusInUse': 0, 'CpusPending': 0})
         mainSubTaskdebug['Schedd'] = ad['Name']
         mainSubTaskdebug['Memory'] = memory
         mainSubTaskdebug['WallTime'] = walltime
@@ -63,27 +63,35 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         if job['JobStatus'] == 2:
             mainSubTaskdebug['Running'] += 1
             prioPriorityDict['Running'] += 1
+            mainSubTaskdebug['CpusInUse'] += requestCpus
+            prioPriorityDict['CpusInUse'] += requestCpus
         elif job['JobStatus'] == 1:
             mainSubTaskdebug['Idle'] += 1
             prioPriorityDict['Idle'] += 1
-
+            prioPriorityDict['CpusPending'] += requestCpus
+            mainSubTaskdebug['CpusPending'] += requestCpus
         jobinfo = (prio, desiredSites)
         if not runningSite:
             summaryInternal.setdefault(jobinfo, 0)
             summaryInternal[jobinfo] += 1
+        cpus = summaryDict.setdefault('CpusPending', 0)
         for site in desiredSites:
             siteDict = subtaskDict.setdefault(site, {})
-            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'CpusInUse': 0, 'CpusPending': 0})
             prioDict.setdefault(status, 0)
             if status != "Running":
                 prioDict[status] += 1
+                prioDict['CpusPending'] += requestCpus
                 if len(desiredSites) == 1 and not runningSite:
                     prioDict['UniquePressure'] += 1
         if runningSite:
             siteDict = subtaskDict.setdefault(runningSite, {})
-            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'CpusInUse': 0, 'CpusPending': 0})
             prioDict.setdefault(status, 0)
             prioDict[status] += 1
+            prioDict['CpusInUse'] += requestCpus
+        else:
+            summaryDict['CpusPending'] += requestCpus
 
 
 def analyzePriosInner(workflows, sites, prio):
@@ -142,13 +150,18 @@ def summarize(workflows, gsites, tasks):
             idle = sum(subtaskDict.get("Summary", {}).get("Internal", {}).values())
             running = 0
             uniq = 0
+            cpususe = 0
             for siteDict in subtaskDict.values():
                 for prioDict in siteDict.values():
+                    if not isinstance(prioDict, dict):
+                        break
                     running += prioDict.get("Running", 0)
                     uniq += prioDict.get("UniquePressure", 0)
+                    cpususe += prioDict.get("CpusInUse", 0)
             subtaskDict["Summary"].update({"BasePrio": minPrio, "Running": running, "Idle": idle,
                                            "HigherPrioIdle": higherIdle, "LowerPrioRunning": lowerRunning,
-                                           "TaskInfo": taskinfo, "UniquePressure": uniq})
+                                           "TaskInfo": taskinfo, "UniquePressure": uniq,
+                                           "CpusInUse": cpususe})
 
         minPrio = int(min([float(subtaskDict["Summary"]["BasePrio"]) for subtaskDict in requestDict.values()]))
         minPrio %= 10000000
@@ -161,9 +174,11 @@ def summarize(workflows, gsites, tasks):
         idle = sum([subtaskDict["Summary"]["Idle"] for subtaskDict in requestDict.values()])
         higherIdle, lowerRunning = analyzePriosInner(workflows, sites, minPrio)
         uniq = sum([subtaskDict["Summary"]["UniquePressure"] for subtaskDict in requestDict.values()])
+        cpususe = sum([subtaskDict["Summary"]["CpusInUse"] for subtaskDict in requestDict.values()])
+        cpuspen = sum([subtaskDict["Summary"]["CpusPending"] for subtaskDict in requestDict.values()])
         requestDict["Summary"] = {"BasePrio": minPrio, "Running": running, "Idle": idle,
                                   "HigherPrioIdle": higherIdle, "LowerPrioRunning": lowerRunning,
-                                  "UniquePressure": uniq}
+                                  "UniquePressure": uniq, "CpusInUse": cpususe, "CpusPending": cpuspen}
 
         requestSites = requestDict["Summary"].setdefault("Sites", {})
         for subtask, subtaskDict in requestDict.items():
@@ -172,14 +187,14 @@ def summarize(workflows, gsites, tasks):
             for site, siteDict in subtaskDict.items():
                 if site == "Summary":
                     continue
-                requestSites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+                requestSites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
                 for key in requestSites[site]:
                     requestSites[site][key] += sum([prioDict[key] for prioDict in siteDict.values()])
 
         for site, siteDict in requestSites.items():
             gsitesDict = gsites.setdefault(site, {})
             gsitesDict.setdefault(request, {"Running": 0, "MatchingIdle": 0, "BasePrio": minPrio,
-                                            'MatchingSites': len(requestSites), "UniquePressure": 0})
+                'MatchingSites': len(requestSites), "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
             for status, dummycount in siteDict.items():
                 gsitesDict[request][status] += siteDict[status]
 
@@ -192,7 +207,7 @@ def summarize(workflows, gsites, tasks):
             name = mappings[prio]
         else:
             name = 'B7' if prio < 63000 else 'B0'
-        newTasksDict.setdefault(name, {"Running": 0, "Idle": 0})
+        newTasksDict.setdefault(name, {"Running": 0, "Idle": 0, "CpusInUse": 0, "CpusPending": 0})
         for key in tasks['Summary'][prio]:
             newTasksDict[name][key] += tasks['Summary'][prio][key]
     newTasksDict['Keys'] = mappingsView
@@ -205,23 +220,27 @@ def writeJson(workflows, gsites, output, taskInfo):
     Write json output for monitoring
     """
     sites = {}
-    running, idle, uniq = 0, 0, 0
+    running, idle, uniq, cpususe, cpuspen = 0, 0, 0, 0, 0
     for requestDict in workflows.values():
         for site, siteDict in requestDict["Summary"]["Sites"].items():
-            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0, "UniquePressure": 0})
+            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "RequestCount": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
             sites[site]["Running"] += siteDict["Running"]
             sites[site]["MatchingIdle"] += siteDict["MatchingIdle"]
             sites[site]["RequestCount"] += 1
             sites[site]["UniquePressure"] += siteDict["UniquePressure"]
+            sites[site]["CpusInUse"] += siteDict["CpusInUse"]
+            sites[site]["CpusPending"] += siteDict["CpusPending"]
         running += requestDict["Summary"]["Running"]
         idle += requestDict["Summary"]["Idle"]
         uniq += requestDict["Summary"]["UniquePressure"]
+        cpususe += requestDict["Summary"]["CpusInUse"]
+        cpuspen += requestDict["Summary"]["CpusPending"]
     requests = len(workflows)
 
     now = int(time.time())
 
     dropObj(sites, output, "site_summary.json")
-    dropObj({"Running": running, "Idle": idle, "RequestCount": requests, "UniquePressure": uniq, "Priorities": taskInfo['Summary'], "UpdateTime": now}, output, "totals.json")
+    dropObj({"Running": running, "Idle": idle, "CpusInUse": cpususe, "CpusPending": cpuspen, "RequestCount": requests, "UniquePressure": uniq, "Priorities": taskInfo['Summary'], "UpdateTime": now}, output, "totals.json")
 
     for site, siteDict in gsites.items():
         siteDir = os.path.join(output, site)
@@ -257,11 +276,13 @@ def writeJson(workflows, gsites, output, taskInfo):
                 if site == "Summary":
                     continue
                 sites[site] = {"Running":      sum(prioDict["Running"] for prioDict in siteDict.values()),
-                               "MatchingIdle": sum(prioDict["MatchingIdle"] for prioDict in siteDict.values())}
+                               "MatchingIdle": sum(prioDict["MatchingIdle"] for prioDict in siteDict.values()),
+                               "CpusInUse": sum(prioDict["CpusInUse"] for prioDict in siteDict.values()),
+                               "CpusPending": sum(prioDict["CpusPending"] for prioDict in siteDict.values())}
             subtaskDir = os.path.join(output, request, subtask)
             dropObj(sites, subtaskDir, "site_summary.json")
             for site, siteDict in sites.items():
-                requestSites.setdefault(site, {"Running": 0, "MatchingIdle": 0})
+                requestSites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "CpusInUse": 0, "CpusPending": 0})
                 for status, count in siteDict.items():
                     requestSites[site][status] += count
             subtaskDict["Summary"]["SiteCount"] = len(sites)
@@ -280,11 +301,11 @@ def writeRrds(workflows, gsites, output, taskInfo):
     """
     createEmptyRRD(output, GSTARTUP)
     sites = {}
-    running, idle, uniq = 0, 0, 0
+    running, idle, uniq, cpususe, cpuspen = 0, 0, 0, 0, 0
     # Update for priorities graph.
     # This idealy shows in which status are more jobs (idle/running) compared to priority
     # ----------------------------------------------------------------
-    for key in ['Running', 'Idle']:
+    for key in ['Running', 'Idle', 'CpusInUse', 'CpusPending']:
         fname = os.path.join(output, "priorities-%s.rrd" % key.lower())
         tempKeys = ["DS:R%s:GAUGE:360:U:U" % x for x in range(0,8)]
         stats = tuple([taskInfo['Summary'][x][key] if x in taskInfo['Summary'] and key in taskInfo['Summary'][x] else 0 for x in sorted(taskInfo["Summary"]["Keys"])])
@@ -294,45 +315,50 @@ def writeRrds(workflows, gsites, output, taskInfo):
 
     for requestDict in workflows.values():
         for site, siteDict in requestDict["Summary"]["Sites"].items():
-            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0})
+            sites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
             sites[site]["Running"] += siteDict["Running"]
             sites[site]["MatchingIdle"] += siteDict["MatchingIdle"]
             sites[site]["UniquePressure"] += siteDict["UniquePressure"]
+            sites[site]["CpusInUse"] += siteDict["CpusInUse"]
+            sites[site]["CpusPending"] += siteDict["CpusPending"]
         running += requestDict["Summary"]["Running"]
         idle += requestDict["Summary"]["Idle"]
         uniq += requestDict["Summary"]["UniquePressure"]
+        cpususe += requestDict["Summary"]["CpusInUse"]
+        cpuspen += requestDict["Summary"]["CpusPending"]
     fname = os.path.join(output, "summary.rrd")
-    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:UniquePressure:GAUGE:360:U:U"]
-    tempUpdLine = "%d:%d:%d:%d" % (GSTARTUP, running, idle, uniq)
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:UniquePressure:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U"]
+    tempUpdLine = "%d:%d:%d:%d:%d:%d" % (GSTARTUP, running, idle, uniq, cpususe, cpuspen)
     rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     for site, siteDict in sites.items():
         fname = os.path.join(output, "%s.rrd" % site)
-        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
-        tempUpdLine = "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"])
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"], siteDict["CpusInUse"], siteDict["CpusPending"])
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     for site, siteDict in gsites.items():
         siteDir = os.path.join(output, site)
         for request, requestDict in siteDict.items():
             fname = os.path.join(siteDir, "%s.rrd" % request)
-            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
-            tempUpdLine = "%d:%d:%d" % (GSTARTUP, requestDict["Running"], requestDict["MatchingIdle"])
+            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U"]
+            tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, requestDict["Running"], requestDict["MatchingIdle"], requestDict["CpusInUse"], requestDict["CpusPending"])
             rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
     for request, requestDict in workflows.items():
         requestDir = os.path.join(output, request)
         fname = os.path.join(requestDir, "request.rrd")
-        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:HigherPrioIdle:GAUGE:360:U:U", "DS:LowerPrioRunning:GAUGE:360:U:U"]
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:HigherPrioIdle:GAUGE:360:U:U", "DS:LowerPrioRunning:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U"]
         stats = requestDict["Summary"]["Running"], requestDict["Summary"]["Idle"], \
-            requestDict["Summary"]["HigherPrioIdle"], requestDict["Summary"]["LowerPrioRunning"]
+            requestDict["Summary"]["HigherPrioIdle"], requestDict["Summary"]["LowerPrioRunning"], \
+            requestDict["Summary"]["CpusInUse"], requestDict["Summary"]["CpusPending"]
         tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
         for site, siteDict in requestDict["Summary"]["Sites"].items():
             fname = os.path.join(requestDir, "%s.rrd" % site)
-            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U"]
-            tempUpdLine = "%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"])
+            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U"]
+            tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, siteDict["Running"], siteDict["MatchingIdle"], siteDict["CpusInUse"], siteDict["CpusPending"])
             rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
         for subtask, subtaskDict in requestDict.items():
@@ -340,9 +366,10 @@ def writeRrds(workflows, gsites, output, taskInfo):
                 continue
             subtaskDir = os.path.join(requestDir, subtask)
             fname = os.path.join(subtaskDir, "subtask.rrd")
-            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:HigherPrioIdle:GAUGE:360:U:U", "DS:LowerPrioRunning:GAUGE:360:U:U"]
+            tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:HigherPrioIdle:GAUGE:360:U:U", "DS:LowerPrioRunning:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U"]
             stats = subtaskDict["Summary"]["Running"], subtaskDict["Summary"]["Idle"], \
-                subtaskDict["Summary"]["HigherPrioIdle"], subtaskDict["Summary"]["LowerPrioRunning"]
+                subtaskDict["Summary"]["HigherPrioIdle"], subtaskDict["Summary"]["LowerPrioRunning"], \
+                subtaskDict["Summary"]["CpusInUse"], subtaskDict["Summary"]["CpusPending"]
             tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
             rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
@@ -350,11 +377,13 @@ def writeRrds(workflows, gsites, output, taskInfo):
                 if site == "Summary":
                     continue
                 fname = os.path.join(subtaskDir, "%s.rrd" % site)
-                tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:HigherPrioIdle:GAUGE:360:U:U", "DS:LowerPrioRunning:GAUGE:360:U:U"]
+                tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:MatchingIdle:GAUGE:360:U:U", "DS:HigherPrioIdle:GAUGE:360:U:U", "DS:LowerPrioRunning:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U"]
                 stats = sum(prioDict["Running"] for prioDict in siteDict.values()), \
                     sum(prioDict["MatchingIdle"] for prioDict in siteDict.values()), \
                     sum(prioDict["HigherPrioIdle"] for prioDict in siteDict.values()), \
-                    sum(prioDict["LowerPrioRunning"] for prioDict in siteDict.values())
+                    sum(prioDict["LowerPrioRunning"] for prioDict in siteDict.values()), \
+                    sum(prioDict["CpusInUse"] for prioDict in siteDict.values()), \
+                    sum(prioDict["CpusPending"] for prioDict in siteDict.values())
                 tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
                 rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 

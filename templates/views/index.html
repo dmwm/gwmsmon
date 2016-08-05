@@ -63,11 +63,6 @@
                 document.getElementById("navbar-brand").innerHTML = "Analysis Overview";
                 document.getElementById("myTab").style.display = 'inline';
                 }
-            else if (currentview == "/analysiscrab2view/"){
-                document.title = "CMS Analysis Overview (CRAB2)";
-                document.getElementById("pagetitle").innerHTML = "Summary of analysis";
-                document.getElementById("navbar-brand").innerHTML = "Analysis Overview (CRAB2)";
-            }
             else if (currentview == "/totalview/"){
                 document.getElementById("pagetitle").innerHTML = "";
                 document.getElementById("navbar-brand").innerHTML = "Total Overview";
@@ -86,7 +81,7 @@
             $.get('/poolview/json/totals', function(data){
                  factory_data = data;
             })              
-            // currentview will be /analysisview/ or /prodview/ or /analysiscrab2view/ or /totalview/ or /poolview/ or /factoryview/
+            // currentview will be /analysisview/ or /prodview/ or /totalview/ or /poolview/ or /factoryview/
 
             // First, get the CMS-wide totals
             if (currentview !== "/poolview/" && currentview !== "/factoryview/"){
@@ -290,23 +285,25 @@
                 table_data.addColumn("string", "Workflow");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Idle");
+                table_data.addColumn("number", "CpusUse");
+                table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Priority");
                 table_data.addColumn("number", "Matching Site Count");
-                table_data.addColumn("number", "Higher Prio Workflow Jobs Idle");
-                table_data.addColumn("number", "Lower Prio Workflow Jobs Running");
                 table_data.addColumn("string", 'Workflow History');
 
                 for (workflow_key in data) {
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="/prodview/graphs/' + workflow_key + '"/>';
                     var workflow_html = '<a href="/prodview/' + workflow_key + '">' + workflow_key + '</a>';
-                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.BasePrio, workflow_data.SiteCount, workflow_data.HigherPrioIdle, workflow_data.LowerPrioRunning, image_html]);
+                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.BasePrio, workflow_data.SiteCount, image_html]);
                 }}
-            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
+            else if (currentview == "/analysisview/"){
                 table_data.addColumn("string", "Username");
                 table_data.addColumn("number", "Total");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Idle");
+                table_data.addColumn("number", "CpusInUse");
+                table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Tasks Running");
                 table_data.addColumn("number", "Matching Site Count");
                 table_data.addColumn("string", 'User History');
@@ -315,7 +312,7 @@
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="'+ currentview +'graphs/' + workflow_key + '"/>';
                     var workflow_html = '<a href="'+ currentview + workflow_key + '">' + workflow_key + '</a>';
-                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.TaskCount, workflow_data.SiteCount, image_html]);
+                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount, workflow_data.SiteCount, image_html]);
                 }}
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));
@@ -344,17 +341,18 @@
             table_data.addColumn("string", "Site");
             table_data.addColumn("number", "Running");
             table_data.addColumn("number", "Matching Idle");
+            table_data.addColumn("number", "CpusUse");
+            table_data.addColumn("number", "CpusPen");
             table_data.addColumn("number", "Unique Pressure")
             if (currentview == "/prodview/")
                 table_data.addColumn("number", "Workflow Count");
-            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/")
+            else if (currentview == "/analysisview/")
                 table_data.addColumn("number", "User Count");
             table_data.addColumn("string", "Max Running Achieved");
             table_data.addColumn("string", "Site History");
             if (currentview == "/totalview/"){
                  table_data.addColumn("string", "Production History");
                  table_data.addColumn("string", "CRAB3 History");
-                 table_data.addColumn("string", "CRAB2 History");
             }
 
 
@@ -366,11 +364,10 @@
                 var site_img = '<img src="'+ currentview +'graphs/' + site_key + '"/>';
                 var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
                 if (currentview != "/totalview/")
-                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.UniquePressure, site.RequestCount, util_img, site_img]);
+                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.CpusInUse, site.CpusPending, site.UniquePressure, site.RequestCount, util_img, site_img]);
                 else{
                     var prod_img = '<img src="/prodview/graphs/' + site_key + '"/>';
                     var anal_img = '<img src="/analysisview/graphs/' + site_key + '"/>';
-                    var acr2_img = '<img src="/analysiscrab2view/graphs/' + site_key + '"/>';
                     if (site_key in factory_data){
                         var entries = factory_data[site_key];
                         site_html += '<table border="1"><tr><th>Num</th><th>MaxWallTime</th><th>MaxMemory</th><th>MaxCpus</th></tr>'
@@ -385,7 +382,7 @@
                     else{
                         site_html += "<br/>PROBLEM. Not in the factory.";
                     }
-                        table_data.addRow([site_html, site.Running, site.MatchingIdle, site.UniquePressure, util_img, site_img, prod_img, anal_img, acr2_img]);
+                        table_data.addRow([site_html, site.Running, site.MatchingIdle, site.CpusInUse, site.CpusPending, site.UniquePressure, util_img, site_img, prod_img, anal_img]);
                 }
             }
 
@@ -420,6 +417,8 @@
             pool_stats['RequestCount'] = data.RequestCount;
             pool_stats['Idle'] = data.Idle;
             pool_stats['UniquePressure'] = data.UniquePressure;
+            pool_stats['CpusInUse'] = data.CpusInUse;
+            pool_stats['CpusPending'] = data.CpusPending;
             if (currentview == "/totalview/"){
                 pool_stats['UpdateDate'] = new Date(data.Summary.UpdateTime*1000);
             }
@@ -431,7 +430,7 @@
                 pool_stats['Priorities'] = data.Priorities;
                 drawPoolStatsProd();
             }
-            else if (currentview == "/analysisview/" || currentview == "/analysiscrab2view/"){
+            else if (currentview == "/analysisview/"){
                 pool_stats['NotQueued'] = data.NotQueued;
                 pool_stats['TaskCountR'] = data.TaskCountR;
                 pool_stats['TaskCountH'] = data.TaskCountH;
@@ -442,21 +441,22 @@
                 pool_stats['AnalysisTRunning'] = data.analysisview.TaskCountR;
                 pool_stats['AnalysisIdle'] = data.analysisview.Idle;
                 pool_stats['AnalysisUniq'] = data.analysisview.UniquePressure;
+                pool_stats['AnalysisCpusInUse'] = data.analysisview.CpusInUse;
+                pool_stats['AnalysisCpusPending'] = data.analysisview.CpusPending;
 
                 pool_stats['ProdRunning'] = data.prodview.Running;
                 pool_stats['ProdTRunning'] = data.prodview.RequestCount;
                 pool_stats['ProdIdle'] = data.prodview.Idle;
                 pool_stats['ProdUniq'] = data.prodview.UniquePressure;
-
-                pool_stats['CRAB2Running'] = data.analysiscrab2view.Running;
-                pool_stats['CRAB2TRunning'] = data.analysiscrab2view.TaskCountR;
-                pool_stats['CRAB2Idle'] = data.analysiscrab2view.Idle;
-                pool_stats['CRAB2Uniq'] = data.analysiscrab2view.UniquePressure;
+                pool_stats['ProdCpusInUse'] = data.prodview.CpusInUse;
+                pool_stats['ProdCpusPending'] = data.prodview.CpusPending;
 
                 pool_stats['TotalRunning'] = data.Summary.Running;
                 pool_stats['TotalIdle'] = data.Summary.Idle;
-                pool_stats['TotalTRunning'] = pool_stats['AnalysisTRunning'] + pool_stats['ProdTRunning'] + pool_stats['CRAB2TRunning'];
-                pool_stats['TotalUniq'] = pool_stats['AnalysisUniq'] + pool_stats['ProdUniq'] + pool_stats['CRAB2Uniq'];
+                pool_stats['TotalTRunning'] = pool_stats['AnalysisTRunning'] + pool_stats['ProdTRunning'];
+                pool_stats['TotalUniq'] = pool_stats['AnalysisUniq'] + pool_stats['ProdUniq'];
+                pool_stats['TotalCpusInUse'] = pool_stats['AnalysisCpusInUse'] + pool_stats['ProdCpusInUse'];
+                pool_stats['TotalCpusPending'] = pool_stats['AnalysisCpusPending'] + pool_stats['ProdCpusPending'];
                 drawPoolStatsTotal();
             }
 			drawPoolStatsImgs(currentview, 'summary', 'overall_top_img');
@@ -471,9 +471,11 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table table-nonfluid");
             pool_stats_table.attr('id', 'overall_stats_table');
-            pool_stats_table.append("<tr><th>Idle Jobs</th><td>" + pool_stats.Idle + "</td></tr>");
+            pool_stats_table.append("<tr><th>Idle Jobs/CpusPen</th><td>" + pool_stats.Idle + " / " + pool_stats.CpusPending + "</td></tr>");
             pool_stats_table.append("<tr><th>Unique Pressure</th><td>" + pool_stats.UniquePressure + "</td></tr>");
-            pool_stats_table.append("<tr><th>Running Jobs</th><td>" + pool_stats.Running + "</td></tr>");
+            pool_stats_table.append("<tr><th>Running Jobs/CpusUse</th><td>" + pool_stats.Running + "</td></tr>");
+            pool_stats_table.append("<tr><th>Cpus In Use</th><td>" + pool_stats.CpusInUse + " / " + pool_stats.CpusInUse + "</td></tr>");
+            pool_stats_table.append("<tr><th>Cpus Pending</th><td>" + pool_stats.CpusPending + "</td></tr>");
             pool_stats_table.append("<tr><th>Workflow Count</th><td>" + pool_stats.RequestCount + "</td></tr>");
             pool_stats_table.append("<tr><th>Update Time</th><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#request_slots_table").append(pool_stats_table);
@@ -498,9 +500,9 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table table-nonfluid");
             pool_stats_table.attr('id', 'overall_stats_table');
-            pool_stats_table.append("<tr><th>Idle Jobs</th><td>" + pool_stats.Idle + "</td></tr>");
+            pool_stats_table.append("<tr><th>Idle Jobs/CpusPen</th><td>" + pool_stats.Idle + " / " + pool_stats.CpusPending + "</td></tr>");
             pool_stats_table.append("<tr><th>Unique Pressure</th><td>" + pool_stats.UniquePressure + "</td></tr>");
-            pool_stats_table.append("<tr><th>Running Jobs</th><td>" + pool_stats.Running + "</td></tr>");
+            pool_stats_table.append("<tr><th>Running Jobs/CpusInUse</th><td>" + pool_stats.Running + " / " + pool_stats.CpusInUse + "</td></tr>");
             pool_stats_table.append("<tr><th>Not Queued Jobs</th><td>" + pool_stats.NotQueued + "</td></tr>");
             pool_stats_table.append("<tr><th>User Count</th><td>" + pool_stats.RequestCount + "</td></tr>");
             pool_stats_table.append("<tr><th>Tasks Running</th><td>" + pool_stats.TaskCountR + "</td></tr>");
@@ -514,11 +516,10 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table table-nonfluid");
             pool_stats_table.attr('id', 'overall_stats_table');
-            pool_stats_table.append("<tr><th></th><th>Running</th><th>Idle</th><th>Unique Pressure</th><th>Tasks</th></tr>");
-            pool_stats_table.append("<tr><th>Total</th><td>" + pool_stats.TotalRunning + "</td><td>"+ pool_stats.TotalIdle +"</td><td>"+ pool_stats.TotalUniq +"</td><td>"+ pool_stats.TotalTRunning +"</td></tr>");
-            pool_stats_table.append("<tr><th>Production</th><td>" + pool_stats.ProdRunning + "</td><td>"+ pool_stats.ProdIdle +"</td><td>"+ pool_stats.ProdUniq +"</td><td>"+ pool_stats.ProdTRunning +"</td></tr>");
-            pool_stats_table.append("<tr><th>Analysis</th><td>" + pool_stats.AnalysisRunning + "</td><td>"+ pool_stats.AnalysisIdle +"</td><td>"+ pool_stats.AnalysisUniq +"</td><td>"+ pool_stats.AnalysisTRunning +"</td></tr>");
-            pool_stats_table.append("<tr><th>CRAB2</th><td>" + pool_stats.CRAB2Running + "</td><td>"+ pool_stats.CRAB2Idle +"</td><td>"+ pool_stats.CRAB2Uniq +"</td><td>"+ pool_stats.CRAB2TRunning +"</td></tr>");
+            pool_stats_table.append("<tr><th></th><th>Running/CpusUse</th><th>Idle/CpusPen</th><th>Unique Pressure</th><th>Tasks</th></tr>");
+            pool_stats_table.append("<tr><th>Total</th><td>" + pool_stats.TotalRunning + " / " + pool_stats.TotalCpusInUse + "</td><td>"+ pool_stats.TotalIdle +" / " + pool_stats.TotalCpusPending  + "</td><td>"+ pool_stats.TotalUniq +"</td><td>"+ pool_stats.TotalTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><th>Production</th><td>" + pool_stats.ProdRunning + " / " + pool_stats.ProdCpusInUse + "</td><td>"+ pool_stats.ProdIdle + " / " + pool_stats.ProdCpusPending + "</td><td>"+ pool_stats.ProdUniq +"</td><td>"+ pool_stats.ProdTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><th>Analysis</th><td>" + pool_stats.AnalysisRunning + " / " + pool_stats.AnalysisCpusInUse + "</td><td>"+ pool_stats.AnalysisIdle +" / " + pool_stats.AnalysisCpusPending + "</td><td>"+ pool_stats.AnalysisUniq +"</td><td>"+ pool_stats.AnalysisTRunning +"</td></tr>");
             pool_stats_table.append("<tr><th>Update Time</th><td colspan=\"3\">" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#request_slots_table").append(pool_stats_table);
 
@@ -558,7 +559,6 @@
               <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
-              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>

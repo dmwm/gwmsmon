@@ -27,9 +27,6 @@
             $.get('/prodview/json/totals', gotTotalsP);
             $.get('/analysisview/json/totals', function(data){
                   gotTotals(data, '/analysisview/', 'a')});
-            
-            $.get('/analysiscrab2view/json/totals', function(data){
-                  gotTotals(data, '/analysiscrab2view/', 'ac2')});
             }
         
 
@@ -38,6 +35,8 @@
             pool_stats1['Running'] = data.Running;
             pool_stats1['RequestCount'] = data.RequestCount;
             pool_stats1['Idle'] = data.Idle;
+            pool_stats1['CpusInUse'] = data.CpusInUse;
+            pool_stats1['CpusPending'] = data.CpusPending;
             pool_stats1['NotQueued'] = data.NotQueued;
             pool_stats1['TaskCountR'] = data.TaskCountR;
             pool_stats1['TaskCountH'] = data.TaskCountH;
@@ -51,9 +50,9 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table");
             pool_stats_table.attr('id', 'overall_stats_table' + addition);
-            pool_stats_table.append("<tr><th>Idle Jobs</th><td>" + pool_stats1.Idle + "</td></tr>");
+            pool_stats_table.append("<tr><th>Idle Jobs/CpusPen</th><td>" + pool_stats1.Idle + " / " + pool_stats1.CpusPending + "</td></tr>");
             pool_stats_table.append("<tr><th>Unique Pressure</th><td>" + pool_stats1.UniquePressure + "</td></tr>");
-            pool_stats_table.append("<tr><th>Running Jobs</th><td>" + pool_stats1.Running + "</td></tr>");
+            pool_stats_table.append("<tr><th>Running Jobs/CpusUse</th><td>" + pool_stats1.Running + " / " + pool_stats1.CpusInUse + "</td></tr>");
             pool_stats_table.append("<tr><th>Not Queued Jobs</th><td>" + pool_stats1.NotQueued + "</td></tr>");
             pool_stats_table.append("<tr><th>User Count</th><td>" + pool_stats1.RequestCount + "</td></tr>");
             pool_stats_table.append("<tr><th>Tasks Running</th><td>" + pool_stats1.TaskCountR + "</td></tr>");
@@ -88,6 +87,8 @@
             pool_stats['Running'] = data.Running;
             pool_stats['RequestCount'] = data.RequestCount;
             pool_stats['Idle'] = data.Idle;
+            pool_stats['CpusInUse'] = data.CpusInUse;
+            pool_stats['CpusPending'] = data.CpusPending;
             pool_stats['UniquePressure'] = data.UniquePressure;
             pool_stats['UpdateDate'] = new Date(data.UpdateTime*1000);
             drawPoolStatsP();
@@ -98,9 +99,9 @@
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table");
             pool_stats_table.attr('id', 'overall_stats_tablep');
-            pool_stats_table.append("<tr><th>Idle Jobs</th><td>" + pool_stats.Idle + "</td></tr>");
+            pool_stats_table.append("<tr><th>Idle Jobs/CpusPen</th><td>" + pool_stats.Idle + " / " + pool_stats.CpusPending + "</td></tr>");
             pool_stats_table.append("<tr><th>Unique Pressure</th><td>" + pool_stats.UniquePressure + "</td></tr>");
-            pool_stats_table.append("<tr><th>Running Jobs</th><td>" + pool_stats.Running + "</td></tr>");
+            pool_stats_table.append("<tr><th>Running Jobs/CpusUse</th><td>" + pool_stats.Running + " / " + pool_stats.CpusInUse + "</td></tr>");
             pool_stats_table.append("<tr><th>Workflow Count</th><td>" + pool_stats.RequestCount + "</td></tr>");
             pool_stats_table.append("<tr><th>Update Time</th><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
 
@@ -149,7 +150,6 @@
               <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
-              <li><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>
@@ -199,28 +199,6 @@
                         <div id="pool_weekly_imga"></div>
                     </div></div></div>
         </div>
-                <div class="row jumbotron" style="padding:0px">
-                    <div class="col-md-12">
-                         <div class="col-md-3"><h2><a href="/analysiscrab2view">Analysis CRAB2 Overview</a></h2>
-                         <div id="request_slots_tableac2"></div></div>
-                         <div class="col-md-3">
-                         <div class="row">
-                             <h2>Last Hour</h2>
-                             <div id="pool_hourly_imgac2"></div>
-                         </div>
-                         </div>
-                        <div class="col-md-3">
-                        <div class="row">
-                        <h2>Last Day</h2>
-                       <div id="pool_daily_imgac2"></div>
-                       </div>
-                       </div>
-                       <div class="col-md-3">
-                       <div class="row">
-                       <h2>Last Week</h2>
-                       <div id="pool_weekly_imgac2"></div>
-                       </div></div></div>
-                       </div>
         </div>
     </body>
   <script>
