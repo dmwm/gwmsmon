@@ -323,7 +323,10 @@ def main():
     sitesview = {}
     for ad in scheddAds:
         print "Querying schedd", ad['Name']
-        analyzeScheddOutput(ad, workflows, taskInfo)
+        try:
+            analyzeScheddOutput(ad, workflows, taskInfo)
+        except:
+            print 'Failed. Continue'
 
     # analyze_prios(workflows)
     summarize(workflows, sites, taskInfo, sitesview)

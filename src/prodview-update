@@ -398,7 +398,10 @@ def main():
     taskInfo = {}
     for ad in scheddAds:
         print "Querying schedd", ad['Name']
-        analyzeScheddOutput(ad, workflows, taskInfo)
+        try:
+            analyzeScheddOutput(ad, workflows, taskInfo)
+        except:
+            print 'Failed. continue'
 
     analyzePrios(workflows)
     summarize(workflows, sites, taskInfo)
