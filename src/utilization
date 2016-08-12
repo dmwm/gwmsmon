@@ -32,12 +32,12 @@ def getAverageLastN(inp, keys):
         return 0
 
 
-def analyseProdRrds(saveDir, totalviewDir, timespan):
+def analyseProdRrds(saveDir, totalviewDir, timespan, naming):
     """Get all list of sites, and average value for last <timespan> days"""
     fname = os.path.join(totalviewDir, 'site_summary.json')
     possibleDates = []
     output = {}
-
+    originNaming = []
     for siteName in json.load(open(fname)).keys():
         now = datetime.datetime.now()
         then = now - datetime.timedelta(days=int(timespan))
@@ -58,9 +58,18 @@ def analyseProdRrds(saveDir, totalviewDir, timespan):
         n = 0  # it will count number of hours
         then = now - datetime.timedelta(days=int(timespan))
         possibleDates = []
+        i = 0
+        print originNaming, naming
+        originNaming = list(naming)
+        for item in values[1]:
+            if item == originNaming[0]:
+                originNaming.append(i)
+            i += 1
+        if len(originNaming) == len(naming):
+            print 'Something wrong. Should not happen', siteName, originNaming, naming, fname
         for item in values[2]:
             try:
-                value = int(item[0])
+                value = int(item[originNaming[2]])
             except:
                 value = 0
             if n <= 23:
@@ -80,10 +89,10 @@ def analyseProdRrds(saveDir, totalviewDir, timespan):
             if len(output[siteName]['per_day_values']) == int(timespan):
                 print 'This site has everything NaN. Break the loop'
                 break
-    dailyStatistics(possibleDates, output, saveDir)
+    dailyStatistics(possibleDates, output, saveDir, naming)
 
 
-def dailyStatistics(possibleDates, output, saveDir):
+def dailyStatistics(possibleDates, output, saveDir, naming):
     """Before droping object, make more statistics for whole month.
        TODO: in configuration might be specified more or less days. Use from config."""
     # Before droping make more statistics:
@@ -96,19 +105,20 @@ def dailyStatistics(possibleDates, output, saveDir):
             value = getAverageLastN(output[site]['per_day_values'], possibleDates[-keysTo[key]:])
             output[site][key] = value
     print output
-    dropObj(output, saveDir, 'maxused.json')
+    dropObj(output, saveDir, '%s.json' % naming[1].lower())
 
 
 def main():
     """Main function"""
     opts, dummyargs = parseArgs()
     if opts.utilization and opts.totalview:
-        if opts.prodview:
-            analyseProdRrds(opts.prodview, opts.totalview, opts.utilization)
-        if opts.analysisview:
-            analyseProdRrds(opts.analysisview, opts.totalview, opts.utilization)
-        # Also do for totalview
-        analyseProdRrds(opts.totalview, opts.totalview, opts.utilization)
+        for itemNames in [['Running', 'maxused.json'], ['CpusUse', 'maxusedcpus']]:
+            if opts.prodview:
+                analyseProdRrds(opts.prodview, opts.totalview, opts.utilization, itemNames)
+            if opts.analysisview:
+                analyseProdRrds(opts.analysisview, opts.totalview, opts.utilization, itemNames)
+            # Also do for totalview
+            analyseProdRrds(opts.totalview, opts.totalview, opts.utilization, itemNames)
 
 if __name__ == "__main__":
     main()

@@ -96,6 +96,9 @@ summary_json = static_file_server("summary.json")
 _max_used_json_re = re.compile(r'^/*json/maxused$')
 max_used = static_file_server("maxused.json")
 
+_max_used_cpus_json_re = re.compile(r'^/*json/maxusedcpus$')
+max_used_cpus = static_file_server("maxusedcpus.json")
+
 _site_summary_json_re = re.compile(r'^/*json/site_summary$')
 site_summary_json = static_file_server("site_summary.json")
 
@@ -453,6 +456,7 @@ urls = [
     (_totals_json_re, totals_json),
     (_summary_json_re, summary_json),
     (_max_used_json_re, max_used),
+    (_max_used_cpus_json_re, max_used_cpus),
     (_site_summary_json_re, site_summary_json),
     (_site_totals_json_re, site_totals_json),
     (_site_request_summary_json_re, site_request_summary_json),
