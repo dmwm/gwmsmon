@@ -158,7 +158,7 @@ def request_site_summary_json(environ, start_response):
         yield result
 
 #_history_stats_re, history_stats
-_history_stats_re = re.compile(r'^/*json/history/(memoryusage|exitcodes|runtime)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9]+)?$')
+_history_stats_re = re.compile(r'^/*json/history/(memoryusage|exitcodes|runtime)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$')
 def history_stats(environ, start_response):
     if _view not in ['prodview', 'analysisview']:
         return not_found(environ, start_response)
