@@ -88,9 +88,10 @@ def summarizeSchedds(scheddsInfo, scheddAds):
         scheddsInfo[name]['Status'] = scheddStatus
 
 
-def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot):
+def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
     """ TODO """
     pilots = []
+    hltHack = []
     try:
         pilots = coll.query(htcondor.AdTypes.Any, 'GLIDEIN_CMSSite isnt undefined && SlotType isnt undefined',
                             ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State', 'Memory', 'TotalMemory', 'ChildMemory', 'ChildCpus', 'GLIDEIN_ToRetire', 'GLIDEIN_ToDie'])
@@ -102,6 +103,8 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot):
         #    continue
         #alreadyKnownPilot.append(item['Name'])
         if 'PartitionableSlot' in item:
+            if item['GLIDEIN_CMSSite'] == 'T2_CH_CERN_HLT':
+                hltHack.append({'MaxMemMB': item['TotalMemory'], 'MaxWallTime': int(3600), 'MaxCpus': int(item['TotalSlotCpus'])})
             # Means we have partitionable slot and some info about it
             # and we don`t care about state as in Static
             slotInfo = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
@@ -141,6 +144,16 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot):
             out = pilotUsage.setdefault('Summary', {}).setdefault(slot, {'CpusUse': 0, 'CpusFree': 0})
             out['CpusUse'] += slotDict['CpusUse']
             out['CpusFree'] += slotDict['CpusFree']
+    if 'T2_CH_CERN_HLT' not in factOut.keys():
+        factOut['T2_CH_CERN_HLT'] = []
+    for item in hltHack:
+       inDict = False
+       for inVal in factOut['T2_CH_CERN_HLT']:
+           if cmp(item, inVal) == 0:
+               inDict = True
+               break
+       if not inDict:
+           factOut['T2_CH_CERN_HLT'].append(item)
 
 
 def parseConfigXML(entries, output, factoryName, entryMappings):
@@ -230,7 +243,7 @@ def parseRRDsData(entries, output, factoryName, entryMappings):
             appendtoOutput(output, previousSiteName, previousEntry, factoryName, 0, 0, 0, error)
 
 
-def writeScheddInfo(basedir, scheddsInfo, factInfo):
+def writeScheddInfo(basedir, scheddsInfo):
     """ TODO doc """
     now = int(time.time())
     scheddsInfo['Summary'] = {}
@@ -267,7 +280,6 @@ def writeScheddInfo(basedir, scheddsInfo, factInfo):
         tempKeys.extend(warningsKeys)
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
-    dropObj(factInfo, basedir, 'totals.json')
     #Diff between pools and Negotiation
     fname = os.path.join(basedir, 'difference.rrd')
     rrdUpdate(fname, ["DS:Current:GAUGE:360:U:U"], "%d:%d" % (GSTARTUP, scheddsInfo['Collector']['DIFF']), GSTARTUP)
@@ -538,7 +550,7 @@ def main():
     if scheddAds:
         summarizeSchedds(scheddsInfo, scheddAds)
     poolDiffNeg(scheddsInfo, opts)
-    writeScheddInfo(opts.poolview, scheddsInfo, factOut)
+    writeScheddInfo(opts.poolview, scheddsInfo)
 
     pilotUsage = {}
     totals = {}
@@ -547,10 +559,11 @@ def main():
     coll1, coll2 = getCollectors(opts.pool, opts.pool1)
     alreadyKnownPilot = []
     print '%s querying %s ' % (int(time.time()), opts.pool)
-    pilotUsageInfo(coll1, pilotUsage, alreadyKnownPilot)
+    pilotUsageInfo(coll1, pilotUsage, alreadyKnownPilot, factOut)
     print '%s querying %s' % (int(time.time()), opts.pool1)
     #pilotUsageInfo(coll2, pilotUsage, alreadyKnownPilot)
     print '%s done querying' % int(time.time())
+    dropObj(factOut, opts.poolview, 'totals.json')
     loadPoolData(totals, sites, opts.analysisview, "analysisview")
     loadPoolData(totals, sites, opts.prodview, "prodview")
     loadPoolData(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
