@@ -71,7 +71,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             prioPriorityDict['CpusPending'] += requestCpus
             mainSubTaskdebug['CpusPending'] += requestCpus
         jobinfo = (prio, desiredSites)
-        if not runningSite:
+        if job["JobStatus"] == 1:
             summaryInternal.setdefault(jobinfo, 0)
             summaryInternal[jobinfo] += 1
         cpus = summaryDict.setdefault('CpusPending', 0)
@@ -79,12 +79,12 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             siteDict = subtaskDict.setdefault(site, {})
             prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'CpusInUse': 0, 'CpusPending': 0})
             prioDict.setdefault(status, 0)
-            if status != "Running":
+            if job['JobStatus'] == 1:
                 prioDict[status] += 1
                 prioDict['CpusPending'] += requestCpus
-                if len(desiredSites) == 1 and not runningSite:
+                if len(desiredSites) == 1:
                     prioDict['UniquePressure'] += 1
-        if runningSite:
+        if runningSite and job['JobStatus'] == 2:
             siteDict = subtaskDict.setdefault(runningSite, {})
             prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'CpusInUse': 0, 'CpusPending': 0})
             prioDict.setdefault(status, 0)
