@@ -112,7 +112,7 @@ def main():
     """Main function"""
     opts, dummyargs = parseArgs()
     if opts.utilization and opts.totalview:
-        for itemNames in [['Running', 'maxused.json'], ['CpusUse', 'maxusedcpus']]:
+        for itemNames in [['Running', 'maxused'], ['CpusUse', 'maxusedcpus']]:
             if opts.prodview:
                 analyseProdRrds(opts.prodview, opts.totalview, opts.utilization, itemNames)
             if opts.analysisview:
