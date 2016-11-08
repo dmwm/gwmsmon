@@ -10,6 +10,7 @@ import urllib2
 import htcondor
 import datetime
 import time
+import subprocess
 
 def parseArgs():
     """ parse all arguments from config file. """
@@ -163,3 +164,16 @@ def roundTime(dt=None, roundTo=60):
     # // is a floor division, not a comment on following line:
     rounding = (seconds+roundTo/2) // roundTo * roundTo
     return int(time.mktime((dt + datetime.timedelta(0,rounding-seconds,-dt.microsecond)).timetuple()))
+
+
+def queryCommandLineSchedd(collector, values):
+    try:
+        bashCommand = "condor_status -pool %s -schedd -af:n %s" % (collector, values)
+        out, err = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE).communicate() 
+        N = len(values.split(" "))
+        outL = out.split("\n")
+        subList = [outL[n:n+N] for n in range(0, len(outL), N)]
+    except:
+        return []
+    return subList
+

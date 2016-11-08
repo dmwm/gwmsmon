@@ -235,9 +235,11 @@
         table_data.addColumn("string", "Type");
         table_data.addColumn("number", "Total Running");
         table_data.addColumn("number", "Total Idle");
-        table_data.addColumn("number", "Total Held");
+        table_data.addColumn("number", "Tasks Running");
+        table_data.addColumn("number", "Tasks Idle");
         table_data.addColumn("number", "Percentage in use");
         table_data.addColumn("string", "Schedd Status");
+        table_data.addColumn("string", "Dagmans Status");
         table_data.addColumn("string", "Hourly History");
         table_data.addColumn("string", "Daily History");
         table_data.addColumn("string", "Weekly History");
@@ -248,16 +250,23 @@
                 var image_htmld = '<img src="/poolview/graphs/' + schedd_key + '/daily"/>';
                 var image_htmlw = '<img src="/poolview/graphs/' + schedd_key + '/weekly"/>';
                 var image_htmls = '<img src="/poolview/graphs/scheddwarning/' + schedd_key + '/hourly"/>';
+                var image_htmldags = '<img src="/poolview/graphs/dagmans/' + schedd_key + '/hourly"/>';
 
                 var schedd_html = schedd_data.Name;
                 schedd_html += '<br/>';
                 if (schedd_data.Machine !== schedd_data.Name){
                     schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Machine + '">Machine Metrics</a><br/>';
                     schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Name.replace("@", ".") + '">Condor Metrics</a>';
+                    schedd_html += '<p>' + schedd_data.Msg + '</p>';
                 }
                 else
                     schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Machine + '">Machine & Condor Metrics</a><br/>';
-                table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.TotalHeldJobs, schedd_data.PercentageUse, image_htmls, image_htmlh, image_htmld, image_htmlw]);
+                //debugger;
+                if (schedd_data.CMSGWMS_Type !== "crabschedd"){
+                    table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, -1, -1, schedd_data.PercentageUse, image_htmls, 'N/A', image_htmlh, image_htmld, image_htmlw]);}
+                else {
+                    table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.Summary.Running, schedd_data.Summary.Idle, schedd_data.PercentageUse, image_htmls, image_htmldags, image_htmlh, image_htmld, image_htmlw]);}
+                
             }
         }
         var dashboard = new google.visualization.Dashboard(document.getElementById('sites_summary'));
@@ -312,7 +321,7 @@
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="'+ currentview +'graphs/' + workflow_key + '"/>';
                     var workflow_html = '<a href="'+ currentview + workflow_key + '">' + workflow_key + '</a>';
-                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount, workflow_data.SiteCount, image_html]);
+                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount,  workflow_data.SiteCount, image_html]);
                 }}
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));

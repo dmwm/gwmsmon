@@ -14,7 +14,8 @@ from functions import getFromURL
 from functions import rrdUpdate
 from functions import createEmptyRRD
 from functions import roundTime
-
+from functions import querySchedd
+from functions import queryCommandLineSchedd
 GSTARTUP = int(time.time())
 
 
@@ -51,12 +52,12 @@ def queryFactory(coll, output):
             output[entry['GLIDEIN_CMSSite']].append(dataAppend)
 
 
-def summarizeSchedds(scheddsInfo, scheddAds):
+def summarizeSchedds(scheddsInfo, scheddAds, warningsErrors):
     """ TODO: write it. """
     for ad in scheddAds:
         # ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning']
         name = ad['Name'].replace("@", "-").replace(".", "-")
-        scheddsInfo[name] = {}
+        scheddsInfo[name] = {"Summary": {"Unexpanded": 0, "Idle": 0, "Running": 0, "Removed": 0, "Completed": 0, "Held": 0, "Submission_err": 0, "Unknown": 0}}
         scheddsInfo[name]['FileName'] = name
         scheddsInfo[name]['CMSGWMS_Type'] = ad['CMSGWMS_Type'] if 'CMSGWMS_Type' in ad else 'CRAB2'
         if scheddsInfo[name]['CMSGWMS_Type'] == 'crabschedd':
@@ -65,11 +66,13 @@ def summarizeSchedds(scheddsInfo, scheddAds):
             for item in temp:
                 try:
                     maxSchedulers = int(item)
+                    break
                 except:
                     continue
             scheddsInfo[name]['MaxSchedulersRunning'] = maxSchedulers
             scheddsInfo[name]['TotalSchedulerJobsRunning'] = ad['TotalSchedulerJobsRunning'] if 'TotalSchedulerJobsRunning' in ad else 0
             scheddsInfo[name]['TotalSchedulerJobsIdle'] = ad['TotalSchedulerJobsIdle'] if 'TotalSchedulerJobsIdle' in ad else 0
+            hackCRAB3SchedulerJobs(scheddsInfo, ad, name)
         keys = ['Name', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning']
         for key in keys:
             scheddsInfo[name][key] = ad[key]
@@ -86,6 +89,42 @@ def summarizeSchedds(scheddsInfo, scheddAds):
             print 'Strange. wrong expression...', ad
             continue
         scheddsInfo[name]['Status'] = scheddStatus
+        # Now if maxSchedulers is more than MaxSchedulersRunning, append message overloaded...
+        if 'MaxSchedulersRunning' in scheddsInfo[name].keys():
+            if 'Summary' in scheddsInfo[name].keys():
+                if scheddsInfo[name]['MaxSchedulersRunning'] == scheddsInfo[name]['Summary']['Running'] and scheddsInfo[name]['Summary']['Idle'] > 0:
+                    scheddsInfo[name]['Msg'] = "INFO: Scheduler running %s tasks and has %s tasks idle. Expect delays" % (scheddsInfo[name]['Summary']['Running'], scheddsInfo[name]['Summary']['Idle'])
+    # Now lets add if there is any warning/critical message
+    for item in warningsErrors:
+        name = item[0].replace("@", "-").replace(".", "-")
+        if len(item) == 3:
+            if name not in scheddsInfo.keys():
+                continue
+            if 'Msg' not in scheddsInfo[name].keys():
+                scheddsInfo[name]['Msg'] = ""
+            else:
+                scheddsInfo[name]['Msg'] += "<br>"
+            if not item[2].startswith(' undefined'):
+                scheddsInfo[name]['Msg'] += "CRITICAL: %s" % item[2]
+            elif not item[1].startswith(' undefined'):
+                scheddsInfo[name]['Msg'] += "WARNING: %s" % item[1]
+
+
+def hackCRAB3SchedulerJobs(scheddsInfo, ad, name):
+    """ Seems this ticket was not resolved... Lets make a hacky way """
+    keys = ["JobStatus", "CRAB_UserHN"]
+    jobs = querySchedd(ad, 'CRAB_ReqName isnt null && TaskType =?= "ROOT"', keys)
+    scheddSummary = scheddsInfo.setdefault(name, {"Summary": {"Unexpanded": 0, "Idle": 0, "Running": 0, "Removed": 0, "Completed": 0, "Held": 0, "Submission_err": 0, "Unknown": 0}})
+    MAPPING = {0: "Unexpanded", 1: "Idle", 2: "Running", 3: "Removed", 4: "Completed", 5: "Held", 6: "Submission_err"}
+    userSummary = scheddSummary.setdefault("UserSummary", {})
+    for job in jobs:
+        userInfo = userSummary.setdefault(job['CRAB_UserHN'], {"Unexpanded": 0, "Idle": 0, "Running": 0, "Removed": 0, "Completed": 0, "Held": 0, "Submission_err": 0, "Unknown": 0})
+        if job['JobStatus'] not in MAPPING.keys():
+            userInfo['Unknown'] += 1
+            scheddSummary['Summary']['Unknown'] += 1
+        else:
+            userInfo[MAPPING[job['JobStatus']]] += 1
+            scheddSummary['Summary'][MAPPING[job['JobStatus']]] += 1
 
 
 def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
@@ -275,7 +314,7 @@ def writeScheddInfo(basedir, scheddsInfo):
             tempKeys.append("DS:RunningDagmans:GAUGE:360:U:U")
             tempKeys.append("DS:IdleDagmans:GAUGE:360:U:U")
             tempUpdLine = str("%d:%d:%d:%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"],
-                          scheddDict["MaxSchedulersRunning"], scheddDict["TotalSchedulerJobsRunning"], scheddDict["TotalSchedulerJobsIdle"])) + ":" + \
+                          scheddDict["MaxSchedulersRunning"], scheddDict['Summary']["Running"], scheddDict['Summary']["Idle"])) + ":" + \
                           str(":".join(["%d"]*len(warnings)) % tuple(warnings))
         tempKeys.extend(warningsKeys)
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
@@ -545,10 +584,13 @@ def main():
 
     scheddAds, coll = getSchedds(opts, opts.pool, 'True', ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs',
                                                            'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical',
-                                                           'TotalSchedulerJobsRunning', 'TotalSchedulerJobsIdle', 'StartSchedulerUniverse'])
+                                                           'TotalSchedulerJobsRunning', 'TotalSchedulerJobsIdle', 'StartSchedulerUniverse',
+                                                           'MyAddress', 'ScheddIpAddr'])
+
+    warningErrors = queryCommandLineSchedd(opts.pool, "Name isWarningReason isCriticalReason")
 
     if scheddAds:
-        summarizeSchedds(scheddsInfo, scheddAds)
+        summarizeSchedds(scheddsInfo, scheddAds, warningErrors)
     poolDiffNeg(scheddsInfo, opts)
     writeScheddInfo(opts.poolview, scheddsInfo)
 
