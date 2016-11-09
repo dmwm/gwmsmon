@@ -3,6 +3,7 @@
 import re
 import os
 import time
+import signal
 from functions import parseArgs
 from functions import dropObj
 from functions import querySchedd
@@ -12,13 +13,40 @@ from functions import createEmptyRRD
 
 GSTARTUP = int(time.time())
 
+class TimeoutError(Exception):
+    pass
+
+class timeout:
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+    
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError(self.error_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+    
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
+
+
 def analyzeScheddOutput(ad, workflows, taskInfo):
     """ TODO doc """
     keys = ["CRAB_UserHN", "CRAB_ReqName", "ClusterId", "RequestMemory", 'RequestCpus', "MaxWallTimeMins",
             "JobStatus", "TaskType", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite",
             "CRAB_UserWebDir", "JobPrio", "DAG_NodesReady", "DAG_NodesUnready",
             "DAG_NodesTotal", "DAG_NodesFailed", "DAG_NodesDone", "QDate"]
-    jobs = querySchedd(ad, "CRAB_ReqName isnt null", keys)
+    jobs = []
+    try:
+        with timeout(seconds=20):
+            print '1', time.time()
+            jobs = querySchedd(ad, "CRAB_ReqName isnt null", keys)
+    except TimeoutError as er:
+        print 'Got error: %s' % er
+        return
+    print '2', time.time()
     for job in jobs:
         request = re.sub('[:]', '', job['CRAB_UserHN'])
         mainTaskName = job['CRAB_ReqName']

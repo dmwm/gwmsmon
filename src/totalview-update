@@ -115,15 +115,19 @@ def hackCRAB3SchedulerJobs(scheddsInfo, ad, name):
     keys = ["JobStatus", "CRAB_UserHN"]
     jobs = querySchedd(ad, 'CRAB_ReqName isnt null && TaskType =?= "ROOT"', keys)
     scheddSummary = scheddsInfo.setdefault(name, {"Summary": {"Unexpanded": 0, "Idle": 0, "Running": 0, "Removed": 0, "Completed": 0, "Held": 0, "Submission_err": 0, "Unknown": 0}})
+    userTopSummary = scheddsInfo.setdefault("UserSummary", {})
     MAPPING = {0: "Unexpanded", 1: "Idle", 2: "Running", 3: "Removed", 4: "Completed", 5: "Held", 6: "Submission_err"}
     userSummary = scheddSummary.setdefault("UserSummary", {})
     for job in jobs:
+        userTopInfo = userTopSummary.setdefault(job['CRAB_UserHN'], {"Unexpanded": 0, "Idle": 0, "Running": 0, "Removed": 0, "Completed": 0, "Held": 0, "Submission_err": 0, "Unknown": 0})
         userInfo = userSummary.setdefault(job['CRAB_UserHN'], {"Unexpanded": 0, "Idle": 0, "Running": 0, "Removed": 0, "Completed": 0, "Held": 0, "Submission_err": 0, "Unknown": 0})
         if job['JobStatus'] not in MAPPING.keys():
             userInfo['Unknown'] += 1
+            userTopInfo['Unknown'] += 1
             scheddSummary['Summary']['Unknown'] += 1
         else:
             userInfo[MAPPING[job['JobStatus']]] += 1
+            userTopInfo[MAPPING[job['JobStatus']]] += 1
             scheddSummary['Summary'][MAPPING[job['JobStatus']]] += 1
 
 

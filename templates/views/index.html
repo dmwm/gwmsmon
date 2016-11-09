@@ -92,8 +92,9 @@
             if (currentview != "/totalview/" && currentview !== "/factoryview/"){
                 if (currentview != "/poolview/"){
                     $.get(currentview.concat('/json/summary'), function(data){
-                        gotSummary(data, currentview)});
-                }
+                        $.get('/poolview/json/summary', function(userdata){
+                                gotSummary(data, userdata, currentview)})});
+                    }
                 else {
                     $.get(currentview.concat('/json/summary'), function(data){
                         gotSummarySchedd(data, currentview)});
@@ -250,7 +251,7 @@
                 var image_htmld = '<img src="/poolview/graphs/' + schedd_key + '/daily"/>';
                 var image_htmlw = '<img src="/poolview/graphs/' + schedd_key + '/weekly"/>';
                 var image_htmls = '<img src="/poolview/graphs/scheddwarning/' + schedd_key + '/hourly"/>';
-                var image_htmldags = '<img src="/poolview/graphs/dagmans/' + schedd_key + '/hourly"/>';
+                var image_htmldags = '<img src="/poolview/graphs/dagmans/' + schedd_key + '/daily"/>';
 
                 var schedd_html = schedd_data.Name;
                 schedd_html += '<br/>';
@@ -288,7 +289,7 @@
         dashboard.draw(table_data);
         }
 
-        function gotSummary(data, currentview) {
+        function gotSummary(data, userdata, currentview) {
             var table_data = new google.visualization.DataTable();
             if (currentview == "/prodview/"){
                 table_data.addColumn("string", "Workflow");
@@ -314,14 +315,17 @@
                 table_data.addColumn("number", "CpusInUse");
                 table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Tasks Running");
+                table_data.addColumn("string", "Tasks Idle");
                 table_data.addColumn("number", "Matching Site Count");
                 table_data.addColumn("string", 'User History');
+                table_data.addColumn("string", "All tasks Statuses");
 
                 for (workflow_key in data) {
+                    userTasks = userdata[workflow_key];
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="'+ currentview +'graphs/' + workflow_key + '"/>';
                     var workflow_html = '<a href="'+ currentview + workflow_key + '">' + workflow_key + '</a>';
-                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount,  workflow_data.SiteCount, image_html]);
+                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount, userTasks.Idle,  workflow_data.SiteCount, image_html, ""]);
                 }}
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));
