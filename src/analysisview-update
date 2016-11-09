@@ -51,8 +51,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         request = re.sub('[:]', '', job['CRAB_UserHN'])
         mainTaskName = job['CRAB_ReqName']
         subTask = re.sub('[:]', '', mainTaskName)
-        if 'DESIRED_Sites' not in job.keys() or \
-           ('DESIRED_Sites' in job.keys() and job['DESIRED_Sites'] == 'undefined'):
+        if job['TaskType'] == "ROOT":
             # means main task.
             mainUserInfo = taskInfo.setdefault(request, {})
             mainUserTask = mainUserInfo.setdefault(subTask, {})

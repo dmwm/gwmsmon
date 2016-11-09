@@ -315,17 +315,21 @@
                 table_data.addColumn("number", "CpusInUse");
                 table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Tasks Running");
-                table_data.addColumn("string", "Tasks Idle");
+                table_data.addColumn("number", "Tasks Idle");
                 table_data.addColumn("number", "Matching Site Count");
                 table_data.addColumn("string", 'User History');
                 table_data.addColumn("string", "All tasks Statuses");
 
                 for (workflow_key in data) {
-                    userTasks = userdata[workflow_key];
+                    userTasks = userdata['UserSummary'][workflow_key];
+                    var userTaskHtml = "";
+                    for (var k in userTasks) {
+                        userTaskHtml += k + ": " + userTasks[k] + "<br/>";
+                    }
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="'+ currentview +'graphs/' + workflow_key + '"/>';
                     var workflow_html = '<a href="'+ currentview + workflow_key + '">' + workflow_key + '</a>';
-                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount, userTasks.Idle,  workflow_data.SiteCount, image_html, ""]);
+                    table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount, userTasks.Idle,  workflow_data.SiteCount, image_html, userTaskHtml]);
                 }}
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));
