@@ -129,9 +129,13 @@ def subtask(basedir, interval, request, subtask):
             )
     return clean_and_return(fd, pngpath)
 
-def priority_summary_graph(basedir, interval, jobType):
+def priority_summary_graph(basedir, interval, jobType, siteName = None):
     fd, pngpath = tempfile.mkstemp(".png")
-    fname = os.path.join(basedir, "priorities-%s.rrd" % jobType.lower())
+    fname = ""
+    if siteName:
+        fname = os.path.join(basedir, "priorities-%s-%s.rrd" % (siteName.lower(), jobType.lower()))
+    else:
+        fname = os.path.join(basedir, "priorities-%s.rrd" % jobType.lower())
     if not os.path.exists(fname):
         raise ValueError("No information present" % site)
     rrdtool.graph(pngpath,
@@ -140,7 +144,7 @@ def priority_summary_graph(basedir, interval, jobType):
                   "--start", "-1%s" % get_rrd_interval(interval),
                   "--vertical-label", "Jobs",
                   "--lower-limit", "0",
-                  "--title", "%s Job Priority" % jobType,
+                  "--title", "%s Job Priority" % jobType if not siteName else "%s at %s" % (jobType, siteName),
                   'DEF:R0=%s:R0:AVERAGE' % fname,
                   'DEF:R1=%s:R1:AVERAGE' % fname,
                   'DEF:R2=%s:R2:AVERAGE' % fname,

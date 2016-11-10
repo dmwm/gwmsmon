@@ -55,7 +55,8 @@
                 document.getElementById("pagetitle").innerHTML = "Summary of production";
                 document.getElementById("navbar-brand").innerHTML = "Production Overview";
          		document.getElementById("myTab").style.display = 'inline';
-                document.getElementById("priorityOverviewTAB").style.display = 'block';
+                document.getElementById("jobpriorityOverviewTAB").style.display = 'block';
+                document.getElementById("cpupriorityOverviewTAB").style.display = 'block';
                 }
             else if (currentview == "/analysisview/"){
                 document.title = "CMS Analysis Overview";
@@ -260,8 +261,10 @@
                     schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Name.replace("@", ".") + '">Condor Metrics</a>';
                     schedd_html += '<p>' + schedd_data.Msg + '</p>';
                 }
-                else
+                else{
                     schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Machine + '">Machine & Condor Metrics</a><br/>';
+                    schedd_html += '<p>' + schedd_data.Msg + '</p>';
+                }  
                 //debugger;
                 if (schedd_data.CMSGWMS_Type !== "crabschedd"){
                     table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, -1, -1, schedd_data.PercentageUse, image_htmls, 'N/A', image_htmlh, image_htmld, image_htmlw]);}
@@ -371,6 +374,12 @@
                  table_data.addColumn("string", "Production History");
                  table_data.addColumn("string", "CRAB3 History");
             }
+            if (currentview == "/prodview/"){
+                table_data.addColumn("string", "Idle Job Prio");
+                table_data.addColumn("string", "Running Job Prio");
+                table_data.addColumn("string", "Cpus Pending Prio");
+                table_data.addColumn("string", "CpusInUse Prio");
+            }
 
 
 
@@ -380,8 +389,16 @@
                 var util_img = '<img src="/totalview/graphs/' + site_key + '/utilization/hourly"/>';
                 var site_img = '<img src="'+ currentview +'graphs/' + site_key + '"/>';
                 var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
-                if (currentview != "/totalview/")
-                    table_data.addRow([site_html, site.Running, site.MatchingIdle, site.CpusInUse, site.CpusPending, site.UniquePressure, site.RequestCount, util_img, site_img]);
+                if (currentview != "/totalview/"){
+                    if (currentview !== "/prodview/")
+                        table_data.addRow([site_html, site.Running, site.MatchingIdle, site.CpusInUse, site.CpusPending, site.UniquePressure, site.RequestCount, util_img, site_img]);
+                    else{
+                        var img1 = '<img src="/prodview/graphs/siteprioritysummaryidle/' + site_key + '/daily"/>';
+                        var img2 = '<img src="/prodview/graphs/siteprioritysummaryrunning/' + site_key + '/daily"/>';
+                        var img3 = '<img src="/prodview/graphs/siteprioritysummarycpusinuse/' + site_key + '/daily"/>';
+                        var img4 = '<img src="/prodview/graphs/siteprioritysummarycpuspending/' + site_key + '/daily"/>';
+                        table_data.addRow([site_html, site.Running, site.MatchingIdle, site.CpusInUse, site.CpusPending, site.UniquePressure, site.RequestCount, util_img, site_img, img1, img2, img3, img4]);
+                    }}
                 else{
                     var prod_img = '<img src="/prodview/graphs/' + site_key + '"/>';
                     var anal_img = '<img src="/analysisview/graphs/' + site_key + '"/>';
@@ -480,6 +497,8 @@
 			if (currentview == "/prodview/") {
 				drawPoolStatsImgs(currentview, 'prioritysummaryidle', 'priority_top_img');
                 drawPoolStatsImgs(currentview, 'prioritysummaryrunning', 'priority_top_img');
+                drawPoolStatsImgs(currentview, 'prioritysummarycpuspending', 'cpriority_top_img');
+                drawPoolStatsImgs(currentview, 'prioritysummarycpusinuse', 'cpriority_top_img');
 			}
         }
 
@@ -509,6 +528,18 @@
                 }
             }
             $("#priority_slots_table").append(pool_stats_table);
+            $('#coverall_priority_table').detach();
+            pool_stats_table1 = $("<table></table>");
+            pool_stats_table1.addClass("table table-nonfluid");
+            pool_stats_table1.attr('id', 'coverall_priority_table');
+            pool_stats_table1.append("<tr><th>Priority Type</th><th>CpusInUse</th><th>CpusPending</th></tr>");
+            var keys = Object.keys(pool_stats.Priorities.Keys).sort();
+            for (keyName in keys){
+                if (keys[keyName] in pool_stats.Priorities){
+                   pool_stats_table1.append("<tr><th>"+ pool_stats.Priorities.Keys[keys[keyName]] +"</th><td>" + pool_stats.Priorities[keys[keyName]].CpusInUse + "</td><td>" + pool_stats.Priorities[keys[keyName]].CpusPending + "</td></    tr>");
+                }
+            }   
+            $("#cpriority_slots_table").append(pool_stats_table1);
 
         }
 
@@ -585,7 +616,8 @@
   <div class="container-fluid tab-pane">
   <ul class="nav nav-tabs" id="myTab" style="display:none">
     <li class="active"><a href="#overviewMain">Overview</a></li>
-    <li><a href="#priorityOverview" id="priorityOverviewTAB" style="display:none">Priority Overview</a></li>
+    <li><a href="#jobpriorityOverview" id="jobpriorityOverviewTAB" style="display:none">Job Priority Overview</a></li>
+    <li><a href="#cpupriorityOverview" id="cpupriorityOverviewTAB" style="display:none">CPU Priority Overview</a></li>
     <li><a href="#exitCodesOverview">Exit Codes Overview</a></li>
   </ul>
       <div class="tab-content">
@@ -611,7 +643,7 @@
                         <div id="overall_top_img3"></div>
                     </div></div>
         </div></div></div>
-        <div class="tab-pane" id="priorityOverview">
+        <div class="tab-pane" id="jobpriorityOverview">
             <div class="row jumbotron" id="top_summary" style="padding-top:10px">
                 <div class="col-md-12">
                     <div class="col-md-3" style="padding-top:40px"><div id="priority_slots_table"></div></div>
@@ -633,6 +665,28 @@
                         <div id="priority_top_img3"></div>
                     </div></div>
       </div></div></div>
+      <div class="tab-pane" id="cpupriorityOverview">
+           <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+                <div class="col-md-12">
+                     <div class="col-md-3" style="padding-top:40px"><div id="cpriority_slots_table"></div></div>
+                      <div class="col-md-3">
+                      <div class="row">
+                           <h2>Last Hour</h2>
+                           <div id="cpriority_top_img1"></div>
+                      </div>
+                      </div>
+                <div class="col-md-3">
+                      <div class="row">
+                           <h2>Last Day</h2>
+                           <div id="cpriority_top_img2"></div>
+                           </div>
+                           </div>
+                 <div class="col-md-3">
+                      <div class="row">
+                           <h2>Last Week</h2>
+                           <div id="cpriority_top_img3"></div>
+                           </div></div>
+       </div></div></div>
        <div class="tab-pane" id="exitCodesOverview">
             <div class="row jumbotron" id="top_summary" style="padding-top:10px">
                  <div class="col-md-12">

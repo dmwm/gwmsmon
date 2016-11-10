@@ -141,6 +141,9 @@ def analyzePrios(workflows):
 
 def summarize(workflows, gsites, tasks):
     """ Summarize running, idle, lower, higher run/idle, prios..."""
+    sitePrioDict = {}
+    mappings = {63000: "B6", 70000: "B5", 80000: "B4", 85000: "B3", 90000: "B2", 110000: "B1"}
+    mappingsView = {"B7": "Low Priority", "B6": "Block 6 (63k)", "B5": "Block 5 (70k)", "B4": "Block 4 (80k)", "B3": "Block 3 (85k)", "B2": "Block 2 (90k)", "B1": "Block 1 (110k)", "B0": "High Priority"}
     for request, requestDict in workflows.items():
         for subtask, subtaskDict in requestDict.items():
             minPrio = min([min(siteDict.keys()) for siteDict in subtaskDict.values()])
@@ -181,15 +184,25 @@ def summarize(workflows, gsites, tasks):
                                   "UniquePressure": uniq, "CpusInUse": cpususe, "CpusPending": cpuspen}
 
         requestSites = requestDict["Summary"].setdefault("Sites", {})
+
         for subtask, subtaskDict in requestDict.items():
             if subtask == "Summary":
                 continue
             for site, siteDict in subtaskDict.items():
                 if site == "Summary":
                     continue
+                sitePrioDict.setdefault(site, {})
                 requestSites.setdefault(site, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
                 for key in requestSites[site]:
-                    requestSites[site][key] += sum([prioDict[key] for prioDict in siteDict.values()])
+                    name = None
+                    for prio, prioDict in siteDict.items():
+                        if prio in mappings:
+                            name = mappings[prio]
+                        else:
+                            name = 'B7' if prio < 63000 else 'B0'
+                        sitePrioDict[site].setdefault(name, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
+                        requestSites[site][key] += prioDict[key]
+                        sitePrioDict[site][name][key] += prioDict[key]
 
         for site, siteDict in requestSites.items():
             gsitesDict = gsites.setdefault(site, {})
@@ -199,8 +212,6 @@ def summarize(workflows, gsites, tasks):
                 gsitesDict[request][status] += siteDict[status]
 
     newTasksDict = {}
-    mappings = {63000: "B6", 70000: "B5", 80000: "B4", 85000: "B3", 90000: "B2", 110000: "B1"}
-    mappingsView = {"B7": "Low Priority", "B6": "Block 6 (63k)", "B5": "Block 5 (70k)", "B4": "Block 4 (80k)", "B3": "Block 3 (85k)", "B2": "Block 2 (90k)", "B1": "Block 1 (110k)", "B0": "High Priority"}
     for prio in tasks['Summary']:
         name = None
         if prio in mappings:
@@ -211,6 +222,7 @@ def summarize(workflows, gsites, tasks):
         for key in tasks['Summary'][prio]:
             newTasksDict[name][key] += tasks['Summary'][prio][key]
     newTasksDict['Keys'] = mappingsView
+    newTasksDict['Sites'] = sitePrioDict
     tasks['Summary'] = newTasksDict
 
 
@@ -312,6 +324,17 @@ def writeRrds(workflows, gsites, output, taskInfo):
         tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
     # ----------------------------------------------------------------
+    # Site priorities graphs
+    # ----------------------------------------------------------------
+        tmpKey = 'MatchingIdle' if key == 'Idle' else key
+        for site, siteDict in taskInfo['Summary']['Sites'].items():
+            fname = os.path.join(output, "priorities-%s-%s.rrd" % (site.lower(), key.lower()))
+            tempKeys = ["DS:R%s:GAUGE:360:U:U" % x for x in range(0,8)]
+            stats = tuple([siteDict[x][tmpKey] if x in siteDict and tmpKey in siteDict[x] else 0 for x in sorted(taskInfo["Summary"]["Keys"])])
+            tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
+            print tempUpdLine, site, key, tmpKey
+            rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
+    # -----------------------------------------------------------------
 
     for requestDict in workflows.values():
         for site, siteDict in requestDict["Summary"]["Sites"].items():
