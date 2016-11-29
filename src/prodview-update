@@ -76,7 +76,8 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             summaryInternal[jobinfo] += 1
         cpus = summaryDict.setdefault('CpusPending', 0)
         for site in desiredSites:
-            siteDict = subtaskDict.setdefault(site, {})
+            tmpSite = 'EMPTY' if not site else site
+            siteDict = subtaskDict.setdefault(tmpSite, {})
             prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'CpusInUse': 0, 'CpusPending': 0})
             prioDict.setdefault(status, 0)
             if job['JobStatus'] == 1:
@@ -250,10 +251,8 @@ def writeJson(workflows, gsites, output, taskInfo):
     requests = len(workflows)
 
     now = int(time.time())
-
     dropObj(sites, output, "site_summary.json")
     dropObj({"Running": running, "Idle": idle, "CpusInUse": cpususe, "CpusPending": cpuspen, "RequestCount": requests, "UniquePressure": uniq, "Priorities": taskInfo['Summary'], "UpdateTime": now}, output, "totals.json")
-
     for site, siteDict in gsites.items():
         siteDir = os.path.join(output, site)
         finalObj = dict(sites[site])
