@@ -1,0 +1,27 @@
+<Attributes xmlns="urn:mace:shibboleth:2.0:attribute-map"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="urn:mace:shibboleth:2.0:attribute-map /usr/share/xml/shibboleth/shibboleth-2.0-attribute-map.xsd">
+
+<Attribute name="Group" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_GROUP" />
+<Attribute name="http://schemas.xmlsoap.org/claims/UPN" id="user"/>
+<Attribute name="EmailAddress" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_EMAIL"/>
+<Attribute name="CommonName" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_LOGIN"/>
+<Attribute name="DisplayName" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_FULLNAME"/>
+<Attribute name="PhoneNumber" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_PHONENUMBER"/>
+<Attribute name="FaxNumber" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_FAXNUMBER"/>
+<Attribute name="MobileNumber" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_MOBILENUMBER"/>
+<Attribute name="Building" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_BUILDING"/>
+<Attribute name="Firstname" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_FIRSTNAME"/>
+<Attribute name="Lastname" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_LASTNAME"/>
+<Attribute name="Department" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_DEPARTMENT"/>
+<Attribute name="HomeInstitute" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_HOMEINSTITUTE"/>
+<Attribute name="HomeDir" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_HOMEDIR"/>
+<Attribute name="PersonID" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_PERSONID"/>
+<Attribute name="PreferredLanguage" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_PREFERREDLANGUAGE"/>
+<Attribute name="role" nameFormat="http://schemas.microsoft.com/ws/2008/06/identity/claims" id="ADFS_ROLE"/>
+<Attribute name="IdentityClass" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_IDENTITYCLASS"/>
+<Attribute name="Federation" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_FEDERATION"/>
+<Attribute name="AuthLevel" nameFormat="http://schemas.xmlsoap.org/claims" id="ADFS_AUTHLEVEL"/>
+
+</Attributes>
+
