@@ -137,7 +137,7 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
     hltHack = []
     try:
         pilots = coll.query(htcondor.AdTypes.Any, 'GLIDEIN_CMSSite isnt undefined && SlotType isnt undefined',
-                            ['PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State', 'Memory', 'TotalMemory', 'ChildMemory', 'ChildCpus', 'GLIDEIN_ToRetire', 'GLIDEIN_ToDie'])
+                            ['Name', 'PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State', 'Memory', 'TotalMemory', 'ChildMemory', 'ChildCpus', 'ChildAccountingGroup', 'AccountingGroup', 'GLIDEIN_ToRetire', 'GLIDEIN_ToDie'])
     except IOError as er:
         print 'Got IOError %s' % er
         return
@@ -151,6 +151,7 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
             # Means we have partitionable slot and some info about it
             # and we don`t care about state as in Static
             slotInfo = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
+            pilotStats = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault("PilotStatistics", {})
             slotInfo['CpusFree'] += int(item['Cpus'])
             slotInfo['CpusUse'] += int(item['TotalSlotCpus'] - item['Cpus'])
             # Lets make some analysis and group requirements
@@ -174,16 +175,41 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
                 tempVal = list(set(item[key]))
                 if tempVal not in tempsummaryInfo[key]:
                     tempsummaryInfo[key].append(tempVal)
+            # Pilot debug info...
+            pilotStatsN = pilotStats.setdefault(item['Name'], {'TotalSlotCpus': item['TotalSlotCpus'],
+                                                               'Cpus': item['Cpus'],
+                                                               'TotalMemory': item['TotalMemory'],
+                                                               'Memory': item['Memory'],
+                                                               'ChildMemory': list(item['ChildMemory']),
+                                                               'ChildCpus': list(item['ChildCpus']),
+                                                               'ChildAccountingGroup': list(item['ChildAccountingGroup']),
+                                                               'RetireTime': endTime['GLIDEIN_ToRetire'],
+                                                               'DieTime': endTime['GLIDEIN_ToDie'],
+                                                               'PilotType': 'Partitionable'})
         elif item['SlotType'] == 'Static':
+            print item
             slotInfo = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
+            pilotStats = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault("PilotStatistics", {})
+            pilotStatsN = pilotStats.setdefault(item['Name'], {'TotalSlotCpus': item['TotalSlotCpus'],
+                                                               'Cpus': item['Cpus'],
+                                                               'TotalMemory': item['Memory'],
+                                                               'Memory': item['Memory'],
+                                                               'AccountingGroup': item['AccountingGroup'] if 'AccountingGroup' in item else 'None',
+                                                               'RetireTime': item['GLIDEIN_ToRetire'],
+                                                               'DieTime': item['GLIDEIN_ToDie'],
+                                                               'PilotType': 'Static'})
+
             if item['State'] == 'Claimed':
                 slotInfo['CpusUse'] += 1
             elif item['State'] == 'Unclaimed':
-                slotInfo['CpusUse'] += 1
+                slotInfo['CpusFree'] += 1
+
     for item, itemDict in pilotUsage.items():
         if item == 'Summary':
             continue
         for slot, slotDict in itemDict.items():
+            if slot == 'PilotStatistics':
+                continue
             out = pilotUsage.setdefault('Summary', {}).setdefault(slot, {'CpusUse': 0, 'CpusFree': 0})
             out['CpusUse'] += slotDict['CpusUse']
             out['CpusFree'] += slotDict['CpusFree']
