@@ -434,6 +434,39 @@ def site(basedir, interval, site):
     return clean_and_return(fd, pngpath)
 
 
+def site_fair(basedir, interval, site):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, "%s-FAIRSHARE.rrd" % site)
+    if not os.path.exists(fname):
+        fname = os.path.join(basedir, "empty.rrd")
+        if not os.path.exists(fname):
+            raise ValueError("No information present (site=%s)" % site)
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "250",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "%s Fairshare" % site,
+            "DEF:CpusInUseProd=%s:CpusInUseProd:AVERAGE" % fname,
+            "DEF:CpusInUseAna=%s:CpusInUseAna:AVERAGE" % fname,
+            "AREA:CpusInUseProd%s:CpusInUseProd" % COLORS['MaxRunning'],
+            "AREA:CpusInUseAna%s:CpusInUseAna:STACK" % "#ff0000",
+            "COMMENT:\\n",
+            "COMMENT:                   max     avg     cur\\n",
+            "COMMENT:CpusInUseProd    ",
+            "GPRINT:CpusInUseProd:MAX:%-6.0lf",
+            "GPRINT:CpusInUseProd:AVERAGE:%-6.0lf",
+            "GPRINT:CpusInUseProd:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:CpusInUseAna     ",
+            "GPRINT:CpusInUseAna:MAX:%-6.0lf",
+            "GPRINT:CpusInUseAna:AVERAGE:%-6.0lf",
+            "GPRINT:CpusInUseAna:LAST:%-6.0lf\\n",
+            )
+    return clean_and_return(fd, pngpath)
+
+
 def site_util(basedir, interval, site):
     fd, pngpath = tempfile.mkstemp(".png")
     fname = os.path.join(basedir, "%s-UTIL.rrd" % site)

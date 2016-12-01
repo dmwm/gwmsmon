@@ -89,6 +89,8 @@ def database_output_server(values, url, index):
 _totals_json_re = re.compile(r'^/*json/totals$')
 totals_json = static_file_server("totals.json")
 
+_fairshare_json_re = re.compile(r'^/*json/fairshare$')
+fairshare_json = static_file_server("fairshare.json")
 
 _summary_json_re = re.compile(r'^/*json/summary$')
 summary_json = static_file_server("summary.json")
@@ -337,6 +339,22 @@ def site_graph(environ, start_response):
         interval=m.groups()[2]
     return [ rrd.site(_cp.get(_view, "basedir"), interval, site) ]
 
+_site_graph_fair_re = re.compile(r'^/*graphs/(T[-_A-Za-z0-9]+)/fairshare/?(hourly|weekly|daily|monthly|yearly)?/?$')
+def site_graph_fair(environ, start_response):
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+
+    path = environ.get('PATH_INFO', '')
+    m = _site_graph_fair_re.match(path)
+    interval = "daily"
+    site = m.groups()[0]
+    if m.groups()[1]:
+        interval=m.groups()[1]
+
+    return [ rrd.site_fair(_cp.get(_view, "basedir"), interval, site) ]
+
 _site_graph_util_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/utilization/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def site_graph_util(environ, start_response):
     status = '200 OK'
@@ -470,6 +488,7 @@ urls = [
     (re.compile(r'^/*$'), index),
     (_history_stats_re, history_stats),
     (_totals_json_re, totals_json),
+    (_fairshare_json_re, fairshare_json),
     (_summary_json_re, summary_json),
     (_max_used_json_re, max_used),
     (_max_used_cpus_json_re, max_used_cpus),
@@ -481,6 +500,7 @@ urls = [
     (_request_site_summary_json_re, request_site_summary_json),
     #(re.compile(r'^graphs/([-_A-Za-z0-9]+)/prio/?$'), request_prio_graph),
     (_site_graph_re, site_graph),
+    (_site_graph_fair_re, site_graph_fair),
     (_site_graph_util_re, site_graph_util),
     (_priority_summary_graph_re, priority_summary_graph),
     (_priority_summary_graph_site_re, priority_summary_site_graph),

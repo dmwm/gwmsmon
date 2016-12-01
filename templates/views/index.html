@@ -57,16 +57,20 @@
          		document.getElementById("myTab").style.display = 'inline';
                 document.getElementById("jobpriorityOverviewTAB").style.display = 'block';
                 document.getElementById("cpupriorityOverviewTAB").style.display = 'block';
+                document.getElementById("exitCodesOverviewTAB").style.display = 'block';
                 }
             else if (currentview == "/analysisview/"){
                 document.title = "CMS Analysis Overview";
                 document.getElementById("pagetitle").innerHTML = "Summary of analysis";
                 document.getElementById("navbar-brand").innerHTML = "Analysis Overview";
                 document.getElementById("myTab").style.display = 'inline';
+                document.getElementById("exitCodesOverviewTAB").style.display = 'block';
                 }
             else if (currentview == "/totalview/"){
                 document.getElementById("pagetitle").innerHTML = "";
                 document.getElementById("navbar-brand").innerHTML = "Total Overview";
+                document.getElementById("myTab").style.display = 'inline';
+                document.getElementById("fairshareOverviewTAB").style.display = 'block';
             }
             else if (currentview == "/poolview/"){
                 document.getElementById("pagetitle").innerHTML = "Scheduler Overview";
@@ -87,7 +91,8 @@
             // First, get the CMS-wide totals
             if (currentview !== "/poolview/" && currentview !== "/factoryview/"){
                 $.get(currentview.concat('/json/totals'), function(data){
-                    gotTotals(data, currentview)});
+                    $.get('/totalview/json/fairshare', function(fairdata){   
+                            gotTotals(data, currentview, fairdata)})});
             }
             // Next get the workflow summaries
             if (currentview != "/totalview/" && currentview !== "/factoryview/"){
@@ -265,7 +270,6 @@
                     schedd_html += '<a target="_blank" href="http://hcc-ganglia.unl.edu/?c=crab-infrastructure&h=' + schedd_data.Machine + '">Machine & Condor Metrics</a><br/>';
                     schedd_html += '<p>' + schedd_data.Msg + '</p>';
                 }  
-                //debugger;
                 if (schedd_data.CMSGWMS_Type !== "crabschedd"){
                     table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, -1, -1, schedd_data.PercentageUse, image_htmls, 'N/A', image_htmlh, image_htmld, image_htmlw]);}
                 else {
@@ -446,7 +450,7 @@
         }
 
         var pool_stats = new Array();
-        function gotTotals(data, currentview) {
+        function gotTotals(data, currentview, fairdata) {
             pool_stats['Running'] = data.Running;
             pool_stats['RequestCount'] = data.RequestCount;
             pool_stats['Idle'] = data.Idle;
@@ -492,6 +496,12 @@
                 pool_stats['TotalCpusInUse'] = pool_stats['AnalysisCpusInUse'] + pool_stats['ProdCpusInUse'];
                 pool_stats['TotalCpusPending'] = pool_stats['AnalysisCpusPending'] + pool_stats['ProdCpusPending'];
                 drawPoolStatsTotal();
+                drawPoolStatsImgs(currentview, '/TALL/fairshare', 'fairshare_top_img');
+                drawPoolStatsImgs(currentview, '/T0/fairshare', 'fairshare_top_img');
+                drawPoolStatsImgs(currentview, '/T1/fairshare', 'fairshare_top_img');
+                drawPoolStatsImgs(currentview, '/T2/fairshare', 'fairshare_top_img');
+                drawPoolStatsImgs(currentview, '/T3/fairshare', 'fairshare_top_img');
+                drawPoolStatsTotalFairShare(fairdata);
             }
 			drawPoolStatsImgs(currentview, 'summary', 'overall_top_img');
 			if (currentview == "/prodview/") {
@@ -571,10 +581,68 @@
             pool_stats_table.append("<tr><th>Update Time</th><td colspan=\"3\">" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#request_slots_table").append(pool_stats_table);
 
+
+        }
+
+
+function drawPoolStatsTotalFairShare(fairdata) {
+          $('#pverall_fairsharestats_table').detach();
+          pool_stats_table = $("<table></table>");
+          pool_stats_table.addClass("table table-nonfluid");
+          pool_stats_table.attr('id', 'overall_fairsharestats_table');
+          pool_stats_table.append("<tr><th></th><th>Prod Running</th><th>Prod CpusUse</th><th>Ana Running</th><th>Ana CpusUse</th></tr>");
+
+          perc1 = fairdata.ALL[1] / (fairdata.ALL[1] + fairdata.ALL[3]) * 100;
+          perc2 = fairdata.ALL[0] / (fairdata.ALL[0] + fairdata.ALL[2]) * 100;
+          perc3 = fairdata.ALL[3] / (fairdata.ALL[3] + fairdata.ALL[1]) * 100;
+          perc4 = fairdata.ALL[2] / (fairdata.ALL[2] + fairdata.ALL[0]) * 100;
+          pool_stats_table.append("<tr><th>All</th><td>" + fairdata.ALL[1] + " (" +perc1.toFixed(2)+ "%)</td><td>"
+                                  + fairdata.ALL[0] +" (" +perc2.toFixed(2)+ "%)</td><td>"
+                                  + fairdata.ALL[3] +" (" +perc3.toFixed(2)+ "%)</td><td>"
+                                  + fairdata.ALL[2] +" (" +perc4.toFixed(2)+ "%)</td></tr>" );
+
+          perc1 = fairdata.T0[1] / (fairdata.T0[1] + fairdata.T0[3]) * 100;
+          perc2 = fairdata.T0[0] / (fairdata.T0[0] + fairdata.T0[2]) * 100;
+          perc3 = fairdata.T0[3] / (fairdata.T0[3] + fairdata.T0[1]) * 100;
+          perc4 = fairdata.T0[2] / (fairdata.T0[2] + fairdata.T0[0]) * 100;
+          pool_stats_table.append("<tr><th>T0</th><td>" + fairdata.T0[1] + " (" +perc1.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T0[0] +" (" +perc2.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T0[3] +" (" +perc3.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T0[2] +" (" +perc4.toFixed(2)+ "%)</td></tr>" );
+
+          perc1 = fairdata.T1[1] / (fairdata.T1[1] + fairdata.T1[3]) * 100;
+          perc2 = fairdata.T1[0] / (fairdata.T1[0] + fairdata.T1[2]) * 100;
+          perc3 = fairdata.T1[3] / (fairdata.T1[3] + fairdata.T1[1]) * 100;
+          perc4 = fairdata.T1[2] / (fairdata.T1[2] + fairdata.T1[0]) * 100;
+          pool_stats_table.append("<tr><th>T1</th><td>" + fairdata.T1[1] + " (" +perc1.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T1[0] +" (" +perc2.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T1[3] +" (" +perc3.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T1[2] +" (" +perc4.toFixed(2)+ "%)</td></tr>" );
+
+          perc1 = fairdata.T2[1] / (fairdata.T2[1] + fairdata.T2[3]) * 100;
+          perc2 = fairdata.T2[0] / (fairdata.T2[0] + fairdata.T2[2]) * 100;
+          perc3 = fairdata.T2[3] / (fairdata.T2[3] + fairdata.T2[1]) * 100;
+          perc4 = fairdata.T2[2] / (fairdata.T2[2] + fairdata.T2[0]) * 100;
+          pool_stats_table.append("<tr><th>T2</th><td>" + fairdata.T2[1] + " (" +perc1.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T2[0] +" (" +perc2.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T2[3] +" (" +perc3.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T2[2] +" (" +perc4.toFixed(2)+ "%)</td></tr>" );
+
+          perc1 = fairdata.T3[1] / (fairdata.T3[1] + fairdata.T3[3]) * 100;
+          perc2 = fairdata.T3[0] / (fairdata.T3[0] + fairdata.T3[2]) * 100;
+          perc3 = fairdata.T3[3] / (fairdata.T3[3] + fairdata.T3[1]) * 100;
+          perc4 = fairdata.T3[2] / (fairdata.T3[2] + fairdata.T3[0]) * 100;
+          pool_stats_table.append("<tr><th>T3</th><td>" + fairdata.T3[1] + " (" +perc1.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T3[0] +" (" +perc2.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T3[3] +" (" +perc3.toFixed(2)+ "%)</td><td>"
+                                   + fairdata.T3[2] +" (" +perc4.toFixed(2)+ "%)</td></tr>" );
+
+          $("#fairshare_slots_table").append(pool_stats_table);
+ 
         }
 
 		function imagesByTag(url, tag, imgTag){
-			$(imgTag).detach();
+            $(imgTag).detach();
             pool_hourly_img = $("<img></img>");
             pool_hourly_img.addClass("img");
             pool_hourly_img.attr('id', imgTag);
@@ -616,9 +684,10 @@
   <div class="container-fluid tab-pane">
   <ul class="nav nav-tabs" id="myTab" style="display:none">
     <li class="active"><a href="#overviewMain">Overview</a></li>
+    <li><a href="#fairshareOverview" id="fairshareOverviewTAB" style="display:none">Fairshare Overview</a></li>
     <li><a href="#jobpriorityOverview" id="jobpriorityOverviewTAB" style="display:none">Job Priority Overview</a></li>
     <li><a href="#cpupriorityOverview" id="cpupriorityOverviewTAB" style="display:none">CPU Priority Overview</a></li>
-    <li><a href="#exitCodesOverview">Exit Codes Overview</a></li>
+    <li><a href="#exitCodesOverview" id="exitCodesOverviewTAB" style="display:none">Exit Codes Overview</a></li>
   </ul>
       <div class="tab-content">
        <div class="tab-pane active" id="overviewMain">
@@ -643,28 +712,53 @@
                         <div id="overall_top_img3"></div>
                     </div></div>
         </div></div></div>
+
         <div class="tab-pane" id="jobpriorityOverview">
             <div class="row jumbotron" id="top_summary" style="padding-top:10px">
                 <div class="col-md-12">
                     <div class="col-md-3" style="padding-top:40px"><div id="priority_slots_table"></div></div>
                     <div class="col-md-3">
+                        <div class="row">
+                            <h2>Last Hour</h2>
+                            <div id="priority_top_img1"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="row">
+                            <h2>Last Day</h2>
+                            <div id="priority_top_img2"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="row">
+                            <h2>Last Week</h2>
+                            <div id="priority_top_img3"></div>
+                    </div></div>
+        </div></div></div>
+
+        <div class="tab-pane" id="fairshareOverview">
+            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+                <div class="col-md-12">
+                    <div class="col-md-3" style="padding-top:40px"><div id="fairshare_slots_table"></div></div>
+                    <div class="col-md-3">
                     <div class="row">
                         <h2>Last Hour</h2>
-                        <div id="priority_top_img1"></div>
+                        <div id="fairshare_top_img1"></div>
                     </div>
                     </div>
                     <div class="col-md-3">
                     <div class="row">
                         <h2>Last Day</h2>
-                        <div id="priority_top_img2"></div>
+                        <div id="fairshare_top_img2"></div>
                     </div>
                     </div>
                     <div class="col-md-3">
                     <div class="row">
                         <h2>Last Week</h2>
-                        <div id="priority_top_img3"></div>
+                        <div id="fairshare_top_img3"></div>
                     </div></div>
       </div></div></div>
+
       <div class="tab-pane" id="cpupriorityOverview">
            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
                 <div class="col-md-12">
