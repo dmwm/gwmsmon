@@ -579,7 +579,7 @@ def main():
     xmlOut = {}  # Used from parsing xmls
     entryMappings = {}  # Used for entries mapping from factory xmls
     # Move this list to configuration
-    for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0342.cern.ch']:
+    for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0342.cern.ch', 'vocms0805.cern.ch']:
         print 'Query %s factory' % factory
         collF = htcondor.Collector(factory)
         queryFactory(collF, factOut)
@@ -628,7 +628,8 @@ def main():
     urls = [{"FNAL Factory": "http://cmsgwms-factory.fnal.gov:8319/factory/monitor/"},
             {"GOC Factory": "http://glidein.grid.iu.edu/factory/monitor/"},
             {"UCSD Factory": "http://gfactory-1.t2.ucsd.edu/factory/monitor/"},
-            {"CERN Factory": "http://vocms0342.cern.ch/monitor/"}]
+            {"CERN Factory": "http://vocms0342.cern.ch/monitor/"},
+            {"CERN2 Factory": "http://vocms0805.cern.ch/monitor/"}]
     appends = ['descript.xml', 'rrd_Status_Attributes.xml']
     errors = xmlOut.setdefault("Errors", [])
     for appendId in [0, 1]:
