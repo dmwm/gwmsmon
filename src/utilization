@@ -19,6 +19,18 @@ from functions import parseArgs
 from functions import dropObj
 
 
+def getMaxLastN(inp, keys):
+    """Returns max int for len of keys"""
+    maxVal = 0
+    for key in keys:
+        if key in inp:
+            if inp[key] > maxVal:
+                try:
+                    maxVal = int(inp[key])
+                except:
+                    continue
+    return maxVal
+
 def getAverageLastN(inp, keys):
     """Returns average int for len of keys"""
     suma = 0
@@ -102,9 +114,10 @@ def dailyStatistics(possibleDates, output, saveDir, naming):
               "fivedays": 5, "fourdays": 4, "threedays": 3, "twodays": 2, "oneday": 1}
     for site in output.keys():
         for key in keysTo:
-            value = getAverageLastN(output[site]['per_day_values'], possibleDates[-keysTo[key]:])
+            value = getMaxLastN(output[site]['per_day_values'], possibleDates[-keysTo[key]:])
             output[site][key] = value
-    print output
+            print value, output[site]['per_day_values'], possibleDates[-keysTo[key]:]
+    #print output
     dropObj(output, saveDir, '%s.json' % naming[1].lower())
 
 
