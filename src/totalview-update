@@ -22,7 +22,7 @@ GSTARTUP = int(time.time())
 def queryFactory(coll, output):
     """TODO: write it """
     try:
-        entries = coll.query(htcondor.AdTypes.Any, 'MyType=?="glidefactory" && GLIDEIN_CMSSite isnt undefined',
+        entries = coll.query(htcondor.AdTypes.Any, 'MyType=?="glidefactory" && GLIDEIN_CMSSite isnt undefined && stringListIMember("CMS", GLIDEIN_Supported_VOs) =?= true',
                              ['GLIDEIN_CMSSite', 'GLIDEIN_MaxMemMBs', 'GLIDEIN_Max_Walltime', 'GLIDEIN_CPUS'])
     except IOError as er:
         print 'Failed to query factory. Error: %s' % er
