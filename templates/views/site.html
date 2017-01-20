@@ -22,7 +22,6 @@
             load_data();
             //setInterval(load_data, 300000);
         });
-
         function draw_table(elID, table_vals){
         var dashboard = new google.visualization.Dashboard(document.getElementById(elID));
         var tableName = elID + '_table';
@@ -385,46 +384,74 @@
             $("#site_slots_table").append(pool_stats_table);
             drawPoolStatsImgs(currentview);
         };
+
+
+        function drawImg(srcUrl, customID, appendID){
+          $('#' + customID).detach();
+          pool_hourly_img = $("<img></img>");
+          pool_hourly_img.addClass("img");
+          pool_hourly_img.attr('id', customID);
+          pool_hourly_img.attr('src', srcUrl);
+          $("#"+ appendID).append(pool_hourly_img);
+        }
+
+
         function drawPoolStatsImgs(currentview) {
-            $('#overall_hourly_img').detach();
-            pool_hourly_img = $("<img></img>");
-            pool_hourly_img.addClass("img");
-            pool_hourly_img.attr('id', 'overall_hourly_img');
-            pool_hourly_img.attr('src', currentview + 'graphs/$site/hourly');
-            $("#site_hourly_img").append(pool_hourly_img);
+            // Overview tab
+            drawImg(currentview + 'graphs/$site/hourly', 'overall_hourly_img', 'site_hourly_img');
+            drawImg('/totalview/graphs/$site/fairshare/hourly', 'overall_hourly_img1', 'site_hourly_img');
+            drawImg(currentview + 'graphs/$site/daily', 'overall_daily_img', 'site_daily_img');
+            drawImg('/totalview/graphs/$site/fairshare/daily', 'overall_daily_img1', 'site_daily_img');
+            drawImg(currentview + 'graphs/$site/weekly', 'overall_weekly_img', 'site_weekly_img');
+            drawImg('/totalview/graphs/$site/fairshare/weekly', 'overall_weekly_img1', 'site_weekly_img');
+            // Job priority tab 
+            drawImg(currentview + 'graphs/siteprioritysummaryidle/$site/hourly', 'jobpriority_top_img11', 'jobpriority_top_img1');
+            drawImg(currentview + 'graphs/siteprioritysummaryrunning/$site/hourly', 'jobpriority_top_img12', 'jobpriority_top_img1');
+            drawImg(currentview + 'graphs/siteprioritysummaryidle/$site/daily', 'jobpriority_top_img21', 'jobpriority_top_img2');
+            drawImg(currentview + 'graphs/siteprioritysummaryrunning/$site/daily', 'jobpriority_top_img22', 'jobpriority_top_img2');
+            drawImg(currentview + 'graphs/siteprioritysummaryidle/$site/weekly', 'jobpriority_top_img31', 'jobpriority_top_img3');
+            drawImg(currentview + 'graphs/siteprioritysummaryrunning/$site/weekly', 'jobpriority_top_img32', 'jobpriority_top_img3');
+            // CPU priority tab
+            drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/hourly', 'cpupriority_top_img11', 'cpupriority_top_img1');
+            drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/hourly', 'cpupriority_top_img12', 'cpupriority_top_img1');
+            drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/daily', 'cpupriority_top_img21', 'cpupriority_top_img2');
+            drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/daily', 'cpupriority_top_img22', 'cpupriority_top_img2');
+            drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/weekly', 'cpupriority_top_img31', 'cpupriority_top_img3');
+            drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/weekly', 'cpupriority_top_img32', 'cpupriority_top_img3');
 
-            pool_hourly_img = $("<img></img>");
-            pool_hourly_img.addClass("img");
-            pool_hourly_img.attr('id', 'overall_hourly_img1');
-            pool_hourly_img.attr('src', '/totalview/graphs/$site/fairshare/hourly');
-            $("#site_hourly_img").append(pool_hourly_img);
+            if (currentview == "/prodview/")
+            {
+             document.getElementById("myTab").style.display = 'inline';
+             $.get('json/totals', function(totals_prod){
+              $('#joboverall_priority_table').detach();
+              pool_stats_table = $("<table></table>");
+              pool_stats_table.addClass("table table-nonfluid");
+              pool_stats_table.attr('id', 'joboverall_priority_table');
+              pool_stats_table.append("<tr><th>Priority Type</th><th>Running</th><th>Idle</th></tr>");
+              var keys = Object.keys(totals_prod.Priorities.Keys).sort();
+              for (keyName in keys){
+                  if (keys[keyName] in totals_prod.Priorities){
+                      pool_stats_table.append("<tr><th>"+ totals_prod.Priorities.Keys[keys[keyName]] +"</th><td>" + totals_prod.Priorities[keys[keyName]].Running + "</td><td>" + totals_prod.Priorities[keys[keyName]].Idle + "</td></tr>");
+                 	}
+              }
+              $("#jobpriority_slots_table").append(pool_stats_table);
+              $('#coverall_priority_table').detach();
+              pool_stats_table1 = $("<table></table>");
+              pool_stats_table1.addClass("table table-nonfluid");
+              pool_stats_table1.attr('id', 'coverall_priority_table');
+              pool_stats_table1.append("<tr><th>Priority Type</th><th>CpusInUse</th><th>CpusPending</th></tr>");
+              var keys = Object.keys(totals_prod.Priorities.Keys).sort();
+              for (keyName in keys){
+                  if (keys[keyName] in totals_prod.Priorities){
+                     pool_stats_table1.append("<tr><th>"+ totals_prod.Priorities.Keys[keys[keyName]] +"</th><td>" + totals_prod.Priorities[keys[keyName]].CpusInUse + "</td><td>" + totals_prod.Priorities[keys[keyName]].CpusPending + "</td></    tr>");
+                  }
+              }
+              $("#cpupriority_slots_table").append(pool_stats_table1);
+
+             });
 
 
-            $('#overall_daily_img').detach();
-            pool_daily_img = $("<img></img>");
-            pool_daily_img.addClass("img");
-            pool_daily_img.attr('id', 'overall_daily_img');
-            pool_daily_img.attr('src', currentview + 'graphs/$site/daily');
-            $("#site_daily_img").append(pool_daily_img);
-
-            pool_daily_img = $("<img></img>");
-            pool_daily_img.addClass("img");
-            pool_daily_img.attr('id', 'overall_daily_img1');
-            pool_daily_img.attr('src', '/totalview/graphs/$site/fairshare/daily');
-            $("#site_daily_img").append(pool_daily_img);
-
-            $('#overall_weekly_img').detach();
-            pool_weekly_img = $("<img></img>");
-            pool_weekly_img.addClass("img");
-            pool_weekly_img.attr('id', 'overall_weekly_img');
-            pool_weekly_img.attr('src', currentview + 'graphs/$site/weekly');
-            $("#site_weekly_img").append(pool_weekly_img);
-
-            pool_weekly_img = $("<img></img>");
-            pool_weekly_img.addClass("img");
-            pool_weekly_img.attr('id', 'overall_weekly_img1');
-            pool_weekly_img.attr('src', '/totalview/graphs/$site/fairshare/weekly');
-            $("#site_weekly_img").append(pool_weekly_img);
+            }
             // TODO... Someday just fix this and have same as in the index
 
         }
@@ -453,8 +480,15 @@
           </ul>
           </div><!--/.nav-collapse -->
     </nav>
-        <div class="container-fluid">
-            <div class="row jumbotron">
+  <div class="container-fluid tab-pane">
+      <ul class="nav nav-tabs" id="myTab" style="display:none">
+         <li class="active"><a href="#overviewMain">Overview</a></li>
+         <li><a href="#jobpriorityOverview">Job Priority Overview</a></li>
+          <li><a href="#cpupriorityOverview">CPU Priority Overview</a></li>
+      </ul>
+      <div class="tab-content">
+         <div class="tab-pane active" id="overviewMain">
+            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
                 <div class="col-md-12">
                     <div class="col-md-3" style="padding-top:40px"><div id="site_slots_table"></div></div>
                     <div class="col-md-3">
@@ -474,6 +508,53 @@
                         <h2>Last Week</h2>
                         <div id="site_weekly_img"></div>
                     </div></div></div>
+                </div></div>
+                <div class="tab-pane" id="jobpriorityOverview">
+                  <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+                    <div class="col-md-12">
+                    <div class="col-md-3" style="padding-top:40px"><div id="jobpriority_slots_table"></div></div>
+                    <div class="col-md-3">
+                    <div class="row">
+                    <h2>Last Hour</h2>
+                    <div id="jobpriority_top_img1"></div>
+                    </div>
+                    </div>
+                     <div class="col-md-3">
+                      <div class="row">
+                                         <h2>Last Day</h2>
+                                    <div id="jobpriority_top_img2"></div>
+                                  </div>
+                              </div>
+                      <div class="col-md-3">
+                        <div class="row">
+                            <h2>Last Week</h2>
+                           <div id="jobpriority_top_img3"></div>
+                      </div></div></div>
+                     </div>
+                    </div>
+                 <div class="tab-pane" id="cpupriorityOverview">
+                  <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+                    <div class="col-md-12">
+                    <div class="col-md-3" style="padding-top:40px"><div id="cpupriority_slots_table"></div></div>
+                    <div class="col-md-3">
+                    <div class="row">
+                    <h2>Last Hour</h2>
+                    <div id="cpupriority_top_img1"></div>
+                    </div>
+                    </div>
+                     <div class="col-md-3">
+                      <div class="row">
+                                         <h2>Last Day</h2>
+                                    <div id="cpupriority_top_img2"></div>
+                                  </div>
+                              </div>
+                      <div class="col-md-3">
+                        <div class="row">
+                            <h2>Last Week</h2>
+                           <div id="cpupriority_top_img3"></div>
+                      </div></div></div>
+                     </div>
+                    </div>
             </div>
             <div class="row">
                 <div class="col-md-1"></div>
@@ -520,12 +601,10 @@
         </div>
     </body>
 <script>
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-  ga('create', 'UA-69774798-1', 'auto');
-  ga('send', 'pageview');
+  $('#myTab a').click(function (e) {
+    e.preventDefault();
+    $(this).tab('show');
+  })
 </script>
 </html>
 
