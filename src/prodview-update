@@ -42,6 +42,9 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             continue
         prio = job["JobPrio"]
         priorityDict = taskInfo.setdefault("Summary", {})
+        scheddDict = priorityDict.setdefault("ScheddSummary", {});
+        uniqueScheddDict = scheddDict.setdefault(ad['Name'], {"Running":0, "Idle":0, "CpusInUse": 0, "CpusPending":0, "workflows": set()})
+        uniqueScheddDict['workflows'].add(request)
         prioPriorityDict  = priorityDict.setdefault(int(prio), {"Running": 0, "Idle": 0, "CpusInUse": 0, "CpusPending": 0})
         requestDict = workflows.setdefault(request, {})
         subtaskDict = requestDict.setdefault(subTask, {})
@@ -63,13 +66,17 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         if job['JobStatus'] == 2:
             mainSubTaskdebug['Running'] += 1
             prioPriorityDict['Running'] += 1
+            uniqueScheddDict['Running'] += 1
             mainSubTaskdebug['CpusInUse'] += requestCpus
             prioPriorityDict['CpusInUse'] += requestCpus
+            uniqueScheddDict['CpusInUse'] += requestCpus
         elif job['JobStatus'] == 1:
             mainSubTaskdebug['Idle'] += 1
             prioPriorityDict['Idle'] += 1
+            uniqueScheddDict['Idle'] += 1
             prioPriorityDict['CpusPending'] += requestCpus
             mainSubTaskdebug['CpusPending'] += requestCpus
+            uniqueScheddDict['CpusPending'] += requestCpus
         jobinfo = (prio, desiredSites)
         if job["JobStatus"] == 1:
             summaryInternal.setdefault(jobinfo, 0)
@@ -214,6 +221,8 @@ def summarize(workflows, gsites, tasks):
 
     newTasksDict = {}
     for prio in tasks['Summary']:
+        if prio == 'ScheddSummary':
+            continue
         name = None
         if prio in mappings:
             name = mappings[prio]
@@ -224,6 +233,7 @@ def summarize(workflows, gsites, tasks):
             newTasksDict[name][key] += tasks['Summary'][prio][key]
     newTasksDict['Keys'] = mappingsView
     newTasksDict['Sites'] = sitePrioDict
+    newTasksDict['ScheddSummary'] = tasks['Summary']['ScheddSummary']
     tasks['Summary'] = newTasksDict
 
 
@@ -424,7 +434,6 @@ def main():
             analyzeScheddOutput(ad, workflows, taskInfo)
         except:
             print 'Failed. continue'
-
     analyzePrios(workflows)
     summarize(workflows, sites, taskInfo)
 
