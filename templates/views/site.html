@@ -405,24 +405,25 @@
             drawImg('/totalview/graphs/$site/fairshare/daily', 'overall_daily_img1', 'site_daily_img');
             drawImg(currentview + 'graphs/$site/weekly', 'overall_weekly_img', 'site_weekly_img');
             drawImg('/totalview/graphs/$site/fairshare/weekly', 'overall_weekly_img1', 'site_weekly_img');
-            // Job priority tab 
-            drawImg(currentview + 'graphs/siteprioritysummaryidle/$site/hourly', 'jobpriority_top_img11', 'jobpriority_top_img1');
-            drawImg(currentview + 'graphs/siteprioritysummaryrunning/$site/hourly', 'jobpriority_top_img12', 'jobpriority_top_img1');
-            drawImg(currentview + 'graphs/siteprioritysummaryidle/$site/daily', 'jobpriority_top_img21', 'jobpriority_top_img2');
-            drawImg(currentview + 'graphs/siteprioritysummaryrunning/$site/daily', 'jobpriority_top_img22', 'jobpriority_top_img2');
-            drawImg(currentview + 'graphs/siteprioritysummaryidle/$site/weekly', 'jobpriority_top_img31', 'jobpriority_top_img3');
-            drawImg(currentview + 'graphs/siteprioritysummaryrunning/$site/weekly', 'jobpriority_top_img32', 'jobpriority_top_img3');
-            // CPU priority tab
-            drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/hourly', 'cpupriority_top_img11', 'cpupriority_top_img1');
-            drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/hourly', 'cpupriority_top_img12', 'cpupriority_top_img1');
-            drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/daily', 'cpupriority_top_img21', 'cpupriority_top_img2');
-            drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/daily', 'cpupriority_top_img22', 'cpupriority_top_img2');
-            drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/weekly', 'cpupriority_top_img31', 'cpupriority_top_img3');
-            drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/weekly', 'cpupriority_top_img32', 'cpupriority_top_img3');
 
             if (currentview == "/prodview/")
             {
              document.getElementById("myTab").style.display = 'inline';
+             // Job priority tab
+             drawImg(currentview + 'graphs/siteprioritysummaryidle/$site/hourly', 'jobpriority_top_img11', 'jobpriority_top_img1');
+             drawImg(currentview + 'graphs/siteprioritysummaryrunning/$site/hourly', 'jobpriority_top_img12', 'jobpriority_top_img1');
+             drawImg(currentview + 'graphs/siteprioritysummaryidle/$site/daily', 'jobpriority_top_img21', 'jobpriority_top_img2');
+             drawImg(currentview + 'graphs/siteprioritysummaryrunning/$site/daily', 'jobpriority_top_img22', 'jobpriority_top_img2');
+             drawImg(currentview + 'graphs/siteprioritysummaryidle/$site/weekly', 'jobpriority_top_img31', 'jobpriority_top_img3');
+             drawImg(currentview + 'graphs/siteprioritysummaryrunning/$site/weekly', 'jobpriority_top_img32', 'jobpriority_top_img3');
+             // CPU priority tab
+             drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/hourly', 'cpupriority_top_img11', 'cpupriority_top_img1');
+             drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/hourly', 'cpupriority_top_img12', 'cpupriority_top_img1');
+             drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/daily', 'cpupriority_top_img21', 'cpupriority_top_img2');
+             drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/daily', 'cpupriority_top_img22', 'cpupriority_top_img2');
+             drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/weekly', 'cpupriority_top_img31', 'cpupriority_top_img3');
+             drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/weekly', 'cpupriority_top_img32', 'cpupriority_top_img3');
+
              $.get('json/totals', function(totals_prod){
               $('#joboverall_priority_table').detach();
               pool_stats_table = $("<table></table>");
