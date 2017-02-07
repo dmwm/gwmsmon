@@ -56,6 +56,7 @@
 
         function load_data() {
             var currentview = window.location['pathname'].split("/")[1];
+            var siteName = window.location['pathname'].split("/")[2];
             var currentview = "/".concat(currentview, "/");
             document.getElementById('navbar-brand').setAttribute('href', currentview);
             document.getElementById("factory_entries").style.display = 'none';
@@ -64,7 +65,7 @@
             if (currentview == "/prodview/"){
                 document.getElementById("navbar-brand").innerHTML = "Production Overview";
                 $.get('json/$site', function(data){
-                  gotTotals(data, currentview)});
+                  gotTotals(data, currentview, siteName)});
 
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)});
@@ -72,7 +73,7 @@
             else if (currentview == "/analysisview/"){
                 document.getElementById("navbar-brand").innerHTML = "Analysis Overview";
                 $.get('json/$site', function(data){
-                  gotTotals(data, currentview)});
+                  gotTotals(data, currentview, siteName)});
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)})
             }
@@ -364,17 +365,17 @@
         }
 
         var pool_stats = new Array();
-        function gotTotals(data, currentview) {
+        function gotTotals(data, currentview, siteName) {
             pool_stats['Running'] = data.Running;
             pool_stats['RequestCount'] = data.RequestCount;
             pool_stats['MatchingIdle'] = data.MatchingIdle;
             pool_stats['CpusInUse'] = data.CpusInUse;
             pool_stats['CpusPending'] = data.CpusPending;
             pool_stats['UpdateDate'] = new Date(data.UpdateTime*1000);
-            drawPoolStats(currentview);
+            drawPoolStats(currentview, siteName);
         }
 
-        function drawPoolStats(currentview) {
+        function drawPoolStats(currentview, siteName) {
             $('#overall_stats_table').detach();
             pool_stats_table = $("<table></table>");
             pool_stats_table.addClass("table");
@@ -382,7 +383,7 @@
             pool_stats_table.append("<tr><th>Running Jobs/CpusUse</th><th>Matching Idle Jobs/CpusPen</th><th>Request Count</th><th>Last Data Update</th>");
             pool_stats_table.append("<tr><td>" + pool_stats.Running + " / " + pool_stats.CpusInUse  + "</td><td>" + pool_stats.MatchingIdle + " / " + pool_stats.CpusPending  + "</td><td>" + pool_stats.RequestCount + "</td><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#site_slots_table").append(pool_stats_table);
-            drawPoolStatsImgs(currentview);
+            drawPoolStatsImgs(currentview, siteName);
         };
 
 
@@ -396,7 +397,7 @@
         }
 
 
-        function drawPoolStatsImgs(currentview) {
+        function drawPoolStatsImgs(currentview, siteName) {
             // Overview tab
             drawImg(currentview + 'graphs/$site/hourly', 'overall_hourly_img', 'site_hourly_img');
             drawImg('/totalview/graphs/$site/fairshare/hourly', 'overall_hourly_img1', 'site_hourly_img');
@@ -429,10 +430,17 @@
               pool_stats_table.attr('id', 'joboverall_priority_table');
               pool_stats_table.append("<tr><th>Priority Type</th><th>Running</th><th>Idle</th></tr>");
               var keys = Object.keys(totals_prod.Priorities.Keys).sort();
-              for (keyName in keys){
-                  if (keys[keyName] in totals_prod.Priorities){
-                      pool_stats_table.append("<tr><th>"+ totals_prod.Priorities.Keys[keys[keyName]] +"</th><td>" + totals_prod.Priorities[keys[keyName]].Running + "</td><td>" + totals_prod.Priorities[keys[keyName]].Idle + "</td></tr>");
-                 	}
+              if (siteName in totals_prod.Priorities.Sites){
+                  var siteVals = totals_prod.Priorities.Sites[siteName];
+                  for (keyName in keys){
+                      keyName = parseInt(keyName);
+                      if (keys[keyName] in siteVals){
+                          pool_stats_table.append("<tr><th>"+ totals_prod.Priorities.Keys[keys[keyName]] +"</th><td>" + siteVals[keys[keyName]].Running + "</td><td>" + siteVals[keys[keyName]].MatchingIdle + "</td></tr>");
+                 	    }
+                      else{
+                          pool_stats_table.append("<tr><th>"+ totals_prod.Priorities.Keys[keys[keyName]] +"</th><td> None </td><td> None </td></tr>");
+                      }
+                  }
               }
               $("#jobpriority_slots_table").append(pool_stats_table);
               $('#coverall_priority_table').detach();
@@ -440,10 +448,16 @@
               pool_stats_table1.addClass("table table-nonfluid");
               pool_stats_table1.attr('id', 'coverall_priority_table');
               pool_stats_table1.append("<tr><th>Priority Type</th><th>CpusInUse</th><th>CpusPending</th></tr>");
-              var keys = Object.keys(totals_prod.Priorities.Keys).sort();
-              for (keyName in keys){
-                  if (keys[keyName] in totals_prod.Priorities){
-                     pool_stats_table1.append("<tr><th>"+ totals_prod.Priorities.Keys[keys[keyName]] +"</th><td>" + totals_prod.Priorities[keys[keyName]].CpusInUse + "</td><td>" + totals_prod.Priorities[keys[keyName]].CpusPending + "</td></    tr>");
+              if (siteName in totals_prod.Priorities.Sites){
+                  var siteVals = totals_prod.Priorities.Sites[siteName];
+                  for (keyName in keys){
+                      keyName = parseInt(keyName);
+                      if (keys[keyName] in siteVals){
+                         pool_stats_table1.append("<tr><th>"+ totals_prod.Priorities.Keys[keys[keyName]] +"</th><td>" + siteVals[keys[keyName]].CpusInUse + "</td><td>" + siteVals[keys[keyName]].CpusPending + "</td></    tr>");
+                      }
+                      else{
+                         pool_stats_table1.append("<tr><th>"+ totals_prod.Priorities.Keys[keys[keyName]] +"</th><td> None </td><td> None </td></tr>");
+                      }
                   }
               }
               $("#cpupriority_slots_table").append(pool_stats_table1);
