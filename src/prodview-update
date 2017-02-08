@@ -234,6 +234,8 @@ def summarize(workflows, gsites, tasks):
     newTasksDict['Keys'] = mappingsView
     newTasksDict['Sites'] = sitePrioDict
     newTasksDict['ScheddSummary'] = tasks['Summary']['ScheddSummary']
+    for scheddName in newTasksDict['ScheddSummary'].keys():
+        newTasksDict['ScheddSummary'][scheddName]['workflows'] = list(newTasksDict['ScheddSummary'][scheddName]['workflows'])
     tasks['Summary'] = newTasksDict
 
 
@@ -262,7 +264,9 @@ def writeJson(workflows, gsites, output, taskInfo):
 
     now = int(time.time())
     dropObj(sites, output, "site_summary.json")
-    dropObj({"Running": running, "Idle": idle, "CpusInUse": cpususe, "CpusPending": cpuspen, "RequestCount": requests, "UniquePressure": uniq, "Priorities": taskInfo['Summary'], "UpdateTime": now}, output, "totals.json")
+    tmpDict = dict(taskInfo['Summary'])
+    map(tmpDict.pop, ['ScheddSummary'])
+    dropObj({"Running": running, "Idle": idle, "CpusInUse": cpususe, "CpusPending": cpuspen, "RequestCount": requests, "UniquePressure": uniq, "Priorities": taskInfo['Summary'], "ScheddSummary": taskInfo['Summary']['ScheddSummary'], "UpdateTime": now}, output, "totals.json")
     for site, siteDict in gsites.items():
         siteDir = os.path.join(output, site)
         finalObj = dict(sites[site])
