@@ -82,11 +82,16 @@
                 document.getElementById("sitetitle").innerHTML = "";
                 document.getElementById("navbar-brand").innerHTML = "Factory Overview";
             }
+            else if (currentview == "/cmsconnectview/"){
+                document.getElementById("pagetitle").innerHTML = "Summary of CMSConnect";
+                document.getElementById("navbar-brand").innerHTML = "CMSConnect Overview";
+
+            }
 
             $.get('/poolview/json/totals', function(data){
                  factory_data = data;
             })              
-            // currentview will be /analysisview/ or /prodview/ or /totalview/ or /poolview/ or /factoryview/
+            // currentview will be /analysisview/ or /prodview/ or /totalview/ or /poolview/ or /factoryview/ or /cmsconnectview/
 
             // First, get the CMS-wide totals
             if (currentview !== "/poolview/" && currentview !== "/factoryview/"){
@@ -338,6 +343,23 @@
                     var workflow_html = '<a href="'+ currentview + workflow_key + '">' + workflow_key + '</a>';
                     table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount, userTasks.Idle,  workflow_data.SiteCount, image_html, userTaskHtml]);
                 }}
+            else if (currentview == "/cmsconnectview/"){
+                table_data.addColumn("string", "Username");
+                table_data.addColumn("number", "Total");
+                table_data.addColumn("number", "Running");
+                table_data.addColumn("number", "Idle");
+                table_data.addColumn("number", "CpusInUse");
+                table_data.addColumn("number", "CpusPen");
+                table_data.addColumn("number", "Tasks Running");
+                table_data.addColumn("number", "Matching Site Count");
+                table_data.addColumn("string", 'User History');
+            for (workflow_key in data){
+                workflow_data = data[workflow_key];
+                var image_html = '<img src="'+ currentview +'graphs/' + workflow_key + '"/>';
+                var workflow_html = '<a href="'+ currentview + workflow_key + '">' + workflow_key + '</a>';
+                table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount, workflow_data.SiteCount, image_html]);
+            }
+            }
 
             var dashboard = new google.visualization.Dashboard(document.getElementById('running_workflows'));
             var table = new google.visualization.ChartWrapper({
@@ -370,7 +392,7 @@
             table_data.addColumn("number", "Unique Pressure")
             if (currentview == "/prodview/")
                 table_data.addColumn("number", "Workflow Count");
-            else if (currentview == "/analysisview/")
+            else if (currentview == "/analysisview/" || currentview == "/cmsconnectview/")
                 table_data.addColumn("number", "User Count");
             table_data.addColumn("string", "Max Running Achieved");
             table_data.addColumn("string", "Site History");
@@ -384,8 +406,6 @@
                 table_data.addColumn("string", "Cpus Pending Prio");
                 table_data.addColumn("string", "CpusInUse Prio");
             }
-
-
 
             for (site_key in data) {
                 if (site_key == "Summary") continue;
@@ -474,6 +494,10 @@
                 pool_stats['TaskCountH'] = data.TaskCountH;
                 drawPoolStatsAna();
                 }
+            else if (currentview == "/cmsconnectview/"){
+                drawPoolStatsConnect();
+
+            }
             else if (currentview == "/totalview/"){
                 pool_stats['AnalysisRunning'] = data.analysisview.Running;
                 pool_stats['AnalysisTRunning'] = data.analysisview.TaskCountR;
@@ -553,6 +577,19 @@
 
         }
 
+        function drawPoolStatsConnect(){
+            $('#overall_stats_table').detach();
+            pool_stats_table = $("<table></table>");
+            pool_stats_table.addClass("table table-nonfluid");
+            pool_stats_table.attr('id', 'overall_stats_table');
+            pool_stats_table.append("<tr><th>Idle Jobs/CpusPen</th><td>" + pool_stats.Idle + " / " + pool_stats.CpusPending + "</td></tr>");
+            pool_stats_table.append("<tr><th>Unique Pressure</th><td>" + pool_stats.UniquePressure + "</td></tr>");
+            pool_stats_table.append("<tr><th>Running Jobs/CpusInUse</th><td>" + pool_stats.Running + " / " + pool_stats.CpusInUse + "</td></tr>");
+            pool_stats_table.append("<tr><th>User Count</th><td>" + pool_stats.RequestCount + "</td></tr>");
+            pool_stats_table.append("<tr><th>Update Time</th><td>" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
+            $("#request_slots_table").append(pool_stats_table);
+
+        }
         function drawPoolStatsAna() {
             $('#overall_stats_table').detach();
             pool_stats_table = $("<table></table>");
@@ -675,6 +712,7 @@ function drawPoolStatsTotalFairShare(fairdata) {
               <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
+              <li><a href="/cmsconnectview">CMSConnect Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>

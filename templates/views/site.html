@@ -77,6 +77,13 @@
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)})
             }
+            else if (currentview == "/cmsconnectview/"){
+            document.getElementById("navbar-brand").innerHTML = "CMSConnect Overview";
+            $.get('json/$site', function(data){
+                    gotTotals(data, currentview, siteName)});
+            $.get('json/$site/summary', function(data){
+                    gotSummary(data, currentview)})
+            }
             else if (currentview == "/totalview/"){
                 document.getElementById("factory_entries").style.marginLeft = '1px';
                 document.getElementById("factory_entries").style.display = 'inline';
@@ -84,6 +91,8 @@
                 document.getElementById("pilots").style.display = 'inline';
                 document.getElementById("pilotsdebug").style.marginLeft = '1px';
                 document.getElementById("pilotsdebug").style.display = 'inline';
+                document.getElementById("pilotsdebugtexttop").style.display = 'inline';
+
 
                 document.getElementById("navbar-brand").innerHTML = "Total Overview";
                 document.getElementById("title").innerHTML = "Total Overview";
@@ -350,6 +359,14 @@
                 table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Matching Sites");
             }
+            else if (currentview == "/cmsconnectview/"){
+                table_data.addColumn("string", "User");
+                table_data.addColumn("number", "Running");
+                table_data.addColumn("number", "Matching Idle");
+                table_data.addColumn("number", "CpusUse");
+                table_data.addColumn("number", "CpusPen");
+                table_data.addColumn("number", "Matching Sites");
+            }
             table_data.addColumn("string", 'Workflow History');
 
             for (workflow_key in data) {
@@ -423,6 +440,7 @@
              drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/daily', 'cpupriority_top_img22', 'cpupriority_top_img2');
              drawImg(currentview + 'graphs/siteprioritysummarycpuspending/$site/weekly', 'cpupriority_top_img31', 'cpupriority_top_img3');
              drawImg(currentview + 'graphs/siteprioritysummarycpusinuse/$site/weekly', 'cpupriority_top_img32', 'cpupriority_top_img3');
+                lotsdebugtexttopddebugger;
 
              $.get('json/totals', function(totals_prod){
               $('#joboverall_priority_table').detach();
@@ -490,6 +508,7 @@
               <li><a href="/totalview">Total Overview</a></li>
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
+              <li><a href="/cmsconnectview">CMSConnect Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>
@@ -610,7 +629,7 @@
                       <div id="pilotsdebugin_table"></div>
                    </div>
                 </div>
-                <div id="pilotsdebugtexttop" class="col-md-4"><h2>Grouped Statistics</h2><br/><div id="pilotsdebugtext"></div></div>
+                <div id="pilotsdebugtexttop" class="col-md-4" style="display:none"><h2>Grouped Statistics</h2><br/><div id="pilotsdebugtext"></div></div>
                 <div class="col-md-1"></div>
             </div>
         </div>

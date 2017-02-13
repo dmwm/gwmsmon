@@ -23,6 +23,7 @@ def parseArgs():
     keys = [{"key": "prodview", "subkey": "basedir", "variable": "prodview"}, {"key": "prodview", "subkey": "historydir", "variable": "prodviewhistory"},
             {"key": "analysiscrab2view", "subkey": "basedir", "variable": "analysiscrab2view"},
             {"key": "analysisview", "subkey": "basedir", "variable": "analysisview"}, {"key": "analysisview", "subkey": "historydir", "variable": "analysisviewhistory"},
+            {"key": "cmsconnectview", "subkey": "basedir", "variable": "cmsconnectview"},
             {"key": "totalview", "subkey": "basedir", "variable": "totalview"},
             {"key": "poolview", "subkey": "basedir", "variable": "poolview"},
             {"key": "factoryview", "subkey": "basedir", "variable": "factoryview"},
