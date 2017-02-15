@@ -214,6 +214,10 @@
                 pool_stats_table.append("<tr><td>Analysis</td><td>" + data.analysisview.Running + " / " + data.analysisview.CpusInUse +  "</td><td>"+ data.analysisview.MatchingIdle + " / " + data.analysisview.CpusPending +"</td><td>"+ data.analysisview.RequestCount +"</td></tr>");
             else
                 pool_stats_table.append("<tr><td>Analysis</td><td>0</td><td>0</td><td>0</td></tr>");
+            if ('cmsconnectview' in data)
+                pool_stats_table.append("<tr><td>CMSConnect</td><td>" + data.cmsconnectview.Running + " / " + data.cmsconnectview.CpusInUse +  "</td><td>"+ data.cmsconnectview.MatchingIdle + " / " + data.cmsconnectview.CpusPending +"</td><td>"+ data.cmsconnectview.RequestCount +"</td></tr>");
+            else
+                pool_stats_table.append("<tr><td>CMSConnect</td><td>0</td><td>0</td><td>0</td></tr>");
 
             $("#site_slots_table").append(pool_stats_table);
             drawPoolStatsImgs(currentview);
@@ -241,6 +245,13 @@
                 var image_html_daily = '<img src="/analysisview/graphs/$site/daily"/>';
                 var image_html_weekly = '<img src="/analysisview/graphs/$site/weekly"/>';
                 var type_html = '<a href="/analysisview/$site">Analysis</a>';
+                table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
+            }
+            if ('cmsconnectview' in data){
+                var image_html_hourly = '<img src="/cmsconnectview/graphs/$site/hourly"/>';
+                var image_html_daily = '<img src="/cmsconnectview/graphs/$site/daily"/>';
+                var image_html_weekly = '<img src="/cmsconnectview/graphs/$site/weekly"/>';
+                var type_html = '<a href="/cmsconnectview/$site">CMSConnect</a>';
                 table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
             }
             draw_table('running_workflows', table_data);

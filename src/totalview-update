@@ -674,7 +674,7 @@ def main():
     dropObj(factOut, opts.poolview, 'totals.json')
     loadPoolData(totals, sites, opts.analysisview, "analysisview")
     loadPoolData(totals, sites, opts.prodview, "prodview")
-    loadPoolData(totals, sites, opts.analysiscrab2view, "analysiscrab2view")
+    loadPoolData(totals, sites, opts.cmsconnectview, "cmsconnectview")
     maxResources = {}
     maxTotals = {}
     i = 0

@@ -35,7 +35,7 @@ class timeout:
 def analyzeScheddOutput(ad, workflows, taskInfo):
     """ TODO doc """
     keys = ["CRAB_UserHN", "CRAB_ReqName", "ClusterId", "RequestMemory", 'RequestCpus', "MaxWallTimeMins",
-            "JobStatus", "TaskType", "DESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite",
+            "JobStatus", "TaskType", "DESIRED_Sites", "MATCH_GLIDEIN_CMSSite",
             "CRAB_UserWebDir", "JobPrio", "DAG_NodesReady", "DAG_NodesUnready",
             "DAG_NodesTotal", "DAG_NodesFailed", "DAG_NodesDone", "QDate"]
     jobs = []
@@ -76,7 +76,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             desiredSites = []
         desiredSites.sort()
         desiredSites = tuple(desiredSites)
-        runningSite = job.get("MATCH_EXP_JOBGLIDEIN_CMSSite")
+        runningSite = job.get("MATCH_GLIDEIN_CMSSite")
         if job["JobStatus"] == 1:
             status = "MatchingIdle"
         elif job["JobStatus"] == 2:
