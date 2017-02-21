@@ -34,7 +34,7 @@ class timeout:
 
 def analyzeScheddOutput(ad, workflows, taskInfo):
     """ TODO doc """
-    keys = ["Dashboard_TaskId", "BLTaskID", "SubmitFile", "AccountingGroup", "ClusterId", "RequestMemory", "RequestCpus", "MaxWallTimeMins", "JobStatus", "JobPrio", "DESIRED_Sites", "QDate", "MATCH_GLIDEIN_CMSSite"]
+    keys = ["Dashboard_TaskId", "BLTaskID", "SubmitFile", "AccountingGroup", "ClusterId", "RequestMemory", "RequestCpus", "MaxWallTimeMins", "JobStatus", "JobPrio", "DESIRED_Sites", "QDate", "MachineAttrGLIDEIN_CMSSite0"]
     jobs = []
     try:
         with timeout(seconds=20):
@@ -55,7 +55,8 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             request = request.split(".")[1]
         except:
             print 'Something wrong with username... %s' % request
-        subTask = re.sub('[:/\.]', '', mainTaskName)
+        subTask = re.sub('[:/]', '', mainTaskName)
+        subTask = subTask.split(".")[0]
         mainUserInfo = taskInfo.setdefault(request, {})
         mainUserTask = mainUserInfo.setdefault(subTask, {})
         mainUserTask['Schedd'] = ad['Name']
@@ -73,7 +74,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             desiredSites = []
         desiredSites.sort()
         desiredSites = tuple(desiredSites)
-        runningSite = job.get("MATCH_GLIDEIN_CMSSite")
+        runningSite = job.get("MachineAttrGLIDEIN_CMSSite0")
         if job["JobStatus"] == 1:
             status = "MatchingIdle"
         elif job["JobStatus"] == 2:
@@ -93,6 +94,8 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             summaryInternal[jobinfo] += 1
             summaryDict['CpusPending'] += cpusCount
         for site in desiredSites:
+            if site == "":
+                continue
             siteDict = subtaskDict.setdefault(site, {})
             prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
             prioDict.setdefault(status, 0)
@@ -101,12 +104,19 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
                 prioDict['CpusPending'] += cpusCount
                 if len(desiredSites) == 1 and not runningSite:
                     prioDict['UniquePressure'] += 1
-        if runningSite and status == "Running":
+        if runningSite and job["JobStatus"] == 2:
             siteDict = subtaskDict.setdefault(runningSite, {})
             prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
             prioDict.setdefault(status, 0)
             prioDict[status] += 1
             prioDict['CpusInUse'] += cpusCount
+        elif job['JobStatus'] == 2:
+            # T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]
+            siteDict = subtaskDict.setdefault("T9_UN_MachineAttrGLIDEIN_CMSSite0", {})
+            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'CpusInUse': 0, 'CpusPending': 0})
+            prioDict[status] += 1
+            prioDict['CpusInUse'] += cpusCount
+
 
 
 def summarize(workflows, gsites, tasks, siteview):
