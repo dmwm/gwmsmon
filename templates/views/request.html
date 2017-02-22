@@ -234,7 +234,7 @@
                 table_data.addRow([taskInfo, workflow_data.TaskInfo.DAG_NodesTotal, workflow_data.TaskInfo.DAG_NodesReady, workflow_data.Idle, workflow_data.Running, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskInfo.DAG_NodesDone, workflow_data.TaskInfo.DAG_NodesFailed, workflow_data.SiteCount, image_html]);
                 }}
             
-            else if (currentview == "/cmsconnectview/" || currentview == "/institutionalview/"){
+            else if (currentview == "/cmsconnectview/"){
                 table_data.addColumn("string", "Task Info")
                 table_data.addColumn("number", "Total");
                 table_data.addColumn("number", "Running");
@@ -259,6 +259,54 @@
                     taskInfo += 'Scheduler: <a href="/poolview">' + workflow_data.TaskInfo.Schedd + '</a>';
                     table_data.addRow([taskInfo, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.SiteCount, image_html]);
                 }
+            }
+            else if (currentview == "/institutionalview/")
+            {
+               table_data.addColumn("string", "Task Info")
+               table_data.addColumn("number", "Total");
+               table_data.addColumn("number", "Running");
+               table_data.addColumn("number", "Idle");
+               table_data.addColumn("number", "CpusInUse");
+               table_data.addColumn("number", "CpusPen");
+               table_data.addColumn("number", "Matching Site Count");
+               table_data.addColumn("string", 'Workflow History');
+               for (workflow_key in data) {
+                   workflow_data = data[workflow_key];
+                   var image_html = '<img src="' + currentview + 'graphs/$request/' + workflow_key + '"/>';
+                   var workflow_html = workflow_key;
+                   var taskInfo1 = "";
+                   taskInfo = '<table id="'+ workflow_key +'" border="1"><tr><th>WallTime</th><th>Memory</th><th>Cpus</th><th>Running</th><th>Idle</th><th>Scheduler</th><th>Desired Sites</th><th>Warnings</th></tr>';
+                   taskInfo1 = workflow_html + '<br/>';
+                   taskInfo1 += taskInfo;
+                   for (task_group_key in workflow_data.TaskInfo){
+                       task_group_data = workflow_data.TaskInfo[task_group_key];
+                       var sites_len = task_group_data.DesiredSites.split(',').length;
+                       var schedd_key = task_group_data.Schedd.replace(/\./g,'-')
+                       var schedd_load = 0;
+                       if (schedd_key in schedddata)
+                       {
+                          schedd_load = schedddata[schedd_key].PercentageUse;
+                       }
+                       var warnings  = '';
+                       if (task_group_data.DesiredSites == "") sites_len = 0;
+                       if (sites_len == 0) warnings += ' There is no defined site.'
+                       if (task_group_data.WallTime === undefined ) warnings += ' Walltime not defined.'
+                       if (task_group_data.Memory === undefined ) warnings += ' Memory not defined.'
+                       if (schedd_load > 93) warnings += 'Scheduler is overloaded.'
+                       taskInfo1 += '<tr>';
+                       taskInfo1 += '<td>' + task_group_data.WallTime + '</td>';
+                       taskInfo1 += '<td>' + task_group_data.Memory + '</td>';
+                       taskInfo1 += '<td>' + task_group_data.Cpus + '</td>';
+                       taskInfo1 += '<td>' + task_group_data.Running + '</td>';
+                       taskInfo1 += '<td>' + task_group_data.Idle + '</td>';
+                       taskInfo1 += '<td>' + task_group_data.Schedd + '</td>';
+                       taskInfo1 += '<td>' + sites_len + '</td>';
+                       taskInfo1 += '<td>' + warnings + '</td></tr>';
+                       }
+                   taskInfo1 += '</tr></table><br/>';
+                   taskInfo += 'Scheduler: <a href="/poolview">' + workflow_data.TaskInfo.Schedd + '</a>';
+                   table_data.addRow([taskInfo1, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.SiteCount, image_html]);
+               }
             }
 
 
@@ -450,7 +498,7 @@
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
               <li><a href="/cmsconnectview">CMSConnect Overview</a></li>
-              <li><a href="/institutionalview">CMSConnect Overview</a></li>
+              <li><a href="/institutionalview">Institutional Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>

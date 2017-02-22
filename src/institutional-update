@@ -7,6 +7,7 @@ import time
 import signal
 from functions import parseArgs
 from functions import dropObj
+from functions import validateInt
 from functions import querySchedd
 from functions import getSchedds
 from functions import rrdUpdate
@@ -55,21 +56,28 @@ def analyzeScheddOutput(ad, workflows, taskInfo, factEntries):
         subTask = request
         mainUserInfo = taskInfo.setdefault(request, {})
         mainUserTask = mainUserInfo.setdefault(subTask, {})
-        mainUserTask['Schedd'] = ad['Name']
-        mainUserTask['QDate'] = job['QDate']
-        mainUserTask['TaskName'] = mainTaskName
-        keysFromMainTask = ["RequestCpus", 'RequestMemory', 'MaxWallTimeMins', 'JobStatus']
-        for keyName in keysFromMainTask:
-            if keyName in job.keys():
-                mainUserTask[keyName] = job[keyName]
 
         desiredSites = []
+        strDes = ""
         try:
             desiredSites = job['DESIRED_Sites'].split(",")
+            strDes = job['DESIRED_Sites']
         except:
             desiredSites = []
         desiredSites.sort()
         desiredSites = tuple(desiredSites)
+
+
+        memory = 0 if 'RequestMemory' not in job.keys() else validateInt(job['RequestMemory'])
+        walltime = 0 if 'MaxWallTimeMins' not in job.keys() else validateInt(job['MaxWallTimeMins'])
+        requestCpus = 0 if 'RequestCpus' not in job.keys() else validateInt(job['RequestCpus'])
+        key = "||".join([str(memory), str(requestCpus), str(walltime), str(strDes), ad['Name']])
+        mainSubTaskdebug = mainUserTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': '', 'Cpus': requestCpus, 'CpusInUse': 0, 'CpusPending': 0})
+        mainSubTaskdebug['Schedd'] = ad['Name']
+        mainSubTaskdebug['QDate'] = job['QDate']
+        mainSubTaskdebug['TaskName'] = mainTaskName
+        mainSubTaskdebug['DesiredSites'] = strDes
+
         runningSite = job.get("MATCH_GLIDEIN_CMSSite")
         if job["JobStatus"] == 1:
             status = "MatchingIdle"
@@ -115,6 +123,9 @@ def analyzeScheddOutput(ad, workflows, taskInfo, factEntries):
             summaryInternal.setdefault(jobinfo, 0)
             summaryInternal[jobinfo] += 1
             summaryDict['CpusPending'] += cpusCount
+        if not runningSite and not desiredSites:
+            mainSubTaskdebug["Idle"] += 1
+            mainSubTaskdebug["CpusPending"] += cpusCount
         for site in desiredSites:
             if site == "":
                 continue
@@ -123,7 +134,9 @@ def analyzeScheddOutput(ad, workflows, taskInfo, factEntries):
             prioDict.setdefault(status, 0)
             if status != "Running":
                 prioDict[status] += 1
+                mainSubTaskdebug["Idle"] += 1
                 prioDict['CpusPending'] += cpusCount
+                mainSubTaskdebug["CpusPending"] += cpusCount
                 if len(desiredSites) == 1 and not runningSite:
                     prioDict['UniquePressure'] += 1
         if runningSite and status == "Running":
@@ -131,6 +144,8 @@ def analyzeScheddOutput(ad, workflows, taskInfo, factEntries):
             prioDict = siteDict.setdefault(jobFrontend, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
             prioDict.setdefault(status, 0)
             prioDict[status] += 1
+            mainSubTaskdebug["Running"] += 1
+            mainSubTaskdebug["CpusInUse"] += cpusCount
             prioDict['CpusInUse'] += cpusCount
 
 
