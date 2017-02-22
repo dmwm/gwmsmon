@@ -24,6 +24,7 @@ def parseArgs():
             {"key": "analysiscrab2view", "subkey": "basedir", "variable": "analysiscrab2view"},
             {"key": "analysisview", "subkey": "basedir", "variable": "analysisview"}, {"key": "analysisview", "subkey": "historydir", "variable": "analysisviewhistory"},
             {"key": "cmsconnectview", "subkey": "basedir", "variable": "cmsconnectview"},
+            {"key": "institutionalview", "subkey": "basedir", "variable": "institutionalview"},
             {"key": "totalview", "subkey": "basedir", "variable": "totalview"},
             {"key": "poolview", "subkey": "basedir", "variable": "poolview"},
             {"key": "factoryview", "subkey": "basedir", "variable": "factoryview"},
@@ -127,12 +128,15 @@ def getCollectors(pool, pool1):
 
 def getSchedds(opts, pool, query, keys):
     """TODO doc"""
+    scheddAds = None
     if pool:
         coll = htcondor.Collector(pool)
     else:
         coll = htcondor.Collector()
-
-    scheddAds = coll.query(htcondor.AdTypes.Schedd, query, keys)
+    try:
+        scheddAds = coll.query(htcondor.AdTypes.Schedd, query, keys)
+    except IOError as er:
+        print 'Got IOError', er
     if not scheddAds:
         # This should not happen, if happens, means something wrong...
         if opts.pool1:

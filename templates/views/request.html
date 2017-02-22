@@ -120,6 +120,11 @@
                 document.title = "CMSConnect Overview";
                 document.getElementById("navbar-brand").innerHTML = "CMSConnect Overview";
             }
+            else if (currentview == "/institutionalview/"){
+                document.title = "Institutional Overview";
+                document.getElementById("navbar-brand").innerHTML = "Institutional Overview";
+            }
+
             // currentview will be /analysisview/ or /prodview/
 
             $.get('/poolview/json/totals', function(data){
@@ -229,7 +234,7 @@
                 table_data.addRow([taskInfo, workflow_data.TaskInfo.DAG_NodesTotal, workflow_data.TaskInfo.DAG_NodesReady, workflow_data.Idle, workflow_data.Running, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskInfo.DAG_NodesDone, workflow_data.TaskInfo.DAG_NodesFailed, workflow_data.SiteCount, image_html]);
                 }}
             
-            else if (currentview == "/cmsconnectview/"){
+            else if (currentview == "/cmsconnectview/" || currentview == "/institutionalview/"){
                 table_data.addColumn("string", "Task Info")
                 table_data.addColumn("number", "Total");
                 table_data.addColumn("number", "Running");
@@ -240,7 +245,7 @@
                 table_data.addColumn("string", 'Workflow History');
                 for (workflow_key in data) {
                     workflow_data = data[workflow_key];
-                    var image_html = '<img src="/cmsconnectview/graphs/$request/' + workflow_key + '"/>';
+                    var image_html = '<img src="' + currentview + 'graphs/$request/' + workflow_key + '"/>';
                     var workflow_html = workflow_data.TaskInfo.TaskName;
                     var taskInfo = "";
                     taskInfo = workflow_html + '<br/>';
@@ -293,7 +298,7 @@
                 table_data.addColumn("string", "Total Max Running Achieved")
                 table_data.addColumn("string", "Site history for Analysis");
             }
-            else if (currentview == "/cmsconnectview/"){
+            else if (currentview == "/cmsconnectview/" || currentview == "/institutionalview/"){
                 table_data.addColumn("string", "Total Max Running Achieved");
                 table_data.addColumn("string", "Site history for CMSConnect");
             }
@@ -322,7 +327,7 @@
                     table_data.addRow([site_html, site.Running, site.MatchingIdle, site_util, site_img, workf_site_img]);
                 }
             }
-            else if (currentview == "/analysisview/" || currentview == "/cmsconnectview/"){
+            else if (currentview == "/analysisview/" || currentview == "/cmsconnectview/" || currentview == "/institutionalview/"){
                 for (site_key in data) {
                     site = data[site_key];
                     var site_html = '<a href="' + currentview + site_key + '"/>' + site_key + '</a>';
@@ -445,6 +450,7 @@
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
               <li><a href="/cmsconnectview">CMSConnect Overview</a></li>
+              <li><a href="/institutionalview">CMSConnect Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>

@@ -224,16 +224,29 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
            factOut['T2_CH_CERN_HLT'].append(item)
 
 
-def parseConfigXML(entries, output, factoryName, entryMappings):
+def parseConfigXML(entries, output, factoryName, entryMappings, factoryentries, factOut1):
     """ TODO doc """
     for entry in entries:
         entryName = entry.get('name')
         attr = entry.find('attributes')
         ettr = entry.find('descript')
         siteName = attr.get('GLIDEIN_CMSSite')
+        mem = attr.get('GLIDEIN_MaxMemMBs', 0)
+        walltime = attr.get('GLIDEIN_Max_Walltime', 0)
+        cpus = attr.get('GLIDEIN_CPUS', 0)
         maxHeld = ettr.get('DefaultPerFrontendMaxHeld')
         maxIdle = ettr.get('DefaultPerFrontendMaxIdle')
         if siteName and entryName and maxHeld and maxIdle:
+            for siteNew in [siteName, str(siteName + "_OSG")]:
+                dataAppend = {'MaxMemMB': int(mem), 'MaxWallTime': int(int(walltime)/60), 'MaxCpus': int(cpus)}
+                if siteNew not in output:
+                    factOut1[siteNew] = []
+                inDict = False
+                for item in factOut1[siteNew]:
+                    if cmp(item, dataAppend) == 0:
+                        inDict = True
+                if not inDict:
+                    factOut1[siteNew].append(dataAppend)
             try:
                 maxHeld = int(maxHeld)
                 maxIdle = int(maxIdle)
@@ -247,6 +260,20 @@ def parseConfigXML(entries, output, factoryName, entryMappings):
             factoryInfo = entryInfo.setdefault(factoryName, {})
             factoryInfo['maxIdle'] = maxIdle
             factoryInfo['maxHeld'] = maxHeld
+        else:
+            dataAppend = {'MaxMemMB': int(mem), 'MaxWallTime': int(int(walltime)/60), 'MaxCpus': int(cpus)}
+            siteNew = 'T4_OSG_' + entryName
+            if siteNew not in output:
+                factOut1[siteNew] = []
+            inDict = False
+            for item in factOut1[siteNew]:
+                if cmp(item, dataAppend) == 0:
+                    inDict = True
+            if not inDict:
+                factOut1[siteNew].append(dataAppend)
+        factsiteEntries = factoryentries.setdefault(entryName, {})
+        if siteName:
+            siteEntry = factsiteEntries.setdefault(siteName, {})
 
 
 def appendtoOutput(output, siteName, entry, factory, held, idle, run, err=None, warning=None):
@@ -641,7 +668,7 @@ def main():
     xmlOut = {}  # Used from parsing xmls
     entryMappings = {}  # Used for entries mapping from factory xmls
     # Move this list to configuration
-    for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0342.cern.ch', 'vocms0805.cern.ch']:
+    for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0805.cern.ch']:
         print 'Query %s factory' % factory
         collF = htcondor.Collector(factory)
         queryFactory(collF, factOut)
@@ -654,7 +681,6 @@ def main():
                                                            'MyAddress', 'ScheddIpAddr'])
 
     warningErrors = queryCommandLineSchedd(opts.pool, "Name isWarningReason isCriticalReason")
-
     if scheddAds:
         summarizeSchedds(scheddsInfo, scheddAds, warningErrors)
     poolDiffNeg(scheddsInfo, opts)
@@ -671,10 +697,10 @@ def main():
     print '%s querying %s' % (int(time.time()), opts.pool1)
     #pilotUsageInfo(coll2, pilotUsage, alreadyKnownPilot)
     print '%s done querying' % int(time.time())
-    dropObj(factOut, opts.poolview, 'totals.json')
     loadPoolData(totals, sites, opts.analysisview, "analysisview")
     loadPoolData(totals, sites, opts.prodview, "prodview")
     loadPoolData(totals, sites, opts.cmsconnectview, "cmsconnectview")
+    loadPoolData(totals, sites, opts.institutionalview, "institutionalview")
     maxResources = {}
     maxTotals = {}
     i = 0
@@ -689,10 +715,10 @@ def main():
     urls = [{"FNAL Factory": "http://cmsgwms-factory.fnal.gov:8319/factory/monitor/"},
             {"GOC Factory": "http://glidein.grid.iu.edu/factory/monitor/"},
             {"UCSD Factory": "http://gfactory-1.t2.ucsd.edu/factory/monitor/"},
-            {"CERN Factory": "http://vocms0342.cern.ch/monitor/"},
-            {"CERN2 Factory": "http://vocms0805.cern.ch/monitor/"}]
+            {"CERN Factory": "http://vocms0805.cern.ch/monitor/"}]
     appends = ['descript.xml', 'rrd_Status_Attributes.xml']
     errors = xmlOut.setdefault("Errors", [])
+    factentries = {}
     for appendId in [0, 1]:
         for urlVal in urls:
             print urlVal
@@ -709,11 +735,12 @@ def main():
                 continue
             entries = root.find('entries')
             if appendId == 0:
-                parseConfigXML(entries, xmlOut, factoryName, entryMappings)
+                parseConfigXML(entries, xmlOut, factoryName, entryMappings, factentries, factOut)
             else:
                 parseRRDsData(entries, xmlOut, factoryName, entryMappings)
     #print pilotUsage
-
+    dropObj(factOut, opts.poolview, 'totals.json')
+    dropObj(factentries, opts.factoryview, 'fact_entries.json')
     summarize(totals, sites, xmlOut, maxResources['totalview'], pilotUsage)
     xmlOut["Summary"]["FactoryUrls"] = {}
     for urlVal in urls:

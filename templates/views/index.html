@@ -87,11 +87,15 @@
                 document.getElementById("navbar-brand").innerHTML = "CMSConnect Overview";
 
             }
+            else if (currentview == "/institutionalview/"){
+                document.getElementById("pagetitle").innerHTML = "Summary of Institutional view";
+                document.getElementById("navbar-brand").innerHTML = "Institutional Overview";
+            }
 
             $.get('/poolview/json/totals', function(data){
                  factory_data = data;
             })              
-            // currentview will be /analysisview/ or /prodview/ or /totalview/ or /poolview/ or /factoryview/ or /cmsconnectview/
+            // currentview will be /analysisview/ or /prodview/ or /totalview/ or /poolview/ or /factoryview/ or /cmsconnectview/ or /institutionalview/
 
             // First, get the CMS-wide totals
             if (currentview !== "/poolview/" && currentview !== "/factoryview/"){
@@ -343,7 +347,7 @@
                     var workflow_html = '<a href="'+ currentview + workflow_key + '">' + workflow_key + '</a>';
                     table_data.addRow([workflow_html, workflow_data.Total, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.TaskCount, userTasks.Idle,  workflow_data.SiteCount, image_html, userTaskHtml]);
                 }}
-            else if (currentview == "/cmsconnectview/"){
+            else if (currentview == "/cmsconnectview/" || currentview == "/institutionalview/"){
                 table_data.addColumn("string", "Username");
                 table_data.addColumn("number", "Total");
                 table_data.addColumn("number", "Running");
@@ -392,7 +396,7 @@
             table_data.addColumn("number", "Unique Pressure")
             if (currentview == "/prodview/")
                 table_data.addColumn("number", "Workflow Count");
-            else if (currentview == "/analysisview/" || currentview == "/cmsconnectview/")
+            else if (currentview == "/analysisview/" || currentview == "/cmsconnectview/" || currentview == "/institutionalview/")
                 table_data.addColumn("number", "User Count");
             table_data.addColumn("string", "Max Running Achieved");
             table_data.addColumn("string", "Site History");
@@ -494,11 +498,25 @@
                 pool_stats['TaskCountH'] = data.TaskCountH;
                 drawPoolStatsAna();
                 }
-            else if (currentview == "/cmsconnectview/"){
+            else if (currentview == "/cmsconnectview/" || currentview == "/institutionalview/"){
                 drawPoolStatsConnect();
 
             }
             else if (currentview == "/totalview/"){
+                pool_stats['CMSConnectRunning'] = data.cmsconnectview.Running;
+                pool_stats['CMSConnectTRunning'] = data.cmsconnectview.TaskCountR;
+                pool_stats['CMSConnectIdle'] = data.cmsconnectview.Idle;
+                pool_stats['CMSConnectUniq'] = data.cmsconnectview.UniquePressure;
+                pool_stats['CMSConnectCpusInUse'] = data.cmsconnectview.CpusInUse;
+                pool_stats['CMSConnectCpusPending'] = data.cmsconnectview.CpusPending;
+
+                pool_stats['InstitutionalRunning'] = data.institutionalview.Running;
+                pool_stats['InstitutionalTRunning'] = data.institutionalview.TaskCountR;
+                pool_stats['InstitutionalIdle'] = data.institutionalview.Idle;
+                pool_stats['InstitutionalUniq'] = data.institutionalview.UniquePressure;
+                pool_stats['InstitutionalCpusInUse'] = data.institutionalview.CpusInUse;
+                pool_stats['InstitutionalCpusPending'] = data.institutionalview.CpusPending;
+
                 pool_stats['AnalysisRunning'] = data.analysisview.Running;
                 pool_stats['AnalysisTRunning'] = data.analysisview.TaskCountR;
                 pool_stats['AnalysisIdle'] = data.analysisview.Idle;
@@ -615,6 +633,8 @@
             pool_stats_table.append("<tr><th>Total</th><td>" + pool_stats.TotalRunning + " / " + pool_stats.TotalCpusInUse + "</td><td>"+ pool_stats.TotalIdle +" / " + pool_stats.TotalCpusPending  + "</td><td>"+ pool_stats.TotalUniq +"</td><td>"+ pool_stats.TotalTRunning +"</td></tr>");
             pool_stats_table.append("<tr><th>Production</th><td>" + pool_stats.ProdRunning + " / " + pool_stats.ProdCpusInUse + "</td><td>"+ pool_stats.ProdIdle + " / " + pool_stats.ProdCpusPending + "</td><td>"+ pool_stats.ProdUniq +"</td><td>"+ pool_stats.ProdTRunning +"</td></tr>");
             pool_stats_table.append("<tr><th>Analysis</th><td>" + pool_stats.AnalysisRunning + " / " + pool_stats.AnalysisCpusInUse + "</td><td>"+ pool_stats.AnalysisIdle +" / " + pool_stats.AnalysisCpusPending + "</td><td>"+ pool_stats.AnalysisUniq +"</td><td>"+ pool_stats.AnalysisTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><th>CMSConnect</th><td>" + pool_stats.CMSConnectRunning + " / " + pool_stats.CMSConnectCpusInUse + "</td><td>"+ pool_stats.CMSConnectIdle +" / " + pool_stats.CMSConnectCpusPending + "</td><td>"+ pool_stats.CMSConnectUniq +"</td><td>"+ pool_stats.CMSConnectTRunning +"</td></tr>");
+            pool_stats_table.append("<tr><th>Institutional</th><td>" + pool_stats.InstitutionalRunning + " / " + pool_stats.InstitutionalCpusInUse + "</td><td>"+ pool_stats.InstitutionalIdle +" / " + pool_stats.InstitutionalCpusPending + "</td><td>"+ pool_stats.InstitutionalUniq +"</td><td>"+ pool_stats.InstitutionalTRunning +"</td></tr>");
             pool_stats_table.append("<tr><th>Update Time</th><td colspan=\"3\">" + pool_stats.UpdateDate.toLocaleString() + "</td></tr>");
             $("#request_slots_table").append(pool_stats_table);
 
@@ -713,6 +733,7 @@ function drawPoolStatsTotalFairShare(fairdata) {
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
               <li><a href="/cmsconnectview">CMSConnect Overview</a></li>
+              <li><a href="/institutionalview">Institutional Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>

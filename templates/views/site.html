@@ -77,13 +77,15 @@
                 $.get('json/$site/summary', function(data){
                   gotSummary(data, currentview)})
             }
-            else if (currentview == "/cmsconnectview/"){
-            document.getElementById("navbar-brand").innerHTML = "CMSConnect Overview";
+            else if (currentview == "/cmsconnectview/" || currentview == "/institutionalview/"){
+                if (currentview == "/cmsconnectview/") document.getElementById("navbar-brand").innerHTML = "CMSConnect Overview";
+                else document.getElementById("navbar-brand").innerHTML = "Institutional Overview";
             $.get('json/$site', function(data){
                     gotTotals(data, currentview, siteName)});
             $.get('json/$site/summary', function(data){
                     gotSummary(data, currentview)})
             }
+
             else if (currentview == "/totalview/"){
                 document.getElementById("factory_entries").style.marginLeft = '1px';
                 document.getElementById("factory_entries").style.display = 'inline';
@@ -218,6 +220,10 @@
                 pool_stats_table.append("<tr><td>CMSConnect</td><td>" + data.cmsconnectview.Running + " / " + data.cmsconnectview.CpusInUse +  "</td><td>"+ data.cmsconnectview.MatchingIdle + " / " + data.cmsconnectview.CpusPending +"</td><td>"+ data.cmsconnectview.RequestCount +"</td></tr>");
             else
                 pool_stats_table.append("<tr><td>CMSConnect</td><td>0</td><td>0</td><td>0</td></tr>");
+            if ('institutionalview' in data)
+                pool_stats_table.append("<tr><td>Institutional</td><td>" + data.institutionalview.Running + " / " + data.institutionalview.CpusInUse +  "</td><td>"+ data.institutionalview.MatchingIdle + " / " + data.institutionalview.CpusPending +"</td><td>"+ data.institutionalview.RequestCount +"</td></tr>");
+            else
+                pool_stats_table.append("<tr><td>Institutional</td><td>0</td><td>0</td><td>0</td></tr>");
 
             $("#site_slots_table").append(pool_stats_table);
             drawPoolStatsImgs(currentview);
@@ -254,6 +260,14 @@
                 var type_html = '<a href="/cmsconnectview/$site">CMSConnect</a>';
                 table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
             }
+            if ('institutionalview' in data){
+                var image_html_hourly = '<img src="/institutionalview/graphs/$site/hourly"/>';
+                var image_html_daily = '<img src="/institutionalview/graphs/$site/daily"/>';
+                var image_html_weekly = '<img src="/institutionalview/graphs/$site/weekly"/>';
+                var type_html = '<a href="/institutionalview/$site">Institutional</a>';
+                table_data.addRow([type_html, image_html_hourly, image_html_daily, image_html_weekly]);
+            }
+
             draw_table('running_workflows', table_data);
 
             // Pilots usage graphs
@@ -370,7 +384,7 @@
                 table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Matching Sites");
             }
-            else if (currentview == "/cmsconnectview/"){
+            else if (currentview == "/cmsconnectview/" || currentview == "/institutionalview/"){
                 table_data.addColumn("string", "User");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Matching Idle");
@@ -520,6 +534,7 @@
               <li><a href="/prodview">Production Overview</a></li>
               <li><a href="/analysisview">Analysis Overview</a></li>
               <li><a href="/cmsconnectview">CMSConnect Overview</a></li>
+              <li><a href="/institutionalview">CMSConnect Overview</a></li>
               <li><a href="/poolview">Pool Overview</a></li>
               <li><a href="/factoryview">Factory Overview</a></li>
           </ul>

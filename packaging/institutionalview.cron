@@ -1,0 +1,2 @@
+MAILTO=""
+*/3 * * * * root institutional-update > /dev/null

@@ -116,7 +116,7 @@ def site_totals_json(environ, start_response):
         yield result
 
 
-_site_request_summary_json_re = re.compile(r'^/*json/+(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/summary/*$')
+_site_request_summary_json_re = re.compile(r'^/*json/+(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/summary/*$')
 def site_request_summary_json(environ, start_response):
     path = environ.get('PATH_INFO', '')
     m = _site_request_summary_json_re.match(path)
@@ -276,7 +276,7 @@ def validate_request(path, request_re):
         interval = 'daily' if not grouped[2] else grouped[2]
         return site, request, interval
 
-_request_held_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/held/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_request_held_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/held/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_held_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -286,7 +286,7 @@ def request_held_graph(environ, start_response):
     site, request, interval = validate_request(path, _request_held_graph_re)
     return [ rrd.request_held(_cp.get(_view, "basedir"), interval, request, site) ]
 
-_request_idle_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/idle/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_request_idle_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/idle/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_idle_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -296,7 +296,7 @@ def request_idle_graph(environ, start_response):
     site, request, interval = validate_request(path, _request_idle_graph_re)
     return [ rrd.request_idle(_cp.get(_view, "basedir"), interval, request, site) ]
 
-_request_joint_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/joint/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_request_joint_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/joint/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_joint_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -324,7 +324,7 @@ def subtask_graph(environ, start_response):
     return [ rrd.subtask(_cp.get(_view, "basedir"), interval, request, subtask) ]
 
 
-_site_graph_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_site_graph_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def site_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -355,7 +355,7 @@ def site_graph_fair(environ, start_response):
 
     return [ rrd.site_fair(_cp.get(_view, "basedir"), interval, site) ]
 
-_site_graph_util_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/utilization/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_site_graph_util_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/utilization/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def site_graph_util(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -371,7 +371,7 @@ def site_graph_util(environ, start_response):
  
     return [ rrd.site_util(_cp.get(_view, "basedir"), interval, site) ]
 
-_pilot_graph_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/(static|partitionable|full)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_pilot_graph_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/(static|partitionable|full)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def pilot_graph_use(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -389,7 +389,7 @@ def pilot_graph_use(environ, start_response):
     return [ rrd.pilot_graph(_cp.get(_view, "basedir"), interval, site, gType) ]
 
 
-_request_site_graph_re = re.compile(r'^/*graphs/([-_A-Za-z0-9]+)/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_request_site_graph_re = re.compile(r'^/*graphs/([-_A-Za-z0-9]+)/(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_site_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -441,7 +441,7 @@ def request(environ, start_response):
     return [tmpl.generate(request=request).render('html', doctype='html')]
 
 
-_site_re = re.compile(r'^/*(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?$')
+_site_re = re.compile(r'^/*(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?$')
 def site(environ, start_response):
     status = '200 OK' # HTTP Status
     headers = [('Content-type', 'text/html'),
@@ -513,7 +513,7 @@ urls = [
     (_request_graph_re, request_graph),
     (_request_site_graph_re, request_site_graph),
     (_subtask_graph_re, subtask_graph),
-    (re.compile(r'^graphs/([-_A-Za-z0-9]+)/([-_A-Za-z0-9]+)/(T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]+)/?$'), subtask_site_graph),
+    (re.compile(r'^graphs/([-_A-Za-z0-9]+)/([-_A-Za-z0-9]+)/(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?$'), subtask_site_graph),
     (_site_re, site),
     (_request_re, request),
     (re.compile(r'^([-_A-Za-z0-9]+)/([-_A-Za-z0-9]+)/?$'), subtask),
