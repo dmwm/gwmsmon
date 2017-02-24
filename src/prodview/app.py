@@ -268,6 +268,38 @@ def request_starvation_graph(environ, start_response):
 
     return [ rrd.request_starvation(_cp.get(_view, "basedir"), interval, request) ]
 
+_request_overTime_graph_re = re.compile(r'^/*graphs/overtime(jobs|cpus)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+def request_overTime_graph(environ, start_response):
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+    path = environ.get('PATH_INFO', '')
+    m = _request_overTime_graph_re.match(path)
+    grouped = m.groups()
+    qType = 'jobs' if not grouped[0] else grouped[0]
+    request = '' if not grouped[1] else grouped[1]
+    interval = 'daily' if not grouped[2] else grouped[2]
+    if request == 'ALL':
+        request = ''
+    return [ rrd.request_overTime(_cp.get(_view, "basedir"), interval, request, qType) ]
+
+_request_overMemUse_graph_re = re.compile(r'^/*graphs/overmemuse(jobs|cpus)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+def request_overMemUse_graph(environ, start_response):
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+    path = environ.get('PATH_INFO', '')
+    m = _request_overMemUse_graph_re.match(path)
+    grouped = m.groups()
+    qType = 'jobs' if not grouped[0] else grouped[0]
+    request = '' if not grouped[1] else grouped[1]
+    interval = 'daily' if not grouped[2] else grouped[2]
+    if request == 'ALL':
+        request = ''
+    return [ rrd.request_overMemUse(_cp.get(_view, "basedir"), interval, request, qType) ]
+
 def validate_request(path, request_re):
         m = request_re.match(path)
         grouped = m.groups()
@@ -506,6 +538,8 @@ urls = [
     (_priority_summary_graph_site_re, priority_summary_site_graph),
     (_summary_graph_re, summary_graph),
     (_request_starvation_graph_re, request_starvation_graph),
+    (_request_overMemUse_graph_re, request_overMemUse_graph),
+    (_request_overTime_graph_re, request_overTime_graph),
     (_request_held_graph_re, request_held_graph),
     (_request_idle_graph_re, request_idle_graph),
     (_request_joint_graph_re, request_joint_graph),

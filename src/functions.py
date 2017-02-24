@@ -129,6 +129,7 @@ def getCollectors(pool, pool1):
 def getSchedds(opts, pool, query, keys):
     """TODO doc"""
     scheddAds = None
+    print 'Getting schedd names from: ', pool
     if pool:
         coll = htcondor.Collector(pool)
     else:
@@ -140,7 +141,7 @@ def getSchedds(opts, pool, query, keys):
     if not scheddAds:
         # This should not happen, if happens, means something wrong...
         if opts.pool1:
-            scheddAds = getSchedds(opts, opts.pool1, query, keys)
+            scheddAds, coll = getSchedds(opts, opts.pool1, query, keys)
     return scheddAds, coll
 
 

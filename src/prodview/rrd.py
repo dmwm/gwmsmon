@@ -513,6 +513,61 @@ def site_util(basedir, interval, site):
     return clean_and_return(fd, pngpath)
 
 
+def request_overMemUse(basedir, interval, fileName, qType):
+    fd, pngpath = tempfile.mkstemp(".png")
+    typeName = 'CpusInUseOverMem' if qType == 'cpus' else 'NJobsUseOverMem'
+    #    for key in [['CpusInUseOverTime', 'CpusInUseOverMem'], ['NJobsOverTime', 'NJobsUseOverMem']]:
+    fname = os.path.join(os.path.join(basedir, fileName), "overUseMem.rrd")
+    if not os.path.exists(fname):
+        raise ValueError("No information present %s" % fname)
+    rrdtool.graph(pngpath,
+                  "--imgformat", "PNG",
+                  "--width", "250",
+                  "--start", "-1%s" % get_rrd_interval(interval),
+                  "--vertical-label", "%s" 'Cpus' if qType == 'cpus' else 'Jobs',
+                  "--lower-limit", "0",
+                  "--title", "Counts who use more memory than requested",
+                  'DEF:%s0=%s:%s0:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s1=%s:%s1:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s2=%s:%s2:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s3=%s:%s3:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s4=%s:%s4:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s5=%s:%s5:AVERAGE' % (typeName, fname, typeName),
+                  'AREA:%s0#000000:0 < x < 250MB:STACK' % typeName,
+                  'AREA:%s1#8800ff:250MB < x < 500MB:STACK' % typeName,
+                  'AREA:%s2#0000ff:500MB < x < 1GB:STACK' % typeName,
+                  'AREA:%s3#00ff00:1GB < x < 2GB:STACK' % typeName,
+                  'AREA:%s4#ffff00:2GB < x < 4GB:STACK' % typeName,
+                  'AREA:%s5#ff0000:4GB < x < Max GB' % typeName)
+    return clean_and_return(fd, pngpath)
+
+def request_overTime(basedir, interval, fileName, qType):
+    fd, pngpath = tempfile.mkstemp(".png")
+    typeName = 'CpusInUseOverTime' if qType == 'cpus' else 'NJobsUseOverTime'
+    fname = os.path.join(os.path.join(basedir, fileName), "overUseTime.rrd")
+    if not os.path.exists(fname):
+        raise ValueError("No information present %s" % fname)
+    rrdtool.graph(pngpath,
+                  "--imgformat", "PNG",
+                  "--width", "250",
+                  "--start", "-1%s" % get_rrd_interval(interval),
+                  "--vertical-label", "%s" % 'Cpus' if qType == 'cpus' else 'Jobs',
+                  "--lower-limit", "0",
+                  "--title", "Counts who run longer than requested",
+                  'DEF:%s0=%s:%s0:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s1=%s:%s1:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s2=%s:%s2:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s3=%s:%s3:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s4=%s:%s4:AVERAGE' % (typeName, fname, typeName),
+                  'DEF:%s5=%s:%s5:AVERAGE' % (typeName, fname, typeName),
+                  'AREA:%s0#000000:0s < x < 30min :STACK' % typeName,
+                  'AREA:%s1#8800ff:30min < x < 1h:STACK' % typeName,
+                  'AREA:%s2#0000ff:1h < x < 2h   :STACK' % typeName,
+                  'AREA:%s3#00ff00:2h < x < 4h   :STACK' % typeName,
+                  'AREA:%s4#ffff00:4h < x < 8h   :STACK' % typeName,
+                  'AREA:%s5#ff0000:8h < x < Max h' % typeName)
+    return clean_and_return(fd, pngpath)
+
 def summary(basedir, interval, fileName):
     fd, pngpath = tempfile.mkstemp(".png")
     fname = os.path.join(basedir, "%s.rrd" % fileName)

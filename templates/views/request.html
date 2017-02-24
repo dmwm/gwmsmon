@@ -348,7 +348,12 @@
             }
             else if (currentview == "/cmsconnectview/" || currentview == "/institutionalview/"){
                 table_data.addColumn("string", "Total Max Running Achieved");
-                table_data.addColumn("string", "Site history for CMSConnect");
+                if (currentview == "/cmsconnectview/"){
+                    table_data.addColumn("string", "Site history for CMSConnect");
+                }
+                else{
+                    table_data.addColumn("string", "Site history for Institutional");
+                }
             }
 
             if (currentview == "/prodview/"){
@@ -476,6 +481,49 @@
             pool_weekly_img.attr('id', 'request_weekly_img');
             pool_weekly_img.attr('src', currentview + 'graphs/$request/weekly');
             $("#overall_weekly_img").append(pool_weekly_img);
+            if (currentview == '/prodview/'){
+            // Over Requirements...
+            // Time
+             $('#request_over_time1').detach();
+             pool_weekly_img = $("<img></img>");
+             pool_weekly_img.addClass("img");
+             pool_weekly_img.attr('id', 'request_over_time1');
+             pool_weekly_img.attr('src', currentview + 'graphs/overtimecpus/$request/hourly');
+             $("#req_top_img1").append(pool_weekly_img);
+             $('#request_over_time2').detach();
+             pool_weekly_img = $("<img></img>");
+             pool_weekly_img.addClass("img");
+             pool_weekly_img.attr('id', 'request_over_time2');
+             pool_weekly_img.attr('src', currentview + 'graphs/overtimecpus/$request/daily');
+             $("#req_top_img2").append(pool_weekly_img);
+             $('#request_over_time3').detach();
+             pool_weekly_img = $("<img></img>");
+             pool_weekly_img.addClass("img");
+             pool_weekly_img.attr('id', 'request_over_time3');
+             pool_weekly_img.attr('src', currentview + 'graphs/overtimecpus/$request/weekly');
+             $("#req_top_img3").append(pool_weekly_img);
+
+             //Memory
+             $('#request_over_mem1').detach();
+             pool_weekly_img = $("<img></img>");
+             pool_weekly_img.addClass("img");
+             pool_weekly_img.attr('id', 'request_over_mem1');
+             pool_weekly_img.attr('src', currentview + 'graphs/overmemusecpus/$request/hourly');
+             $("#req_top_img1").append(pool_weekly_img);
+             $('#request_over_mem2').detach();
+             pool_weekly_img = $("<img></img>");
+             pool_weekly_img.addClass("img");
+             pool_weekly_img.attr('id', 'request_over_mem2');
+             pool_weekly_img.attr('src', currentview + 'graphs/overmemusecpus/$request/daily');
+             $("#req_top_img2").append(pool_weekly_img);
+             $('#request_over_mem3').detach();
+             pool_weekly_img = $("<img></img>");
+             pool_weekly_img.addClass("img");
+             pool_weekly_img.attr('id', 'request_over_mem3');
+             pool_weekly_img.attr('src', currentview + 'graphs/overmemusecpus/$request/weekly');
+             $("#req_top_img3").append(pool_weekly_img);
+
+            }
         }
 //]]>
         </script>
@@ -508,6 +556,7 @@
             <ul class="nav nav-tabs" id="myTab" style="display:none">
                 <li class="active"><a href="#overviewMain">Overview</a></li>
                 <li><a href="#exitCodesOverview">Exit Codes Overview</a></li>
+                <li><a href="#overReqOverview">Over requirements</a></li>
             </ul>
             <div class="tab-content">
                 <div class="tab-pane active" id="overviewMain">
@@ -554,6 +603,28 @@
                            <div id="piechart_top_img720" style="width: 300px; height: 300px; display: none"></div>
                      </div></div>
        </div></div></div>
+       <div class="tab-pane" id="overReqOverview">
+            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+                 <div class="col-md-12">
+                      <div class="col-md-3" style="padding-top:40px"><div id="req_slots_table"></div></div>
+                      <div class="col-md-3">
+                      <div class="row">
+                           <h2>Last Hour</h2>
+                           <div id="req_top_img1"></div>
+                      </div>
+                      </div>
+                      <div class="col-md-3">
+                      <div class="row">
+                           <h2>Last Day</h2>
+                           <div id="req_top_img2"></div>
+                      </div>
+                      </div>
+                      <div class="col-md-3">
+                      <div class="row">
+                           <h2>Last Month</h2>
+                      <div id="req_top_img3"></div>
+                 </div></div>
+            </div></div></div>
             </div>
             <div class="row">
                 <div class="col-md-1"></div>

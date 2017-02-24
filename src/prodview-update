@@ -2,6 +2,7 @@
 """TODO"""
 import os
 import time
+import classad
 from functions import parseArgs
 from functions import dropObj
 from functions import querySchedd
@@ -18,7 +19,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
     """
     jobs = querySchedd(ad, "WMAgent_RequestName isnt null && WMAgent_SubTaskName isnt null && JobPrio isnt null && DESIRED_Sites isnt null",
                        ["WMAgent_RequestName", "WMAgent_SubTaskName", "DESIRED_Sites", "MATCH_GLIDEIN_CMSSite",
-                        "JobPrio", "JobStatus", "RequestMemory", "MaxWallTimeMins", "RequestCpus"])
+                        "JobPrio", "JobStatus", "RequestMemory", "MaxWallTimeMins", "RequestCpus", "MemoryUsage", "'time()'", "EnteredCurrentStatus"])
     for job in jobs:
         request = job['WMAgent_RequestName']
         subTask = job['WMAgent_SubTaskName'].split("/")[-1]
@@ -57,13 +58,54 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         walltime = 0 if 'MaxWallTimeMins' not in job.keys() else validateInt(job['MaxWallTimeMins'])
         requestCpus = 0 if 'RequestCpus' not in job.keys() else validateInt(job['RequestCpus'])
         key = "||".join([str(memory), str(requestCpus), str(walltime), str(strDes), ad['Name']])
-        mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': '', 'Cpus': requestCpus, 'CpusInUse': 0, 'CpusPending': 0})
+        # Times
+        # 0 - x   < 30min    or       x < 250MB
+        # 1 - 30  < x < 60  or 250  < x < 500
+        # 2 - 60  < x < 120 or 500  < x < 1000
+        # 3 - 120 < x < 240 or 1000 < x < 2000
+        # 4 - 240 < x < 480 or 2000 < x < 4000
+        # 5 - 480 < x < N   or 4000 < x < N
+        expected = [True, True, True, True, True, False]
+        timeRanges = [30, 60, 120, 240, 480]
+        memoRanges = [250, 500, 1000, 2000, 4000]
+        mainSubTaskdebug = mainSubTask.setdefault(key, {"Idle": 0, "Running": 0, "DesiredSites": '', 'WallTime': walltime, 'Memory': memory, 'Schedd': '', 'Cpus': requestCpus, 'CpusInUse': 0, 'CpusPending': 0, 
+                                                        'JobsOverTime': [0,0,0,0,0,0], 'CpusInUseOverTime': [0,0,0,0,0,0], "JobsOverMemUse": [0,0,0,0,0,0], "CpusInUseOverMemUse": [0,0,0,0,0,0]})
         mainSubTaskdebug['Schedd'] = ad['Name']
         mainSubTaskdebug['Memory'] = memory
         mainSubTaskdebug['WallTime'] = walltime
         mainSubTaskdebug['Cpus'] = requestCpus
         mainSubTaskdebug['DesiredSites'] = strDes
         if job['JobStatus'] == 2:
+            runTime = int(int(int(job['ServerTime']) - int(job['EnteredCurrentStatus']))/60)
+            if walltime  < runTime:
+                diffTime = runTime - walltime
+                # Lets calculate at which one to map it...
+                for i in range(0,5):
+                    if timeRanges[i] >= diffTime:
+                        appendVal = 0
+                        if i == 0: appendVal = 0
+                        else: appendVal = i-1
+                        mainSubTaskdebug['JobsOverTime'][appendVal] += 1
+                        mainSubTaskdebug['CpusInUseOverTime'][appendVal] += requestCpus
+                        break
+                    elif i == 4:
+                        mainSubTaskdebug['JobsOverTime'][5] += 1
+                        mainSubTaskdebug['CpusInUseOverTime'][5] += requestCpus
+            memoryUsage = 0 if 'MemoryUsage' not in job.keys() else validateInt(job['MemoryUsage'])
+            if memory < memoryUsage:
+                diffMem = memoryUsage - memory
+                for i in range(0,5):
+                    if memoRanges[i] >= diffMem:
+                        appendVal = 0
+                        if i == 0: appendVal=0
+                        else: appendVal = i-1
+                        mainSubTaskdebug['JobsOverMemUse'][appendVal] += 1
+                        mainSubTaskdebug['CpusInUseOverMemUse'][appendVal] += requestCpus
+                        break
+                    elif i == 4:
+                        mainSubTaskdebug['JobsOverMemUse'][5] += 1
+                        mainSubTaskdebug['CpusInUseOverMemUse'][5] += requestCpus
+
             mainSubTaskdebug['Running'] += 1
             prioPriorityDict['Running'] += 1
             uniqueScheddDict['Running'] += 1
@@ -175,13 +217,23 @@ def summarize(workflows, gsites, tasks):
                     running += prioDict.get("Running", 0)
                     uniq += prioDict.get("UniquePressure", 0)
                     cpususe += prioDict.get("CpusInUse", 0)
+            cpuOverTime = [0, 0, 0, 0, 0, 0] # sum(item['CpusInUseOverTime'] for key, item in taskinfo.items())
+            jobOverTime = [0, 0, 0, 0, 0, 0] #sum(item['JobsOverTime'] for key, item in taskinfo.items())
+            cpuOverMem = [0, 0, 0, 0, 0, 0] #sum(item['CpusInUseOverMemUse'] for key, item in taskinfo.items())
+            jobOverMem = [0, 0, 0, 0, 0, 0] #sum(item['JobsOverMemUse'] for key, item in taskinfo.items())
+            for key, item in taskinfo.items():
+                cpuOverTime = [x + y for x, y in zip(cpuOverTime, item['CpusInUseOverTime'])]
+                jobOverTime = [x + y for x, y in zip(jobOverTime, item['JobsOverTime'])]
+                cpuOverMem = [x + y for x, y in zip(cpuOverMem, item['CpusInUseOverMemUse'])]
+                jobOverMem = [x + y for x, y in zip(jobOverMem, item['JobsOverMemUse'])]
             subtaskDict["Summary"].update({"BasePrio": minPrio, "Running": running, "Idle": idle,
                                            "HigherPrioIdle": higherIdle, "LowerPrioRunning": lowerRunning,
                                            "TaskInfo": taskinfo, "UniquePressure": uniq,
-                                           "CpusInUse": cpususe})
+                                           "CpusInUse": cpususe, "CpusInUseOverTime": cpuOverTime,
+                                           "JobsOverTime": jobOverTime, "CpusInUseOverMemUse": cpuOverMem,
+                                           "JobsOverMemUse": jobOverMem})
             #if request == 'pdmvserv_task_TOP-RunIISummer15wmLHEGS-00148__v1_T_170213_140455_758':
             #    print request, subtask, subtaskDict["Summary"]
-
 
         minPrio = int(min([float(subtaskDict["Summary"]["BasePrio"]) for subtaskDict in requestDict.values()]))
         minPrio %= 10000000
@@ -196,9 +248,21 @@ def summarize(workflows, gsites, tasks):
         uniq = sum([subtaskDict["Summary"]["UniquePressure"] for subtaskDict in requestDict.values()])
         cpususe = sum([subtaskDict["Summary"]["CpusInUse"] for subtaskDict in requestDict.values()])
         cpuspen = sum([subtaskDict["Summary"]["CpusPending"] for subtaskDict in requestDict.values()])
+        cpuOverTime =[0, 0, 0, 0, 0, 0] # sum([subtaskDict["Summary"]["CpusInUseOverTime"] for subtaskDict in requestDict.values()])
+        jobOverTime = [0, 0, 0, 0, 0, 0]# sum([subtaskDict["Summary"]["JobsOverTime"] for subtaskDict in requestDict.values()])
+        cpuOverMem = [0, 0, 0, 0, 0, 0]#sum([subtaskDict["Summary"]["CpusInUseOverMemUse"] for subtaskDict in requestDict.values()])
+        jobOverMem = [0, 0, 0, 0, 0, 0]#sum([subtaskDict["Summary"]["JobsOverMemUse"] for subtaskDict in requestDict.values()])
+        for subtaskDict in requestDict.values():
+            cpuOverTime = [x + y for x, y in zip(cpuOverTime, subtaskDict["Summary"]["CpusInUseOverTime"])]
+            jobOverTime = [x + y for x, y in zip(jobOverTime, subtaskDict["Summary"]["JobsOverTime"])]
+            cpuOverMem = [x + y for x, y in zip(cpuOverMem, subtaskDict["Summary"]["CpusInUseOverMemUse"])]
+            jobOverMem = [x + y for x, y in zip(jobOverMem, subtaskDict["Summary"]["JobsOverMemUse"])]
+        print request, cpuOverTime, jobOverTime, cpuOverMem, jobOverMem
         requestDict["Summary"] = {"BasePrio": minPrio, "Running": running, "Idle": idle,
                                   "HigherPrioIdle": higherIdle, "LowerPrioRunning": lowerRunning,
-                                  "UniquePressure": uniq, "CpusInUse": cpususe, "CpusPending": cpuspen}
+                                  "UniquePressure": uniq, "CpusInUse": cpususe, "CpusPending": cpuspen,
+                                  "CpusInUseOverTime": cpuOverTime, "JobsOverTime": jobOverTime, 
+                                  "CpusInUseOverMemUse": cpuOverMem, "JobsOverMemUse": jobOverMem}
 
         requestSites = requestDict["Summary"].setdefault("Sites", {})
 
@@ -390,6 +454,14 @@ def writeRrds(workflows, gsites, output, taskInfo):
             tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, requestDict["Running"], requestDict["MatchingIdle"], requestDict["CpusInUse"], requestDict["CpusPending"])
             rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
+    totalsOver = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]]
+    tempTimeKeys = []
+    tempMemKeys = []
+    for key in [['CpusInUseOverTime', 'CpusInUseOverMem'], ['NJobsOverTime', 'NJobsUseOverMem']]:
+        for i in range(0,6):
+            tempTimeKeys.append("DS:%s%s:GAUGE:360:U:U" % (key[0],str(i)))
+            tempMemKeys.append("DS:%s%s:GAUGE:360:U:U" % (key[1], str(i)))
+    print tempTimeKeys, tempMemKeys
     for request, requestDict in workflows.items():
         requestDir = os.path.join(output, request)
         fname = os.path.join(requestDir, "request.rrd")
@@ -399,6 +471,20 @@ def writeRrds(workflows, gsites, output, taskInfo):
             requestDict["Summary"]["CpusInUse"], requestDict["Summary"]["CpusPending"]
         tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
         rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
+        ## OverMem OverCpu
+        totalsOver[0] = [x + y for x, y in zip(totalsOver[0], requestDict['Summary']['CpusInUseOverTime'])]
+        totalsOver[1] = [x + y for x, y in zip(totalsOver[1], requestDict['Summary']['JobsOverTime'])]
+        totalsOver[2] = [x + y for x, y in zip(totalsOver[2], requestDict['Summary']['CpusInUseOverMemUse'])]
+        totalsOver[3] = [x + y for x, y in zip(totalsOver[3], requestDict['Summary']['JobsOverMemUse'])]
+
+        # Over Time Usage
+        mergedList = requestDict['Summary']['CpusInUseOverTime'] + requestDict['Summary']['JobsOverTime']
+        tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(mergedList))) % tuple(mergedList)
+        rrdUpdate(os.path.join(requestDir, "overUseTime.rrd"), tempTimeKeys, tempUpdLine, GSTARTUP)
+        # Over memory usage
+        mergedList = requestDict['Summary']['CpusInUseOverMemUse'] + requestDict['Summary']['JobsOverMemUse']
+        tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(mergedList))) % tuple(mergedList)
+        rrdUpdate(os.path.join(requestDir, "overUseMem.rrd"), tempMemKeys, tempUpdLine, GSTARTUP)
 
         for site, siteDict in requestDict["Summary"]["Sites"].items():
             fname = os.path.join(requestDir, "%s.rrd" % site)
@@ -417,6 +503,15 @@ def writeRrds(workflows, gsites, output, taskInfo):
                 subtaskDict["Summary"]["CpusInUse"], subtaskDict["Summary"]["CpusPending"]
             tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
             rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
+            ## Over Time use for subtask
+            # Not sure if needed. Maybe for future....
+            #mergedList = subtaskDict['Summary']['CpusInUseOverTime'] + subtaskDict['Summary']['JobsOverTime']
+            #tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(mergedList))) % tuple(mergedList)
+            #rrdUpdate(os.path.join(subtaskDir, "overUseTime.rrd"), tempTimeKeys, tempUpdLine, GSTARTUP)
+            # Over MemUse for subtask
+            #mergedList = subtaskDict['Summary']['CpusInUseOverMemUse'] + subtaskDict['Summary']['JobsOverMemUse']
+            #tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(mergedList))) % tuple(mergedList)
+            #rrdUpdate(os.path.join(subtaskDir, "overUseMem.rrd"), tempMemKeys, tempUpdLine, GSTARTUP)
 
             for site, siteDict in subtaskDict.items():
                 if site == "Summary":
@@ -431,7 +526,15 @@ def writeRrds(workflows, gsites, output, taskInfo):
                     sum(prioDict["CpusPending"] for prioDict in siteDict.values())
                 tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
                 rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
-
+        print totalsOver
+    # Over Time
+    mergedList = totalsOver[0] + totalsOver[1]
+    tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(mergedList))) % tuple(mergedList)
+    rrdUpdate(os.path.join(output, "overUseTime.rrd"), tempTimeKeys, tempUpdLine, GSTARTUP)
+    # Over Mem
+    mergedList = totalsOver[2] + totalsOver[3]
+    tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(mergedList))) % tuple(mergedList)
+    rrdUpdate(os.path.join(output, "overUseMem.rrd"), tempMemKeys, tempUpdLine, GSTARTUP)
 
 def main():
     """ Main prodview function """
@@ -442,17 +545,18 @@ def main():
     workflows = {}
     taskInfo = {}
     for ad in scheddAds:
-        print "Querying schedd", ad['Name']
         try:
+            print 'Querying scheduler:', ad['Name']
             analyzeScheddOutput(ad, workflows, taskInfo)
-        except:
-            print 'Failed. continue'
+        except IOError:
+            print 'Failed, Continue'
     analyzePrios(workflows)
     summarize(workflows, sites, taskInfo)
 
     if opts.prodview:
         writeJson(workflows, sites, opts.prodview, taskInfo)
         writeRrds(workflows, sites, opts.prodview, taskInfo)
+    print GSTARTUP, int(time.time()), int(time.time())-GSTARTUP
 
 if __name__ == "__main__":
     main()

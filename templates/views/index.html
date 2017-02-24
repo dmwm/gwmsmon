@@ -58,6 +58,7 @@
                 document.getElementById("jobpriorityOverviewTAB").style.display = 'block';
                 document.getElementById("cpupriorityOverviewTAB").style.display = 'block';
                 document.getElementById("exitCodesOverviewTAB").style.display = 'block';
+                document.getElementById("overReqOverviewTAB").style.display = 'block';
                 }
             else if (currentview == "/analysisview/"){
                 document.title = "CMS Analysis Overview";
@@ -316,12 +317,14 @@
                 table_data.addColumn("number", "Priority");
                 table_data.addColumn("number", "Matching Site Count");
                 table_data.addColumn("string", 'Workflow History');
+                table_data.addColumn("string", 'Running Too Long');
 
                 for (workflow_key in data) {
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="/prodview/graphs/' + workflow_key + '"/>';
                     var workflow_html = '<a href="/prodview/' + workflow_key + '">' + workflow_key + '</a>';
-                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.BasePrio, workflow_data.SiteCount, image_html]);
+                    var image_html1 = '<img src="/prodview/graphs/overtimecpus/' + workflow_key + '"/>';
+                    table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.BasePrio, workflow_data.SiteCount, image_html, image_html1]);
                 }}
             else if (currentview == "/analysisview/"){
                 table_data.addColumn("string", "Username");
@@ -551,6 +554,8 @@
                 drawPoolStatsImgs(currentview, 'prioritysummaryrunning', 'priority_top_img');
                 drawPoolStatsImgs(currentview, 'prioritysummarycpuspending', 'cpriority_top_img');
                 drawPoolStatsImgs(currentview, 'prioritysummarycpusinuse', 'cpriority_top_img');
+                drawPoolStatsImgs(currentview, 'overtimecpus/ALL', 'req_top_img');
+                drawPoolStatsImgs(currentview, 'overmemusecpus/ALL', 'req_top_img');
 			}
         }
 
@@ -747,6 +752,7 @@ function drawPoolStatsTotalFairShare(fairdata) {
     <li><a href="#jobpriorityOverview" id="jobpriorityOverviewTAB" style="display:none">Job Priority Overview</a></li>
     <li><a href="#cpupriorityOverview" id="cpupriorityOverviewTAB" style="display:none">CPU Priority Overview</a></li>
     <li><a href="#exitCodesOverview" id="exitCodesOverviewTAB" style="display:none">Exit Codes Overview</a></li>
+    <li><a href="#overReqOverview" id="overReqOverviewTAB" style="display:none">Over requirements</a></li>
   </ul>
       <div class="tab-content">
        <div class="tab-pane active" id="overviewMain">
@@ -862,6 +868,28 @@ function drawPoolStatsTotalFairShare(fairdata) {
                            <div id="piechart_top_img720" style="width: 300px; height: 300px; display: none"></div>
                      </div></div>
        </div></div></div>
+       <div class="tab-pane" id="overReqOverview">
+            <div class="row jumbotron" id="top_summary" style="padding-top:10px">
+                 <div class="col-md-12">
+                     <div class="col-md-3" style="padding-top:40px"><div id="req_slots_table"></div></div>
+                     <div class="col-md-3">
+                     <div class="row">
+                         <h2>Last Hour</h2>
+                         <div id="req_top_img1"></div>
+                     </div>
+                     </div>
+                     <div class="col-md-3">
+                     <div class="row">
+                         <h2>Last Day</h2>
+                         <div id="req_top_img2"></div>
+                     </div>
+                     </div>
+                     <div class="col-md-3">
+                     <div class="row">
+                         <h2>Last Month</h2>
+                         <div id="req_top_img3"></div>
+                     </div></div>
+        </div></div></div>
         </div>
             <div class="row">
                 <div class="col-md-1"></div>
