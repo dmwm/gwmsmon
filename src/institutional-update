@@ -87,7 +87,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo, factEntries):
             continue
         jobFrontend = ""
         try:
-            if job["JobStatus"] == 2 and not runningSite:
+            if job["JobStatus"] == 2 and (not runningSite or runningSite == "Unknown"):
                 if job['RemotePool'].startswith('cmssrv221'):
                     jobFrontend = "GlobalPool"
                     runningSite = factEntries[job['MATCH_GLIDEIN_Entry_Name']].keys()[0]
