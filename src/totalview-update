@@ -695,7 +695,7 @@ def main():
     print '%s querying %s ' % (int(time.time()), opts.pool)
     pilotUsageInfo(coll1, pilotUsage, alreadyKnownPilot, factOut)
     print '%s querying %s' % (int(time.time()), opts.pool1)
-    #pilotUsageInfo(coll2, pilotUsage, alreadyKnownPilot)
+    pilotUsageInfo(coll2, pilotUsage, alreadyKnownPilot, factOut)
     print '%s done querying' % int(time.time())
     loadPoolData(totals, sites, opts.analysisview, "analysisview")
     loadPoolData(totals, sites, opts.prodview, "prodview")

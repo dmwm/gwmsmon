@@ -84,7 +84,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
                     if timeRanges[i] >= diffTime:
                         appendVal = 0
                         if i == 0: appendVal = 0
-                        else: appendVal = i-1
+                        else: appendVal = i
                         mainSubTaskdebug['JobsOverTime'][appendVal] += 1
                         mainSubTaskdebug['CpusInUseOverTime'][appendVal] += requestCpus
                         break
@@ -98,7 +98,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
                     if memoRanges[i] >= diffMem:
                         appendVal = 0
                         if i == 0: appendVal=0
-                        else: appendVal = i-1
+                        else: appendVal = i
                         mainSubTaskdebug['JobsOverMemUse'][appendVal] += 1
                         mainSubTaskdebug['CpusInUseOverMemUse'][appendVal] += requestCpus
                         break

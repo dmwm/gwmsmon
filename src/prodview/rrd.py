@@ -524,7 +524,7 @@ def request_overMemUse(basedir, interval, fileName, qType):
                   "--imgformat", "PNG",
                   "--width", "250",
                   "--start", "-1%s" % get_rrd_interval(interval),
-                  "--vertical-label", "%s" 'Cpus' if qType == 'cpus' else 'Jobs',
+                  "--vertical-label", "%s" % 'Cpus' if qType == 'cpus' else 'Jobs',
                   "--lower-limit", "0",
                   "--title", "Counts who use more memory than requested",
                   'DEF:%s0=%s:%s0:AVERAGE' % (typeName, fname, typeName),
