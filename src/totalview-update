@@ -152,6 +152,9 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
             # and we don`t care about state as in Static
             slotInfo = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
             pilotStats = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault("PilotStatistics", {})
+            if item['Name'] in pilotStats:
+                #print 'Already here', item
+                continue
             slotInfo['CpusFree'] += int(item['Cpus'])
             slotInfo['CpusUse'] += int(item['TotalSlotCpus'] - item['Cpus'])
             # Lets make some analysis and group requirements
@@ -189,6 +192,9 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
         elif item['SlotType'] == 'Static':
             slotInfo = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
             pilotStats = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault("PilotStatistics", {})
+            if item['Name'] in pilotStats:
+                #print 'Already here', item
+                continue
             pilotStatsN = pilotStats.setdefault(item['Name'], {'TotalSlotCpus': item['TotalSlotCpus'],
                                                                'Cpus': item['Cpus'],
                                                                'TotalMemory': item['Memory'],
