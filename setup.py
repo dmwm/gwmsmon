@@ -17,5 +17,5 @@ setup(name='prodview',
                   ('/etc/cron.d/', ['packaging/prodview.cron', 'packaging/analysisview.cron', 'packaging/totalview.cron', 'packaging/utilization.cron', 'packaging/cleanup.cron', 'packaging/cmsconnectview.cron', 'packaging/institutionalview.cron']),
                   ('/var/www/html/', ['templates/index.html', 'templates/css/bootstrap.css', 'templates/css/bootstrap.min.css', 'templates/js/bootstrap.min.js', 'templates/js/jquery.min.js', 'templates/js/loader.js']),
                  ],
-      scripts=["src/prodview-update", "src/analysisview-update", "src/analysisviewcrab2-update", "src/totalview-update", "src/utilization", "src/cmsconnect-update", "src/institutional-update", "src/functions.py"]
+      scripts=["src/prodview-update", "src/analysisview-update", "src/analysisviewcrab2-update", "src/totalview-update", "src/utilization", "src/cmsconnect-update", "src/institutional-update", "src/functions.py", "src/timeout.py"]
      )

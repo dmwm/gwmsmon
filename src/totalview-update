@@ -16,6 +16,8 @@ from functions import createEmptyRRD
 from functions import roundTime
 from functions import querySchedd
 from functions import queryCommandLineSchedd
+from timeout import TimeoutError
+
 GSTARTUP = int(time.time())
 
 
@@ -727,10 +729,17 @@ def main():
     factentries = {}
     for appendId in [0, 1]:
         for urlVal in urls:
-            print urlVal
+            print urlVal, appends[appendId]
+            print int(time.time())
             factoryName, url = urlVal.items()[0]
             urlD = url + appends[appendId]
-            factoryXml = getFromURL(urlD)
+            try:
+                factoryXml = getFromURL(urlD)
+            except TimeoutError as er:
+                errors.append("Reached timeout receiving info from %s url" % (urlD))
+                print errors
+                continue
+
             if not factoryXml:
                 errors.append("Failed to parse %s info from %s url" % (factoryName, urlD))
                 continue
@@ -744,6 +753,7 @@ def main():
                 parseConfigXML(entries, xmlOut, factoryName, entryMappings, factentries, factOut)
             else:
                 parseRRDsData(entries, xmlOut, factoryName, entryMappings)
+            print int(time.time())
     #print pilotUsage
     dropObj(factOut, opts.poolview, 'totals.json')
     dropObj(factentries, opts.factoryview, 'fact_entries.json')

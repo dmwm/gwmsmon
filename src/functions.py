@@ -11,6 +11,7 @@ import htcondor
 import datetime
 import time
 import subprocess
+from timeout import timeout
 
 def parseArgs():
     """ parse all arguments from config file. """
@@ -63,7 +64,7 @@ def dropObj(obj, dirname, fname):
     json.dump(obj, open(fnameTmp, "w"))
     os.rename(fnameTmp, fname)
 
-
+@timeout(30)
 def getFromURL(url):
     """Get content from URL"""
     try:
