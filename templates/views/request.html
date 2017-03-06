@@ -152,7 +152,7 @@
         function gotSummary(data, schedddata, currentview) {
             var table_data = new google.visualization.DataTable();
             if (currentview == "/prodview/"){
-                table_data.addColumn("string", "Workflow");
+                table_data.addColumn("string", "SubTask");
                 table_data.addColumn("string", "Debugger");
                 table_data.addColumn("number", "Running");
                 table_data.addColumn("number", "Idle");
@@ -160,6 +160,7 @@
                 table_data.addColumn("number", "CpusPen");
                 table_data.addColumn("number", "Priority");
                 table_data.addColumn("string", 'Workflow History');
+                table_data.addColumn("string", "Running Too Long");
 
                 for (workflow_key in data) {
                     workflow_data = data[workflow_key];
@@ -168,6 +169,7 @@
                     var taskInfo1 = "";
                     var taskInfo = workflow_html;
                     var hrefName = workflow_key + '-name';
+                    var image_html1 = '<img src="/prodview/graphs/overtimecpus/$request/' + workflow_key + '/hourly"/>';
                     taskInfo1 += '<a target="_blank" href="http://dashb-cms-job.cern.ch/dashboard/templates/web-job2/#user=default&table=Jobs&task=wmagent_$request">Dashboard link</a><br/>';
                     taskInfo1 += '<a href="#" id='+ hrefName +' onclick="toggle_visibility(\''+ workflow_key +'\');">Show debug information</a><br/>';
                     taskInfo1 += '<table id="'+ workflow_key +'" style="display:none;" border="1"><tr><th>WallTime</th><th>Memory</th><th>Cpus</th><th>Running</th><th>Idle</th><th>Scheduler</th><th>Desired Sites</th><th>Warnings</th></tr>';
@@ -197,7 +199,7 @@
                     taskInfo1 += '<td>' + warnings + '</td></tr>';
                     }                                           
                     taskInfo1 += '</tr></table><br/>';                  
-                    table_data.addRow([taskInfo, taskInfo1, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.BasePrio, image_html]);
+                    table_data.addRow([taskInfo, taskInfo1, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.BasePrio, image_html, image_html1]);
                 }}
             else if (currentview == "/analysisview/" ){
             table_data.addColumn("string", "Task Info")
@@ -488,19 +490,19 @@
              pool_weekly_img = $("<img></img>");
              pool_weekly_img.addClass("img");
              pool_weekly_img.attr('id', 'request_over_time1');
-             pool_weekly_img.attr('src', currentview + 'graphs/overtimecpus/$request/hourly');
+             pool_weekly_img.attr('src', currentview + 'graphs/overtimecpus/$request/ALL/hourly');
              $("#req_top_img1").append(pool_weekly_img);
              $('#request_over_time2').detach();
              pool_weekly_img = $("<img></img>");
              pool_weekly_img.addClass("img");
              pool_weekly_img.attr('id', 'request_over_time2');
-             pool_weekly_img.attr('src', currentview + 'graphs/overtimecpus/$request/daily');
+             pool_weekly_img.attr('src', currentview + 'graphs/overtimecpus/$request/ALL/daily');
              $("#req_top_img2").append(pool_weekly_img);
              $('#request_over_time3').detach();
              pool_weekly_img = $("<img></img>");
              pool_weekly_img.addClass("img");
              pool_weekly_img.attr('id', 'request_over_time3');
-             pool_weekly_img.attr('src', currentview + 'graphs/overtimecpus/$request/weekly');
+             pool_weekly_img.attr('src', currentview + 'graphs/overtimecpus/$request/ALL/weekly');
              $("#req_top_img3").append(pool_weekly_img);
 
              //Memory
@@ -508,19 +510,19 @@
              pool_weekly_img = $("<img></img>");
              pool_weekly_img.addClass("img");
              pool_weekly_img.attr('id', 'request_over_mem1');
-             pool_weekly_img.attr('src', currentview + 'graphs/overmemusecpus/$request/hourly');
+             pool_weekly_img.attr('src', currentview + 'graphs/overmemusecpus/$request/ALL/hourly');
              $("#req_top_img1").append(pool_weekly_img);
              $('#request_over_mem2').detach();
              pool_weekly_img = $("<img></img>");
              pool_weekly_img.addClass("img");
              pool_weekly_img.attr('id', 'request_over_mem2');
-             pool_weekly_img.attr('src', currentview + 'graphs/overmemusecpus/$request/daily');
+             pool_weekly_img.attr('src', currentview + 'graphs/overmemusecpus/$request/ALL/daily');
              $("#req_top_img2").append(pool_weekly_img);
              $('#request_over_mem3').detach();
              pool_weekly_img = $("<img></img>");
              pool_weekly_img.addClass("img");
              pool_weekly_img.attr('id', 'request_over_mem3');
-             pool_weekly_img.attr('src', currentview + 'graphs/overmemusecpus/$request/weekly');
+             pool_weekly_img.attr('src', currentview + 'graphs/overmemusecpus/$request/ALL/weekly');
              $("#req_top_img3").append(pool_weekly_img);
 
             }

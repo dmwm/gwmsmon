@@ -323,7 +323,7 @@
                     workflow_data = data[workflow_key];
                     var image_html = '<img src="/prodview/graphs/' + workflow_key + '"/>';
                     var workflow_html = '<a href="/prodview/' + workflow_key + '">' + workflow_key + '</a>';
-                    var image_html1 = '<img src="/prodview/graphs/overtimecpus/' + workflow_key + '/hourly"/>';
+                    var image_html1 = '<img src="/prodview/graphs/overtimecpus/' + workflow_key + '/ALL/hourly"/>';
                     table_data.addRow([workflow_html, workflow_data.Running, workflow_data.Idle, workflow_data.CpusInUse, workflow_data.CpusPending, workflow_data.BasePrio, workflow_data.SiteCount, image_html, image_html1]);
                 }}
             else if (currentview == "/analysisview/"){
@@ -554,8 +554,8 @@
                 drawPoolStatsImgs(currentview, 'prioritysummaryrunning', 'priority_top_img');
                 drawPoolStatsImgs(currentview, 'prioritysummarycpuspending', 'cpriority_top_img');
                 drawPoolStatsImgs(currentview, 'prioritysummarycpusinuse', 'cpriority_top_img');
-                drawPoolStatsImgs(currentview, 'overtimecpus/ALL', 'req_top_img');
-                drawPoolStatsImgs(currentview, 'overmemusecpus/ALL', 'req_top_img');
+                drawPoolStatsImgs(currentview, 'overtimecpus/ALL/ALL', 'req_top_img');
+                drawPoolStatsImgs(currentview, 'overmemusecpus/ALL/ALL', 'req_top_img');
 			}
         }
 

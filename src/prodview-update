@@ -504,10 +504,9 @@ def writeRrds(workflows, gsites, output, taskInfo):
             tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(stats))) % stats
             rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
             ## Over Time use for subtask
-            # Not sure if needed. Maybe for future....
-            #mergedList = subtaskDict['Summary']['CpusInUseOverTime'] + subtaskDict['Summary']['JobsOverTime']
-            #tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(mergedList))) % tuple(mergedList)
-            #rrdUpdate(os.path.join(subtaskDir, "overUseTime.rrd"), tempTimeKeys, tempUpdLine, GSTARTUP)
+            mergedList = subtaskDict['Summary']['CpusInUseOverTime'] + subtaskDict['Summary']['JobsOverTime']
+            tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(mergedList))) % tuple(mergedList)
+            rrdUpdate(os.path.join(subtaskDir, "overUseTime.rrd"), tempTimeKeys, tempUpdLine, GSTARTUP)
             # Over MemUse for subtask
             #mergedList = subtaskDict['Summary']['CpusInUseOverMemUse'] + subtaskDict['Summary']['JobsOverMemUse']
             #tempUpdLine = (("%d:" % GSTARTUP) + ":".join(["%d"]*len(mergedList))) % tuple(mergedList)

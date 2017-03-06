@@ -528,11 +528,11 @@ def site_util(basedir, interval, site):
     return clean_and_return(fd, pngpath)
 
 
-def request_overMemUse(basedir, interval, fileName, qType):
+def request_overMemUse(basedir, interval, fileName, subrequest, qType):
     fd, pngpath = tempfile.mkstemp(".png")
     typeName = 'CpusInUseOverMem' if qType == 'cpus' else 'NJobsUseOverMem'
     #    for key in [['CpusInUseOverTime', 'CpusInUseOverMem'], ['NJobsOverTime', 'NJobsUseOverMem']]:
-    fname = os.path.join(os.path.join(basedir, fileName), "overUseMem.rrd")
+    fname = os.path.join(os.path.join(basedir, fileName, subrequest), "overUseMem.rrd")
     if not os.path.exists(fname):
         raise ValueError("No information present %s" % fname)
     rrdtool.graph(pngpath,
@@ -557,10 +557,10 @@ def request_overMemUse(basedir, interval, fileName, qType):
                   'AREA:%s5#ff0000:4GB < x < Max GB' % typeName)
     return clean_and_return(fd, pngpath)
 
-def request_overTime(basedir, interval, fileName, qType):
+def request_overTime(basedir, interval, fileName, subrequest, qType):
     fd, pngpath = tempfile.mkstemp(".png")
     typeName = 'CpusInUseOverTime' if qType == 'cpus' else 'NJobsUseOverTime'
-    fname = os.path.join(os.path.join(basedir, fileName), "overUseTime.rrd")
+    fname = os.path.join(os.path.join(basedir, fileName, subrequest), "overUseTime.rrd")
     if not os.path.exists(fname):
         raise ValueError("No information present %s" % fname)
     rrdtool.graph(pngpath,

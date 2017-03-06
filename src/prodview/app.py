@@ -268,7 +268,7 @@ def request_starvation_graph(environ, start_response):
 
     return [ rrd.request_starvation(_cp.get(_view, "basedir"), interval, request) ]
 
-_request_overTime_graph_re = re.compile(r'^/*graphs/overtime(jobs|cpus)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_request_overTime_graph_re = re.compile(r'^/*graphs/overtime(jobs|cpus)/([-_A-Za-z0-9]+)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_overTime_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -279,12 +279,16 @@ def request_overTime_graph(environ, start_response):
     grouped = m.groups()
     qType = 'jobs' if not grouped[0] else grouped[0]
     request = '' if not grouped[1] else grouped[1]
-    interval = 'daily' if not grouped[2] else grouped[2]
+    subrequest = '' if not grouped[2] else grouped[2]
+    interval = 'daily' if not grouped[3] else grouped[3]
     if request == 'ALL':
         request = ''
-    return [ rrd.request_overTime(_cp.get(_view, "basedir"), interval, request, qType) ]
+        subrequest = ''
+    if subrequest == 'ALL':
+        subrequest = ''
+    return [ rrd.request_overTime(_cp.get(_view, "basedir"), interval, request, subrequest, qType) ]
 
-_request_overMemUse_graph_re = re.compile(r'^/*graphs/overmemuse(jobs|cpus)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_request_overMemUse_graph_re = re.compile(r'^/*graphs/overmemuse(jobs|cpus)/([-_A-Za-z0-9]+)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_overMemUse_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -295,10 +299,15 @@ def request_overMemUse_graph(environ, start_response):
     grouped = m.groups()
     qType = 'jobs' if not grouped[0] else grouped[0]
     request = '' if not grouped[1] else grouped[1]
-    interval = 'daily' if not grouped[2] else grouped[2]
+    subrequest = '' if not grouped[2] else grouped[2]
+    interval = 'daily' if not grouped[3] else grouped[3]
     if request == 'ALL':
         request = ''
-    return [ rrd.request_overMemUse(_cp.get(_view, "basedir"), interval, request, qType) ]
+        subrequest = ''
+    if subrequest == 'ALL':
+        subrequest = ''
+    
+    return [ rrd.request_overMemUse(_cp.get(_view, "basedir"), interval, request, subrequest, qType) ]
 
 def validate_request(path, request_re):
         m = request_re.match(path)
