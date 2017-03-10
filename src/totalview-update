@@ -698,7 +698,7 @@ def main():
     totals = {}
     sites = {}
 
-    coll1, coll2 = getCollectors(opts.pool, opts.pool1)
+    coll1, coll2 = getCollectors(opts.pool, opts.pool1, main=True)
     alreadyKnownPilot = []
     print '%s querying %s ' % (int(time.time()), opts.pool)
     pilotUsageInfo(coll1, pilotUsage, alreadyKnownPilot, factOut)

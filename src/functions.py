@@ -121,11 +121,17 @@ def querySchedd(ad, const, keys):
         print "Failed querying", ad["Name"], e
     return output
 
-def getCollectors(pool, pool1):
+def getCollectors(pool, pool1, main=False):
     """Get both collectors"""
-    coll = htcondor.Collector(pool)
-    coll1 = htcondor.Collector(pool1)
-    return coll, coll1
+    if main:
+        coll = htcondor.Collector(pool.split(":")[0])
+        coll1 = htcondor.Collector(pool1.split(":")[0])
+        return coll, coll1
+    else:
+        coll =  htcondor.Collector(pool)
+        coll1 = htcondor.Collector(pool1)
+        return coll, coll1
+
 
 def getSchedds(opts, pool, query, keys):
     """TODO doc"""
