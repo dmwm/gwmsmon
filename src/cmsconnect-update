@@ -44,79 +44,82 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
         print 'Got error: %s' % er
         return
     print '2', time.time()
-    for job in jobs:
-        mainTaskName = ""
-        for item in ["SubmitFile", "BLTaskID", "Dashboard_TaskId"]:
-            if item in job:
-                mainTaskName = job[item]
-                continue
-        request = re.sub('[:]', '', job['AccountingGroup'])
-        try:
-            request = request.split(".")[1]
-        except:
-            print 'Something wrong with username... %s' % request
-        subTask = re.sub('[:/]', '', mainTaskName)
-        subTask = subTask.split(".")[0]
-        mainUserInfo = taskInfo.setdefault(request, {})
-        mainUserTask = mainUserInfo.setdefault(subTask, {})
-        mainUserTask['Schedd'] = ad['Name']
-        mainUserTask['QDate'] = job['QDate']
-        mainUserTask['TaskName'] = mainTaskName
-        keysFromMainTask = ["RequestCpus", 'RequestMemory', 'MaxWallTimeMins', 'JobStatus']
-        for keyName in keysFromMainTask:
-            if keyName in job.keys():
-                mainUserTask[keyName] = job[keyName]
+    try:
+        for job in jobs:
+            mainTaskName = ""
+            for item in ["SubmitFile", "BLTaskID", "Dashboard_TaskId"]:
+                if item in job:
+                    mainTaskName = job[item]
+                    continue
+            request = re.sub('[:]', '', job['AccountingGroup'])
+            try:
+                request = request.split(".")[1]
+            except:
+                print 'Something wrong with username... %s' % request
+            subTask = re.sub('[:/]', '', mainTaskName)
+            subTask = subTask.split(".")[0]
+            mainUserInfo = taskInfo.setdefault(request, {})
+            mainUserTask = mainUserInfo.setdefault(subTask, {})
+            mainUserTask['Schedd'] = ad['Name']
+            mainUserTask['QDate'] = job['QDate']
+            mainUserTask['TaskName'] = mainTaskName
+            keysFromMainTask = ["RequestCpus", 'RequestMemory', 'MaxWallTimeMins', 'JobStatus']
+            for keyName in keysFromMainTask:
+                if keyName in job.keys():
+                    mainUserTask[keyName] = job[keyName]
 
-        desiredSites = []
-        try:
-            desiredSites = job['DESIRED_Sites'].split(",")
-        except:
             desiredSites = []
-        desiredSites.sort()
-        desiredSites = tuple(desiredSites)
-        runningSite = job.get("MachineAttrGLIDEIN_CMSSite0")
-        if job["JobStatus"] == 1:
-            status = "MatchingIdle"
-        elif job["JobStatus"] == 2:
-            status = "Running"
-        else:
-            continue
-        cpusCount = job['RequestCpus']
-        requestDict = workflows.setdefault(request, {})
-        subtaskDict = requestDict.setdefault(subTask, {})
-        summaryDict = subtaskDict.setdefault('Summary', {})
-        summaryInternal = summaryDict.setdefault("Internal", {})
-        prio = 10
-        jobinfo = (prio, desiredSites)
-        summaryDict.setdefault('CpusPending', 0)
-        if not runningSite and status != "Running":
-            summaryInternal.setdefault(jobinfo, 0)
-            summaryInternal[jobinfo] += 1
-            summaryDict['CpusPending'] += cpusCount
-        for site in desiredSites:
-            if site == "":
+            try:
+                desiredSites = job['DESIRED_Sites'].split(",")
+            except:
+                desiredSites = []
+            desiredSites.sort()
+            desiredSites = tuple(desiredSites)
+            runningSite = job.get("MachineAttrGLIDEIN_CMSSite0")
+            if job["JobStatus"] == 1:
+                status = "MatchingIdle"
+            elif job["JobStatus"] == 2:
+                status = "Running"
+            else:
                 continue
-            siteDict = subtaskDict.setdefault(site, {})
-            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
-            prioDict.setdefault(status, 0)
-            if status != "Running":
+            cpusCount = job['RequestCpus']
+            requestDict = workflows.setdefault(request, {})
+            subtaskDict = requestDict.setdefault(subTask, {})
+            summaryDict = subtaskDict.setdefault('Summary', {})
+            summaryInternal = summaryDict.setdefault("Internal", {})
+            prio = 10
+            jobinfo = (prio, desiredSites)
+            summaryDict.setdefault('CpusPending', 0)
+            if not runningSite and status != "Running":
+                summaryInternal.setdefault(jobinfo, 0)
+                summaryInternal[jobinfo] += 1
+                summaryDict['CpusPending'] += cpusCount
+            for site in desiredSites:
+                if site == "":
+                    continue
+                siteDict = subtaskDict.setdefault(site, {})
+                prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
+                prioDict.setdefault(status, 0)
+                if status != "Running":
+                    prioDict[status] += 1
+                    prioDict['CpusPending'] += cpusCount
+                    if len(desiredSites) == 1 and not runningSite:
+                        prioDict['UniquePressure'] += 1
+            if runningSite and job["JobStatus"] == 2:
+                siteDict = subtaskDict.setdefault(runningSite, {})
+                prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
+                prioDict.setdefault(status, 0)
                 prioDict[status] += 1
-                prioDict['CpusPending'] += cpusCount
-                if len(desiredSites) == 1 and not runningSite:
-                    prioDict['UniquePressure'] += 1
-        if runningSite and job["JobStatus"] == 2:
-            siteDict = subtaskDict.setdefault(runningSite, {})
-            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
-            prioDict.setdefault(status, 0)
-            prioDict[status] += 1
-            prioDict['CpusInUse'] += cpusCount
-        elif job['JobStatus'] == 2:
-            # T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]
-            siteDict = subtaskDict.setdefault("T9_UN_MachineAttrGLIDEIN_CMSSite0", {})
-            prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'CpusInUse': 0, 'CpusPending': 0})
-            prioDict[status] += 1
-            prioDict['CpusInUse'] += cpusCount
-
+                prioDict['CpusInUse'] += cpusCount
+            elif job['JobStatus'] == 2:
+                # T[0-9]_[A-Z]{2,2}_[-_A-Za-z0-9]
+                siteDict = subtaskDict.setdefault("T9_UN_MachineAttrGLIDEIN_CMSSite0", {})
+                prioDict = siteDict.setdefault(prio, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, 'CpusInUse': 0, 'CpusPending': 0})
+                prioDict[status] += 1
+                prioDict['CpusInUse'] += cpusCount
+    except RuntimeError as er:
+        print 'Received Runtime error %s' % er
+        return
 
 
 def summarize(workflows, gsites, tasks, siteview):

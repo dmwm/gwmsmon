@@ -223,13 +223,13 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
     if 'T2_CH_CERN_HLT' not in factOut.keys():
         factOut['T2_CH_CERN_HLT'] = []
     for item in hltHack:
-       inDict = False
-       for inVal in factOut['T2_CH_CERN_HLT']:
-           if cmp(item, inVal) == 0:
-               inDict = True
-               break
-       if not inDict:
-           factOut['T2_CH_CERN_HLT'].append(item)
+        inDict = False
+        for inVal in factOut['T2_CH_CERN_HLT']:
+            if cmp(item, inVal) == 0:
+                inDict = True
+                break
+        if not inDict:
+            factOut['T2_CH_CERN_HLT'].append(item)
 
 
 def parseConfigXML(entries, output, factoryName, entryMappings, factoryentries, factOut1):
@@ -543,11 +543,11 @@ def writeRrds(totals, sites, xmlout, output, factoryout):
     cpususe = totals['Summary']['CpusInUse']
     cpuspen = totals['Summary']['CpusPending']
     fname = str(os.path.join(output, "summary.rrd"))
-    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U" ]
+    tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:CpusUse:GAUGE:360:U:U", "DS:CpusPen:GAUGE:360:U:U"]
     tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, running, idle, cpususe, cpuspen)
     rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
 
-    counters = {"T0": [0, 0, 0, 0], "T1": [0, 0, 0, 0], "T2": [0, 0, 0, 0], "T3":[0, 0, 0, 0]}
+    counters = {"T0": [0, 0, 0, 0], "T1": [0, 0, 0, 0], "T2": [0, 0, 0, 0], "T3": [0, 0, 0, 0]}
     for site, siteDict in sites['Summary'].items():
         # Make global statistics about fairshare
         updateLine = [0, 0, 0, 0]
@@ -603,7 +603,6 @@ def writeRrds(totals, sites, xmlout, output, factoryout):
     tempKeys = ["DS:CpusInUseProd:GAUGE:360:U:U", "DS:RunningProd:GAUGE:360:U:U", "DS:CpusInUseAna:GAUGE:360:U:U", "DS:RunningAna:GAUGE:360:U:U"]
     tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, countSumAll[0], countSumAll[1], countSumAll[2], countSumAll[3])
     rrdUpdate(fname, tempKeys, tempUpdLine, GSTARTUP)
-
 
     fname = str(os.path.join(factoryout, 'summary.rrd'))
     summary = xmlout['Summary']
