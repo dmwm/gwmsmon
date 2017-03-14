@@ -241,7 +241,9 @@
                 pool_stats_table.append("<tr><th>Running "+ coll_key +"</th><td>" + data.Collector[coll_key] + "</td></tr>");
             }
         }
-        pool_stats_table.append("<tr><th>Negotiation time</th><td>" + data.Negotiation + "</td></tr>");
+        pool_stats_table.append("<tr><th>Negotiation time</th><td>" + data.Negotiation.NEGOTIATOR + "</td></tr>");
+        pool_stats_table.append("<tr><th>Negotiation time(T1)</th><td>" + data.Negotiation.NEGOTIATORT1 + "</td></tr>");
+        pool_stats_table.append("<tr><th>Negotiation time(US)</th><td>" + data.Negotiation.NEGOTIATORUS + "</td></tr>");
         pool_stats_table.append("<tr><th>Update time</th><td>" + new Date(data.Summary.UpdateTime*1000).toLocaleString() + "</td></tr>");
         $("#request_slots_table").append(pool_stats_table);
         drawPoolStatsImgs(currentview, 'negotiation', 'overall_top_img');
@@ -261,7 +263,7 @@
         table_data.addColumn("string", "Daily History");
         table_data.addColumn("string", "Weekly History");
         for (schedd_key in data){
-            if (schedd_key !== "Summary" && schedd_key !== "Collector" && schedd_key !== "Negotiation"){
+            if (schedd_key !== "Summary" && schedd_key !== "Collector" && schedd_key !== "Negotiation" && schedd_key !== "UserSummary"){
                 schedd_data = data[schedd_key];
                 var image_htmlh = '<img src="/poolview/graphs/' + schedd_key + '/hourly"/>';
                 var image_htmld = '<img src="/poolview/graphs/' + schedd_key + '/daily"/>';

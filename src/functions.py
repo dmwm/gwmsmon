@@ -11,7 +11,28 @@ import htcondor
 import datetime
 import time
 import subprocess
+import signal
 from timeout import timeout
+
+
+class TimeoutError1(Exception):
+     pass
+ 
+class timeout1:
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError1(self.error_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
+
 
 def parseArgs():
     """ parse all arguments from config file. """
@@ -132,19 +153,24 @@ def getCollectors(pool, pool1, main=False):
         coll1 = htcondor.Collector(pool1)
         return coll, coll1
 
-
 def getSchedds(opts, pool, query, keys):
     """TODO doc"""
     scheddAds = None
     print 'Getting schedd names from: ', pool
-    if pool:
-        coll = htcondor.Collector(pool)
-    else:
-        coll = htcondor.Collector()
+    print time.time()
     try:
-        scheddAds = coll.query(htcondor.AdTypes.Schedd, query, keys)
-    except IOError as er:
-        print 'Got IOError', er
+        with timeout1(10):
+            if pool:
+                coll = htcondor.Collector(pool)
+            else:
+                coll = htcondor.Collector()
+            try:
+                scheddAds = coll.query(htcondor.AdTypes.Schedd, query, keys)
+            except IOError as er:
+                print 'Got IOError', er
+    except TimeoutError1 as er:
+        print 'Got error: %s' % er
+
     if not scheddAds:
         # This should not happen, if happens, means something wrong...
         if opts.pool1:

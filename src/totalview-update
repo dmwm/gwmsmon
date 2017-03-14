@@ -57,6 +57,7 @@ def queryFactory(coll, output):
 def summarizeSchedds(scheddsInfo, scheddAds, warningsErrors):
     """ TODO: write it. """
     for ad in scheddAds:
+        print ad
         # ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs', 'TotalHeldJobs', 'MaxJobsRunning']
         name = ad['Name'].replace("@", "-").replace(".", "-")
         scheddsInfo[name] = {"Summary": {"Unexpanded": 0, "Idle": 0, "Running": 0, "Removed": 0, "Completed": 0, "Held": 0, "Submission_err": 0, "Unknown": 0}}
@@ -387,7 +388,14 @@ def writeScheddInfo(basedir, scheddsInfo):
     fname = os.path.join(basedir, 'difference.rrd')
     rrdUpdate(fname, ["DS:Current:GAUGE:360:U:U"], "%d:%d" % (GSTARTUP, scheddsInfo['Collector']['DIFF']), GSTARTUP)
     fname = os.path.join(basedir, 'negotiation.rrd')
-    rrdUpdate(fname, ["DS:NegotiationTime:GAUGE:360:U:U", "DS:Ideally:GAUGE:360:U:U"], "%d:%d:%d" % (GSTARTUP, scheddsInfo['Negotiation'], 300), GSTARTUP)
+    updateKeys = ["DS:NegotiationTime:GAUGE:360:U:U", "DS:NegotiationTimeT1:GAUGE:360:U:U", "DS:NegotiationTimeUS:GAUGE:360:U:U", "DS:Ideally:GAUGE:360:U:U"]
+    updateLine = ""
+    for name in ['NEGOTIATOR', 'NEGOTIATORT1', 'NEGOTIATORUS']:
+        if name not in scheddsInfo['Negotiation'].keys():
+            updateLine += ":%d" % 0
+        else:
+            updateLine += ":%d" % scheddsInfo['Negotiation'][name]
+    rrdUpdate(fname, updateKeys, "%d%s:%d" % (GSTARTUP, updateLine, 300), GSTARTUP)
     return
 
 
@@ -652,19 +660,19 @@ def queryWithRetries(pool, queryType, const, values, retries=2):
 
 def poolDiffNeg(scheddsInfo, opts):
     scheddsInfo['Collector'] = {}
-    scheddsInfo['Negotiation'] = 0
+    scheddsInfo['Negotiation'] = {}
     for item in [opts.pool, opts.pool1]:
-        entries = queryWithRetries(item, htcondor.AdTypes.Any, 'State=?="Claimed"', ['Name'])
+        entries = queryWithRetries(item.split(":")[0], htcondor.AdTypes.Any, 'State=?="Claimed"', ['Name'])
         scheddsInfo['Collector'][item] = len(entries)
     # See the diff
     scheddsInfo['Collector']['DIFF'] = (scheddsInfo['Collector'][opts.pool] - scheddsInfo['Collector'][opts.pool1])
     scheddsInfo['Collector']['INFO'] = "Difference between collector total job counts: %s (%s) - %s (%s) = %s" % (scheddsInfo['Collector'][opts.pool], opts.pool, scheddsInfo['Collector'][opts.pool1], opts.pool1, scheddsInfo['Collector']['DIFF'])
     # Negotiation time
     for item in [opts.pool, opts.pool1]:
-        entries = queryWithRetries(item, htcondor.AdTypes.Negotiator, 'True', ['LastNegotiationCycleDuration0'])
+        entries = queryWithRetries(item.split(":")[0], htcondor.AdTypes.Negotiator, 'True', ['Name', 'LastNegotiationCycleDuration0'])
         for ad in entries:
             if 'LastNegotiationCycleDuration0' in ad:
-                scheddsInfo['Negotiation'] = ad['LastNegotiationCycleDuration0']
+                scheddsInfo['Negotiation'][ad['Name']] =  ad['LastNegotiationCycleDuration0']
 
 def main():
     """ Main function """
@@ -682,10 +690,19 @@ def main():
     # Get schedulers information
     scheddsInfo = {}
 
-    scheddAds, coll = getSchedds(opts, opts.pool, 'True', ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs',
-                                                           'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical',
-                                                           'TotalSchedulerJobsRunning', 'TotalSchedulerJobsIdle', 'StartSchedulerUniverse',
-                                                           'MyAddress', 'ScheddIpAddr'])
+    succeed = True
+    while succeed:
+        print time.time()
+        try:
+            scheddAds, coll = getSchedds(opts, opts.pool, 'True', ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs',
+                                                               'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical',
+                                                               'TotalSchedulerJobsRunning', 'TotalSchedulerJobsIdle', 'StartSchedulerUniverse',
+                                                               'MyAddress', 'ScheddIpAddr'])
+            succeed = False
+        except TimeoutError as er:
+            print time.time()
+            print er
+
 
     warningErrors = queryCommandLineSchedd(opts.pool, "Name isWarningReason isCriticalReason")
     if scheddAds:
