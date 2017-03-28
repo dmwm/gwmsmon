@@ -550,9 +550,20 @@ def main():
     sites = {}
     workflows = {}
     taskInfo = {}
+    allSchedds = []
     for ad in scheddAds:
+        allSchedds.append(ad['Name'])
         try:
             print 'Querying scheduler:', ad['Name']
+            analyzeScheddOutput(ad, workflows, taskInfo)
+        except IOError:
+            print 'Failed, Continue'
+    scheddAds, dummycoll = getSchedds(opts, opts.pool, 'CMSGWMS_Type=?="prodschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'], split = True)
+    for ad in scheddAds:
+        if ad["Name"] in allSchedds:
+            continue
+        try:
+            print 'Querying scheduler which is registered only in main collector:', ad['Name']
             analyzeScheddOutput(ad, workflows, taskInfo)
         except IOError:
             print 'Failed, Continue'

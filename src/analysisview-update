@@ -37,7 +37,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
     keys = ["CRAB_UserHN", "CRAB_ReqName", "ClusterId", "RequestMemory", 'RequestCpus', "MaxWallTimeMins",
             "JobStatus", "TaskType", "DESIRED_Sites", "MATCH_GLIDEIN_CMSSite",
             "CRAB_UserWebDir", "JobPrio", "DAG_NodesReady", "DAG_NodesUnready",
-            "DAG_NodesTotal", "DAG_NodesFailed", "DAG_NodesDone", "QDate"]
+            "DAG_NodesTotal", "DAG_NodesFailed", "DAG_NodesDone", "QDate", "GridJobStatus", "GridResource"]
     jobs = []
     try:
         with timeout(seconds=20):
@@ -84,6 +84,15 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
                 status = "Running"
             else:
                 continue
+            if job["JobStatus"] == 2 and not runningSite:
+                # Again LPC......
+                # "GridJobStatus", "GridResource"
+                # gridResource = job.get("GridResource")
+                gridJobStatus = job.get("GridJobStatus")
+                if gridJobStatus == "RUNNING" or gridJobStatus == "COMPLETED":
+                    runningSite = "T3_US_FNALLPC"
+                else:
+                    print job
             cpusCount = job['RequestCpus']
             requestDict = workflows.setdefault(request, {})
             subtaskDict = requestDict.setdefault(subTask, {})

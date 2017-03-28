@@ -670,6 +670,7 @@ def poolDiffNeg(scheddsInfo, opts):
     # Negotiation time
     for item in [opts.pool, opts.pool1]:
         entries = queryWithRetries(item.split(":")[0], htcondor.AdTypes.Negotiator, 'True', ['Name', 'LastNegotiationCycleDuration0'])
+        print entries
         for ad in entries:
             if 'LastNegotiationCycleDuration0' in ad:
                 scheddsInfo['Negotiation'][ad['Name']] =  ad['LastNegotiationCycleDuration0']
@@ -697,14 +698,14 @@ def main():
             scheddAds, coll = getSchedds(opts, opts.pool, 'True', ['Name', 'CMSGWMS_Type', 'Machine', 'TotalRunningJobs', 'TotalIdleJobs',
                                                                'TotalHeldJobs', 'MaxJobsRunning', 'IsOK', 'isWarning', 'isCritical',
                                                                'TotalSchedulerJobsRunning', 'TotalSchedulerJobsIdle', 'StartSchedulerUniverse',
-                                                               'MyAddress', 'ScheddIpAddr'])
+                                                               'MyAddress', 'ScheddIpAddr'], split = True)
             succeed = False
         except TimeoutError as er:
             print time.time()
             print er
 
 
-    warningErrors = queryCommandLineSchedd(opts.pool, "Name isWarningReason isCriticalReason")
+    warningErrors = queryCommandLineSchedd(opts.pool.split(":")[0], "Name isWarningReason isCriticalReason")
     if scheddAds:
         summarizeSchedds(scheddsInfo, scheddAds, warningErrors)
     poolDiffNeg(scheddsInfo, opts)

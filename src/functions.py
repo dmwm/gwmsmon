@@ -153,15 +153,18 @@ def getCollectors(pool, pool1, main=False):
         coll1 = htcondor.Collector(pool1)
         return coll, coll1
 
-def getSchedds(opts, pool, query, keys):
+def getSchedds(opts, pool, query, keys, split = False):
     """TODO doc"""
     scheddAds = None
-    print 'Getting schedd names from: ', pool
+    print 'Getting schedd names from: ', pool if not split else pool.split(":")[0]
     print time.time()
     try:
         with timeout1(10):
             if pool:
-                coll = htcondor.Collector(pool)
+                if split:
+                    coll = htcondor.Collector(pool.split(":")[0])
+                else:
+                    coll = htcondor.Collector(pool)
             else:
                 coll = htcondor.Collector()
             try:
@@ -174,7 +177,7 @@ def getSchedds(opts, pool, query, keys):
     if not scheddAds:
         # This should not happen, if happens, means something wrong...
         if opts.pool1:
-            scheddAds, coll = getSchedds(opts, opts.pool1, query, keys)
+            scheddAds, coll = getSchedds(opts, opts.pool1, query, keys, split)
     return scheddAds, coll
 
 
