@@ -3,6 +3,7 @@
 import re
 import os
 import json
+import copy
 import time
 import xml.etree.ElementTree as ET
 import htcondor
@@ -137,21 +138,28 @@ def hackCRAB3SchedulerJobs(scheddsInfo, ad, name):
 def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
     """ TODO """
     pilots = []
-    hltHack = []
+    hltHack = {}
     try:
         pilots = coll.query(htcondor.AdTypes.Any, 'GLIDEIN_CMSSite isnt undefined && SlotType isnt undefined',
-                            ['Name', 'PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State', 'Memory', 'TotalMemory', 'ChildMemory', 'ChildCpus', 'ChildAccountingGroup', 'AccountingGroup', 'GLIDEIN_ToRetire', 'GLIDEIN_ToDie'])
+                            ['Name', 'PartitionableSlot', 'GLIDEIN_CMSSite', 'TotalSlotCpus', 'Cpus', 'SlotType', 'State', 'Memory', 'TotalMemory', 'ChildMemory', 'ChildCpus', 'ChildAccountingGroup', 'AccountingGroup', 'GLIDEIN_ToRetire', 'GLIDEIN_ToDie', 'HAS_SINGULARITY', 'GLIDEIN_Max_Walltime', 'GLIDEIN_REQUIRED_OS'])
     except IOError as er:
         print 'Got IOError %s' % er
         return
     for item in pilots:
-        #if item['Name'] in alreadyKnownPilot:
-        #    continue
-        #alreadyKnownPilot.append(item['Name'])
         if 'PartitionableSlot' in item:
-            if item['GLIDEIN_CMSSite'] == 'T2_CH_CERN_HLT':
-                hltHack.append({'MaxMemMB': item['TotalMemory'], 'MaxWallTime': int(3600), 'MaxCpus': int(item['TotalSlotCpus'])})
-            # Means we have partitionable slot and some info about it
+            singularity = item['HAS_SINGULARITY'] if 'HAS_SINGULARITY' in item else 'undefined'
+            reqOS = item['GLIDEIN_REQUIRED_OS'] if 'GLIDEIN_REQUIRED_OS' in item else 'undefined'
+            walltime = int(item['GLIDEIN_Max_Walltime']/60) if 'GLIDEIN_Max_Walltime' in item else 480
+            tmpDict = {'MaxMemMB': item['TotalMemory'], 'MaxWallTime': walltime, 'MaxCpus': int(item['TotalSlotCpus']), 'SINGULARITY': str(singularity), 'OS': reqOS}
+            inDict = False
+            if item['GLIDEIN_CMSSite'] not in hltHack.keys():
+                hltHack[item['GLIDEIN_CMSSite']] = []
+            for inVal in hltHack[item['GLIDEIN_CMSSite']]:
+                if cmp(tmpDict, inVal) == 0:
+                    inDict = True
+            if not inDict:
+                hltHack[item['GLIDEIN_CMSSite']].append(tmpDict)
+            # Means we have partitionable slot and some info about HLT and there is more info which is only in a pilot
             # and we don`t care about state as in Static
             slotInfo = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault(item['SlotType'], {'CpusUse': 0, 'CpusFree': 0})
             pilotStats = pilotUsage.setdefault(item['GLIDEIN_CMSSite'], {}).setdefault("PilotStatistics", {})
@@ -198,6 +206,19 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
             if item['Name'] in pilotStats:
                 #print 'Already here', item
                 continue
+            singularity = item['HAS_SINGULARITY'] if 'HAS_SINGULARITY' in item else 'undefined'
+            walltime = int(item['GLIDEIN_Max_Walltime']/60) if 'GLIDEIN_Max_Walltime' in item else 480
+            reqOS = item['GLIDEIN_REQUIRED_OS'] if 'GLIDEIN_REQUIRED_OS' in item else 'undefined'
+            tmpDict = {'MaxMemMB': item['Memory'], 'MaxWallTime': walltime, 'MaxCpus': int(item['TotalSlotCpus']), 'SINGULARITY': str(singularity), 'OS': reqOS}
+            inDict = False
+            if item['GLIDEIN_CMSSite'] not in hltHack.keys():
+                hltHack[item['GLIDEIN_CMSSite']] = []
+            for inVal in hltHack[item['GLIDEIN_CMSSite']]:
+                if cmp(tmpDict, inVal) == 0:
+                    inDict = True
+            if not inDict:
+                hltHack[item['GLIDEIN_CMSSite']].append(tmpDict)
+
             pilotStatsN = pilotStats.setdefault(item['Name'], {'TotalSlotCpus': item['TotalSlotCpus'],
                                                                'Cpus': item['Cpus'],
                                                                'TotalMemory': item['Memory'],
@@ -221,19 +242,20 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
             out = pilotUsage.setdefault('Summary', {}).setdefault(slot, {'CpusUse': 0, 'CpusFree': 0})
             out['CpusUse'] += slotDict['CpusUse']
             out['CpusFree'] += slotDict['CpusFree']
-    if 'T2_CH_CERN_HLT' not in factOut.keys():
-        factOut['T2_CH_CERN_HLT'] = []
-    for item in hltHack:
-        inDict = False
-        for inVal in factOut['T2_CH_CERN_HLT']:
-            if cmp(item, inVal) == 0:
-                inDict = True
-                break
-        if not inDict:
-            factOut['T2_CH_CERN_HLT'].append(item)
+    for siteName, values in hltHack.items():
+        if siteName  not in factOut:
+            factOut[siteName] = []
+        for value in values:
+            inDict = False
+            for inVal in factOut[siteName]:
+                if cmp(value, inVal) == 0:
+                    inDict = True
+                    break
+            if not inDict:
+                factOut[siteName].append(value)
 
 
-def parseConfigXML(entries, output, factoryName, entryMappings, factoryentries, factOut1):
+def parseConfigXML(entries, output, factoryName, entryMappings, factoryentries, factOut):
     """ TODO doc """
     for entry in entries:
         entryName = entry.get('name')
@@ -245,17 +267,22 @@ def parseConfigXML(entries, output, factoryName, entryMappings, factoryentries, 
         cpus = attr.get('GLIDEIN_CPUS', 0)
         maxHeld = ettr.get('DefaultPerFrontendMaxHeld')
         maxIdle = ettr.get('DefaultPerFrontendMaxIdle')
+        reqOS = attr.get('GLIDEIN_REQUIRED_OS')
         if siteName and entryName and maxHeld and maxIdle:
             for siteNew in [siteName, str(siteName + "_OSG")]:
-                dataAppend = {'MaxMemMB': int(mem), 'MaxWallTime': int(int(walltime)/60), 'MaxCpus': int(cpus)}
-                if siteNew not in output:
-                    factOut1[siteNew] = []
+                dataAppend = {'MaxMemMB': int(mem), 'MaxWallTime': int(int(walltime)/60), 'MaxCpus': int(cpus), 'OS': reqOS}
+                if siteNew not in factOut:
+                    factOut[siteNew] = []
                 inDict = False
-                for item in factOut1[siteNew]:
-                    if cmp(item, dataAppend) == 0:
+                for item in factOut[siteNew]:
+                    tmpitem = copy.deepcopy(item)
+                    del tmpitem['SINGULARITY']
+                    if cmp(tmpitem, dataAppend) == 0:
                         inDict = True
+                        break
                 if not inDict:
-                    factOut1[siteNew].append(dataAppend)
+                    dataAppend['SINGULARITY'] = 'undefined'
+                    factOut[siteNew].append(dataAppend)
             try:
                 maxHeld = int(maxHeld)
                 maxIdle = int(maxIdle)
@@ -272,14 +299,18 @@ def parseConfigXML(entries, output, factoryName, entryMappings, factoryentries, 
         else:
             dataAppend = {'MaxMemMB': int(mem), 'MaxWallTime': int(int(walltime)/60), 'MaxCpus': int(cpus)}
             siteNew = 'T4_OSG_' + entryName
-            if siteNew not in output:
-                factOut1[siteNew] = []
+            if siteNew not in factOut:
+                factOut[siteNew] = []
             inDict = False
-            for item in factOut1[siteNew]:
-                if cmp(item, dataAppend) == 0:
+            for item in factOut[siteNew]:
+                tmpitem = copy.deepcopy(item)
+                del tmpitem['SINGULARITY']
+                if cmp(tmpitem, dataAppend) == 0:
                     inDict = True
+                    break
             if not inDict:
-                factOut1[siteNew].append(dataAppend)
+                dataAppend['SINGULARITY'] = 'undefined'
+                factOut[siteNew].append(dataAppend)
         factsiteEntries = factoryentries.setdefault(entryName, {})
         if siteName:
             siteEntry = factsiteEntries.setdefault(siteName, {})
@@ -684,10 +715,10 @@ def main():
     xmlOut = {}  # Used from parsing xmls
     entryMappings = {}  # Used for entries mapping from factory xmls
     # Move this list to configuration
-    for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0805.cern.ch']:
-        print 'Query %s factory' % factory
-        collF = htcondor.Collector(factory)
-        queryFactory(collF, factOut)
+    #for factory in ['gfactory-1.t2.ucsd.edu', 'cmsgwms-factory.fnal.gov', 'glidein.grid.iu.edu', 'vocms0805.cern.ch']:
+    #    print 'Query %s factory' % factory
+    #    collF = htcondor.Collector(factory)
+    #    queryFactory(collF, factOut)
     # Get schedulers information
     scheddsInfo = {}
 
