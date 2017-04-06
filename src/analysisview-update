@@ -49,6 +49,15 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
     print '2', time.time()
     try:
         for job in jobs:
+            failedCheck = False
+            for keyN in ['CRAB_UserHN', 'TaskType']:
+                if keyN not in job:
+                    print 'No idea what is this job... %s Missing Key %s' % (job, keyN)
+
+                    failedCheck = True
+            if failedCheck:
+                continue
+
             request = re.sub('[:]', '', job['CRAB_UserHN'])
             mainTaskName = job['CRAB_ReqName']
             subTask = re.sub('[:]', '', mainTaskName)

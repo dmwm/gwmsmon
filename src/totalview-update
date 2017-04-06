@@ -268,9 +268,21 @@ def parseConfigXML(entries, output, factoryName, entryMappings, factoryentries, 
         maxHeld = ettr.get('DefaultPerFrontendMaxHeld')
         maxIdle = ettr.get('DefaultPerFrontendMaxIdle')
         reqOS = attr.get('GLIDEIN_REQUIRED_OS')
+        try:
+            mem = int(mem)
+        except ValueError:
+            mem = mem
+        try:
+            walltime = int(int(walltime)/60)
+        except ValueError:
+            walltime = walltime
+        try:
+            cpus = int(cpus)
+        except ValueError:
+            cpus = cpus
         if siteName and entryName and maxHeld and maxIdle:
             for siteNew in [siteName, str(siteName + "_OSG")]:
-                dataAppend = {'MaxMemMB': int(mem), 'MaxWallTime': int(int(walltime)/60), 'MaxCpus': int(cpus), 'OS': reqOS}
+                dataAppend = {'MaxMemMB': mem, 'MaxWallTime': walltime, 'MaxCpus': cpus, 'OS': reqOS}
                 if siteNew not in factOut:
                     factOut[siteNew] = []
                 inDict = False
@@ -297,7 +309,7 @@ def parseConfigXML(entries, output, factoryName, entryMappings, factoryentries, 
             factoryInfo['maxIdle'] = maxIdle
             factoryInfo['maxHeld'] = maxHeld
         else:
-            dataAppend = {'MaxMemMB': int(mem), 'MaxWallTime': int(int(walltime)/60), 'MaxCpus': int(cpus)}
+            dataAppend = {'MaxMemMB': mem, 'MaxWallTime': walltime, 'MaxCpus': cpus , 'OS': reqOS}
             siteNew = 'T4_OSG_' + entryName
             if siteNew not in factOut:
                 factOut[siteNew] = []
