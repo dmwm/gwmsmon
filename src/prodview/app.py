@@ -1,10 +1,10 @@
-
+""" Main Application """
+# pylint: disable=line-too-long
 import os
 import re
 import time
-import json
-import urllib
 import urllib2
+import datetime
 import ConfigParser
 
 import genshi.template
@@ -15,22 +15,13 @@ _initialized = None
 _loader = None
 _cp = None
 _view = None
-
 # memoryusage|exitcodes|runtime
 # ExitCodesQueries
 # --------------------------------------------------------------------------------
-QUERIES = {'exitcodes': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}', 
-            'exitcodes1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}',
-            'exitcodes2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}',
-            'memoryusage': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
-            'memoryusage1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
-            'memoryusage2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
-            'runtime': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
-            'runtime1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
-            'runtime2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
-            'memorycpu': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1}}}}}}',
-           'memorycpu1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2" : {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1}}}}}}',
-           'memorycpu2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1 }}}}}}'}
+QUERIES = {'exitcodes': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true} {"size":0,"query":{"filtered":{"query":{"query_string": {"query":"_exists_:%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"ExitCode","size":1000,"order":{"_count":"desc"}}}}}',
+           'memoryusage': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true} {"size":0,"query":{"filtered":{"query":{"query_string": {"query":"_exists_:%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
+           'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true} {"size":0,"query":{"filtered":{"query":{"query_string": {"query":"_exists_:%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
+           'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true} {"size":0,"query":{"filtered":{"query":{"query_string": {"query":"_exists_:%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1}}}}}}'}
 
 
 def check_initialized(environ):
@@ -42,12 +33,12 @@ def check_initialized(environ):
             _loader = genshi.template.TemplateLoader(environ['prodview.templates'], auto_reload=True)
         else:
             _loader = genshi.template.TemplateLoader('/usr/share/prodview/templates', auto_reload=True)
-        tmp_cp = ConfigParser.ConfigParser()
+        tmpCp = ConfigParser.ConfigParser()
         if 'prodview.config' in environ:
-            tmp_cp.read(environ['prodview.config'])
+            tmpCp.read(environ['prodview.config'])
         else:
-            tmp_cp.read('/etc/prodview.conf')
-        _cp = tmp_cp
+            tmpCp.read('/etc/prodview.conf')
+        _cp = tmpCp
         _initialized = True
 
 
@@ -59,14 +50,12 @@ def static_file_server(fname):
 
 
 def serve_static_file(fname, environ, start_response):
-    static_file = os.path.join(_cp.get(_view, "basedir"), fname)
+    staticFile = os.path.join(_cp.get(_view, "basedir"), fname)
 
     try:
-        fp = open(static_file, "r")
+        fp = open(staticFile, "r")
     except:
         raise
-        yield not_found(environ, start_response)
-        return
 
     status = '200 OK'
     headers = [('Content-type', 'application/json'),
@@ -79,6 +68,7 @@ def serve_static_file(fname, environ, start_response):
             break
         yield buffer
 
+
 def database_output_server(values, url, index):
     url = url + "/" + index + "/_search"
     print values
@@ -86,8 +76,8 @@ def database_output_server(values, url, index):
     valueslen = len(values)
     req = urllib2.Request(url, values, {'Content-Type': 'application/json', 'Content-Length': valueslen})
     response = urllib2.urlopen(req)
-    the_page = response.read()
-    return the_page
+    thePage = response.read()
+    return thePage
 
 _totals_json_re = re.compile(r'^/*json/totals$')
 totals_json = static_file_server("totals.json")
@@ -136,7 +126,7 @@ def request_totals_json(environ, start_response):
     m = _request_totals_json_re.match(path)
     request = m.groups()[0]
     fname = os.path.join(_cp.get(_view, "basedir"), request, "totals.json")
-    
+
     for result in serve_static_file(fname, environ, start_response):
         yield result
 
@@ -179,23 +169,30 @@ def history_stats(environ, start_response):
     m = _history_stats_re.match(path)
     defaultDict = {}
     if _view == 'prodview':
-        defaultDict = {"key1": "WorkflowRAW", "key2": "TaskType"}
+        defaultDict = {"key1": "WMAgent_RequestName", "key2": "Workflow"}
     else:
-        defaultDict = {"key1": "User", "key2": "WorkflowRAW"}
+        defaultDict = {"key1": "CRAB_UserHN", "key2": "CRAB_Workflow"}
     queryType = m.groups()[0]
     try:
         daysBefore = int(m.groups()[1])
         defaultDict["lte"] = int(timeNow * 1000)
         defaultDict["gte"] = int((timeNow - (3600 * daysBefore)) * 1000)
+        indexes = []
+        for days in range(0, daysBefore):
+            dateval = datetime.datetime.now() - datetime.timedelta(days=days)
+            indexes.append("cms-%s" % dateval)
+        defaultDict["indexes"] = indexes
         if m.groups()[3]:
-            defaultDict['workflow'] = m.groups()[2]
-            defaultDict['tasktype'] = m.groups()[3]
-            queryType += '2'
+            defaultDict['mandkey'] = "_exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
+            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2])
+            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[3])
         elif m.groups()[2]:
-            defaultDict['workflow'] = m.groups()[2]
-            queryType += '1'
-        return [ database_output_server(QUERIES[queryType] % defaultDict, url, index) ]
-    except OSError as er:
+            defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
+            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2])
+        else:
+            defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
+        return [database_output_server(QUERIES[queryType] % defaultDict, url, index)]
+    except OSError:
         return ['Failed to get data. Contact Experts!']
 # fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
 
@@ -212,31 +209,31 @@ def request_graph(environ, start_response):
     interval = "daily"
     request = m.groups()[1]
     if m.groups()[2]:
-        interval=m.groups()[2]
+        interval = m.groups()[2]
     if m.groups()[0]:
         if m.groups()[0] == 'scheddwarning':
-            return [ rrd.scheddwarning(_cp.get(_view, "basedir"), interval, request) ]
+            return [rrd.scheddwarning(_cp.get(_view, "basedir"), interval, request)]
         elif m.groups()[0] == 'dagmans':
-            return [ rrd.dagmans(_cp.get(_view, "basedir"), interval, request) ]
+            return [rrd.dagmans(_cp.get(_view, "basedir"), interval, request)]
     if _view == 'poolview':
-        return [ rrd.oldrequest(_cp.get(_view, "basedir"), interval, request) ]
-    return [ rrd.request(_cp.get(_view, "basedir"), interval, request) ]
+        return [rrd.oldrequest(_cp.get(_view, "basedir"), interval, request)]
+    return [rrd.request(_cp.get(_view, "basedir"), interval, request)]
 
 _priority_summary_graph_re = re.compile(r'^/*graphs/prioritysummary(idle|running|cpusinuse|cpuspending)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def priority_summary_graph(environ, start_response):
-     status = '200 OK'
-     headers = [('Content-type', 'image/png'),
-                ('Cache-Control', 'max-age=60, public')]
-     start_response(status, headers)
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
 
-     path = environ.get('PATH_INFO', '')
-     m = _priority_summary_graph_re.match(path)
-     interval = "daily"
-     jobType = m.groups()[0].title()
-     if m.groups()[1]:
-         interval=m.groups()[1]
+    path = environ.get('PATH_INFO', '')
+    m = _priority_summary_graph_re.match(path)
+    interval = "daily"
+    jobType = m.groups()[0].title()
+    if m.groups()[1]:
+        interval = m.groups()[1]
 
-     return [ rrd.priority_summary_graph(_cp.get(_view, "basedir"), interval, jobType) ]
+    return [rrd.priority_summary_graph(_cp.get(_view, "basedir"), interval, jobType)]
 
 _priority_summary_graph_site_re = re.compile(r'^/*graphs/siteprioritysummary(idle|running|cpusinuse|cpuspending)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def priority_summary_site_graph(environ, start_response):
@@ -253,7 +250,7 @@ def priority_summary_site_graph(environ, start_response):
     if m.groups()[2]:
         interval=m.groups()[2]
 
-    return [ rrd.priority_summary_graph(_cp.get(_view, "basedir"), interval, jobType, siteName) ]
+    return [rrd.priority_summary_graph(_cp.get(_view, "basedir"), interval, jobType, siteName)]
 
 _request_starvation_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/starvation/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_starvation_graph(environ, start_response):
@@ -269,7 +266,7 @@ def request_starvation_graph(environ, start_response):
     if m.groups()[1]:
         interval=m.groups()[1]
 
-    return [ rrd.request_starvation(_cp.get(_view, "basedir"), interval, request) ]
+    return [rrd.request_starvation(_cp.get(_view, "basedir"), interval, request)]
 
 _request_overTime_graph_re = re.compile(r'^/*graphs/overtime(jobs|cpus)/([-_A-Za-z0-9]+)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_overTime_graph(environ, start_response):
@@ -289,7 +286,7 @@ def request_overTime_graph(environ, start_response):
         subrequest = ''
     if subrequest == 'ALL':
         subrequest = ''
-    return [ rrd.request_overTime(_cp.get(_view, "basedir"), interval, request, subrequest, qType) ]
+    return [rrd.request_overTime(_cp.get(_view, "basedir"), interval, request, subrequest, qType)]
 
 _request_overMemUse_graph_re = re.compile(r'^/*graphs/overmemuse(jobs|cpus)/([-_A-Za-z0-9]+)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_overMemUse_graph(environ, start_response):
@@ -309,16 +306,16 @@ def request_overMemUse_graph(environ, start_response):
         subrequest = ''
     if subrequest == 'ALL':
         subrequest = ''
-    
-    return [ rrd.request_overMemUse(_cp.get(_view, "basedir"), interval, request, subrequest, qType) ]
+
+    return [rrd.request_overMemUse(_cp.get(_view, "basedir"), interval, request, subrequest, qType)]
 
 def validate_request(path, request_re):
-        m = request_re.match(path)
-        grouped = m.groups()
-        site = grouped[0]
-        request = None if not grouped[1] else grouped[1]
-        interval = 'daily' if not grouped[2] else grouped[2]
-        return site, request, interval
+    m = request_re.match(path)
+    grouped = m.groups()
+    site = grouped[0]
+    request = None if not grouped[1] else grouped[1]
+    interval = 'daily' if not grouped[2] else grouped[2]
+    return site, request, interval
 
 _request_held_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/held/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_held_graph(environ, start_response):
@@ -328,7 +325,7 @@ def request_held_graph(environ, start_response):
     start_response(status, headers)
     path = environ.get('PATH_INFO', '')
     site, request, interval = validate_request(path, _request_held_graph_re)
-    return [ rrd.request_held(_cp.get(_view, "basedir"), interval, request, site) ]
+    return [rrd.request_held(_cp.get(_view, "basedir"), interval, request, site)]
 
 _request_idle_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/idle/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_idle_graph(environ, start_response):
@@ -338,7 +335,7 @@ def request_idle_graph(environ, start_response):
     start_response(status, headers)
     path = environ.get('PATH_INFO', '')
     site, request, interval = validate_request(path, _request_idle_graph_re)
-    return [ rrd.request_idle(_cp.get(_view, "basedir"), interval, request, site) ]
+    return [rrd.request_idle(_cp.get(_view, "basedir"), interval, request, site)]
 
 _request_joint_graph_re = re.compile(r'^/*graphs/+(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?([-_A-Za-z0-9]+)?/joint/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_joint_graph(environ, start_response):
@@ -348,7 +345,7 @@ def request_joint_graph(environ, start_response):
     start_response(status, headers)
     path = environ.get('PATH_INFO', '')
     site, request, interval = validate_request(path, _request_joint_graph_re)
-    return [ rrd.request_joint(_cp.get(_view, "basedir"), interval, request, site) ]
+    return [rrd.request_joint(_cp.get(_view, "basedir"), interval, request, site)]
 
 _subtask_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/+([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def subtask_graph(environ, start_response):
@@ -363,9 +360,9 @@ def subtask_graph(environ, start_response):
     request = m.groups()[0]
     subtask = m.groups()[1]
     if m.groups()[2]:
-        interval=m.groups()[2]
+        interval = m.groups()[2]
 
-    return [ rrd.subtask(_cp.get(_view, "basedir"), interval, request, subtask) ]
+    return [rrd.subtask(_cp.get(_view, "basedir"), interval, request, subtask)]
 
 
 _site_graph_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -380,8 +377,8 @@ def site_graph(environ, start_response):
     interval = "daily"
     site = m.groups()[1]
     if m.groups()[2]:
-        interval=m.groups()[2]
-    return [ rrd.site(_cp.get(_view, "basedir"), interval, site) ]
+        interval = m.groups()[2]
+    return [rrd.site(_cp.get(_view, "basedir"), interval, site)]
 
 _site_graph_fair_re = re.compile(r'^/*graphs/(T[-_A-Za-z0-9]+)/fairshare/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def site_graph_fair(environ, start_response):
@@ -395,9 +392,9 @@ def site_graph_fair(environ, start_response):
     interval = "daily"
     site = m.groups()[0]
     if m.groups()[1]:
-        interval=m.groups()[1]
+        interval = m.groups()[1]
 
-    return [ rrd.site_fair(_cp.get(_view, "basedir"), interval, site) ]
+    return [rrd.site_fair(_cp.get(_view, "basedir"), interval, site)]
 
 _site_graph_util_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/utilization/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def site_graph_util(environ, start_response):
@@ -405,15 +402,15 @@ def site_graph_util(environ, start_response):
     headers = [('Content-type', 'image/png'),
                ('Cache-Control', 'max-age=60, public')]
     start_response(status, headers)
- 
+
     path = environ.get('PATH_INFO', '')
     m = _site_graph_util_re.match(path)
     interval = "daily"
     site = m.groups()[0]
     if m.groups()[1]:
-         interval=m.groups()[1]
- 
-    return [ rrd.site_util(_cp.get(_view, "basedir"), interval, site) ]
+        interval = m.groups()[1]
+
+    return [rrd.site_util(_cp.get(_view, "basedir"), interval, site)]
 
 _pilot_graph_re = re.compile(r'^/*graphs/(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/(static|partitionable|full)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def pilot_graph_use(environ, start_response):
@@ -421,16 +418,16 @@ def pilot_graph_use(environ, start_response):
     headers = [('Content-type', 'image/png'),
                ('Cache-Control', 'max-age=60, public')]
     start_response(status, headers)
- 
+
     path = environ.get('PATH_INFO', '')
     m = _pilot_graph_re.match(path)
     interval = "daily"
     site = m.groups()[0]
     gType = m.groups()[1]
     if m.groups()[2]:
-        interval=m.groups()[2]
+        interval = m.groups()[2]
 
-    return [ rrd.pilot_graph(_cp.get(_view, "basedir"), interval, site, gType) ]
+    return [rrd.pilot_graph(_cp.get(_view, "basedir"), interval, site, gType)]
 
 
 _request_site_graph_re = re.compile(r'^/*graphs/([-_A-Za-z0-9]+)/(T[0-9]_[A-Z]{2,3}_[-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -446,9 +443,9 @@ def request_site_graph(environ, start_response):
     request = m.groups()[0]
     site = m.groups()[1]
     if m.groups()[2]:
-        interval=m.groups()[2]
+        interval = m.groups()[2]
 
-    return [ rrd.request_site(_cp.get(_view, "basedir"), interval, request, site) ]
+    return [rrd.request_site(_cp.get(_view, "basedir"), interval, request, site)]
 
 
 _summary_graph_re = re.compile(r'^/*graphs/(summary|negotiation|difference)/?(hourly|weekly|daily|monthly|yearly)?/?$')
@@ -462,18 +459,18 @@ def summary_graph(environ, start_response):
     m = _summary_graph_re.match(path)
     interval = "daily"
     if m.groups()[1]:
-        interval=m.groups()[1]
+        interval = m.groups()[1]
 
     if _view == 'factoryview':
-        return [ rrd.summary(_cp.get(_view, "basedir"), interval, 'oldsummary') ]
-    return [ rrd.summary(_cp.get(_view, "basedir"), interval, m.groups()[0]) ]
+        return [rrd.summary(_cp.get(_view, "basedir"), interval, 'oldsummary')]
+    return [rrd.summary(_cp.get(_view, "basedir"), interval, m.groups()[0])]
 
 
 _request_re = re.compile(r'^/*([-_A-Za-z0-9]+)/?$')
 def request(environ, start_response):
     status = '200 OK' # HTTP Status
     headers = [('Content-type', 'text/html'),
-              ('Cache-Control', 'max-age=60, public')]
+               ('Cache-Control', 'max-age=60, public')]
     start_response(status, headers)
 
     path = environ.get('PATH_INFO', '')
@@ -505,22 +502,19 @@ def site(environ, start_response):
 def index(environ, start_response):
     status = '200 OK' # HTTP Status
     headers = [('Content-type', 'text/html'),
-              ('Cache-Control', 'max-age=60, public')]
+               ('Cache-Control', 'max-age=60, public')]
     start_response(status, headers)
-    
     tmpl = _loader.load('index.html')
-    
     return [tmpl.generate().render('html', doctype='html')]
-    
+
 
 def not_found(environ, start_response):
     status = '404 Not Found'
     headers = [('Content-type', 'text/html'),
-              ('Cache-Control', 'max-age=60, public'),
-              ('Location', '/')]
+               ('Cache-Control', 'max-age=60, public'),
+               ('Location', '/')]
     start_response(status, headers)
-    path = environ.get('PATH_INFO', '').lstrip('/')
-    return # ["Resource %s not found" % path]
+    return  # ["Resource %s not found" % path]
 
 
 subtask = not_found
@@ -578,5 +572,3 @@ def application(environ, start_response):
             environ['jobview.url_args'] = match.groups()
             return callback(environ, start_response)
     return not_found(environ, start_response)
-
-
