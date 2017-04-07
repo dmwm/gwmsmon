@@ -70,7 +70,7 @@ def serve_static_file(fname, environ, start_response):
 
 
 def database_output_server(values, url, index):
-    url = url + "/" + index + "/_search"
+    url = url + "/cms-*/_msearch?timeout=0&ignore_unavailable=true"
     print values
     print url
     valueslen = len(values)
