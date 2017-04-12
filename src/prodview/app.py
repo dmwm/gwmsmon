@@ -4,6 +4,8 @@ import os
 import re
 import time
 import shlex
+import urllib
+import urllib2
 import subprocess
 import datetime
 import ConfigParser
@@ -19,11 +21,24 @@ _view = None
 # memoryusage|exitcodes|runtime
 # ExitCodesQueries
 # --------------------------------------------------------------------------------
-QUERIES = {'exitcodes': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"ExitCode","size":1000,"order":{"_count":"desc"}}}}}\n',
-           'memoryusage': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"terms": {"field": "MemoryMB","size": 1000,"order": {"_count": "desc"}}}}}\n',
-           'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 1000, "order": { "_count": "desc"}}}}}}}\n',
-           'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 1000, "min_doc_count": 1}}}}}}\n'}
+QUERIES = {'exitcodes': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"ExitCode","size":10000,"order":{"_count":"desc"}}}}}\n',
+           'memoryusage': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"terms": {"field": "MemoryMB","size": 10000,"order": {"_count": "desc"}}}}}\n',
+           'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 10000, "order": { "_count": "desc"}}}}}}}\n',
+           'percentileruntime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"query":"ExitCode:0 AND %(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"percentiles":{"field":"CommittedWallClockHr","percents":[1,5,25,50,75,95,99]}}}}\n',
+           'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 10000, "min_doc_count": 1}}}}}}\n'}
 
+QUERIES_OLD = {'exitcodes': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}', 
+               'exitcodes1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}',
+               'exitcodes2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}',
+               'memoryusage': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
+               'memoryusage1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
+               'memoryusage2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
+               'runtime': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
+               'runtime1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
+               'runtime2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
+               'memorycpu': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1}}}}}}',
+               'memorycpu1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2" : {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1}}}}}}',
+               'memorycpu2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1 }}}}}}'}
 
 
 
@@ -77,6 +92,15 @@ def database_output_server(values, url, index):
     p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out = p.communicate()
     return out[0]
+
+
+def database_output_server_old(values, url, index):
+    url = url + "/" + index + "/_search"
+    valueslen = len(values)
+    req = urllib2.Request(url, values, {'Content-Type': 'application/json', 'Content-Length': valueslen})
+    response = urllib2.urlopen(req)
+    thePage = response.read()
+    return thePage
 
 _totals_json_re = re.compile(r'^/*json/totals$')
 totals_json = static_file_server("totals.json")
@@ -152,7 +176,7 @@ def request_site_summary_json(environ, start_response):
         yield result
 
 #_history_stats_re, history_stats
-_history_stats_re = re.compile(r'^/*json/history/(memoryusage|exitcodes|runtime|memorycpu)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$')
+_history_stats_re = re.compile(r'^/*json/historynew/(memoryusage|exitcodes|runtime|percentileruntime|memorycpu)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$')
 def history_stats(environ, start_response):
     if _view not in ['prodview', 'analysisview']:
         return not_found(environ, start_response)
@@ -177,7 +201,9 @@ def history_stats(environ, start_response):
         defaultDict["lte"] = int(timeNow * 1000)
         defaultDict["gte"] = int((timeNow - (3600 * daysBefore)) * 1000)
         indexes = []
-        for days in range(0, daysBefore):
+        ddays = int(round(float(daysBefore/24.0)))
+        ddays += 1
+        for days in range(0, ddays):
             dateval = datetime.date.today() - datetime.timedelta(days=days)
             indexes.append("cms-%s" % dateval)
         defaultDict["indexes"] = indexes
@@ -192,6 +218,43 @@ def history_stats(environ, start_response):
             defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
         return [database_output_server(QUERIES[queryType] % defaultDict, url, index)]
     except OSError:
+        return ['Failed to get data. Contact Experts!']
+# fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
+
+
+_history_stats_old_re = re.compile(r'^/*json/history/(memoryusage|exitcodes|runtime|memorycpu)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$')
+def history_stats_old(environ, start_response):
+    if _view not in ['prodview', 'analysisview']:
+        return not_found(environ, start_response)
+    timeNow = int(time.time())
+    url = _cp.get('elasticserver', "baseurlold")
+    index = _cp.get('elasticserver', _view)
+
+    status = '200 OK'
+    headers = [('Content-type', 'application/json'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+    path = environ.get('PATH_INFO', '')
+    m = _history_stats_old_re.match(path)
+    defaultDict = {}
+    if _view == 'prodview':
+        defaultDict = {"key1": "WorkflowRAW", "key2": "TaskType"}
+    else:
+        defaultDict = {"key1": "User", "key2": "WorkflowRAW"}
+    queryType = m.groups()[0]
+    try:
+        daysBefore = int(m.groups()[1])
+        defaultDict["lte"] = int(timeNow * 1000)
+        defaultDict["gte"] = int((timeNow - (3600 * daysBefore)) * 1000)
+        if m.groups()[3]:
+            defaultDict['workflow'] = m.groups()[2]
+            defaultDict['tasktype'] = m.groups()[3]
+            queryType += '2'
+        elif m.groups()[2]:
+            defaultDict['workflow'] = m.groups()[2]
+            queryType += '1'
+        return [ database_output_server_old(QUERIES_OLD[queryType] % defaultDict, url, index) ]
+    except OSError as er:
         return ['Failed to get data. Contact Experts!']
 # fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
 
@@ -524,6 +587,7 @@ subtask_site_graph = not_found
 urls = [
     (re.compile(r'^/*$'), index),
     (_history_stats_re, history_stats),
+    (_history_stats_old_re, history_stats_old),
     (_totals_json_re, totals_json),
     (_fairshare_json_re, fairshare_json),
     (_summary_json_re, summary_json),
