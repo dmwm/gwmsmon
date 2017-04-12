@@ -209,11 +209,11 @@ def history_stats(environ, start_response):
         defaultDict["indexes"] = indexes
         if m.groups()[3]:
             defaultDict['mandkey'] = "_exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
-            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2])
-            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[3])
+            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2].lower())
+            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[3].lower())
         elif m.groups()[2]:
             defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
-            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2])
+            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2].lower())
         else:
             defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
         return [database_output_server(QUERIES[queryType] % defaultDict, url, index)]

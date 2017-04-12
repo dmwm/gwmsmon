@@ -80,6 +80,10 @@
         var OriginMsg = msg;
         for (timeVal in times){
             var temOut = loadDocument(fullLink.replace('%s%', times[timeVal]));
+            debugger;
+            if ('responses' in temOut){
+                temOut = temOut['responses'][0];
+            }
             if ('aggregations' in temOut){
                 if ('2' in temOut['aggregations']){
                     if ('buckets' in temOut['aggregations']['2']){
@@ -144,7 +148,7 @@
                  gotSiteSummary(data, currentview)});
             if (currentview == "/prodview/" || currentview == "/analysisview/"){
                 document.getElementById("myTab").style.display = 'inline';
-                loadExitCodes(currentview.concat('/json/history/exitcodes%s%/$request'));
+                loadExitCodes(currentview.concat('/json/historynew/exitcodes%s%/$request'));
             } 
 
            
