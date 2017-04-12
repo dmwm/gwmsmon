@@ -3,7 +3,8 @@
 import os
 import re
 import time
-import urllib2
+import shlex
+import subprocess
 import datetime
 import ConfigParser
 
@@ -18,10 +19,12 @@ _view = None
 # memoryusage|exitcodes|runtime
 # ExitCodesQueries
 # --------------------------------------------------------------------------------
-QUERIES = {'exitcodes': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true} {"size":0,"query":{"filtered":{"query":{"query_string": {"query":"_exists_:%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"ExitCode","size":1000,"order":{"_count":"desc"}}}}}',
-           'memoryusage': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true} {"size":0,"query":{"filtered":{"query":{"query_string": {"query":"_exists_:%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
-           'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true} {"size":0,"query":{"filtered":{"query":{"query_string": {"query":"_exists_:%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
-           'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true} {"size":0,"query":{"filtered":{"query":{"query_string": {"query":"_exists_:%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1}}}}}}'}
+QUERIES = {'exitcodes': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"ExitCode","size":1000,"order":{"_count":"desc"}}}}}\n',
+           'memoryusage': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"terms": {"field": "MemoryMB","size": 1000,"order": {"_count": "desc"}}}}}\n',
+           'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 1000, "order": { "_count": "desc"}}}}}}}\n',
+           'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 1000, "min_doc_count": 1}}}}}}\n'}
+
+
 
 
 def check_initialized(environ):
@@ -68,16 +71,12 @@ def serve_static_file(fname, environ, start_response):
             break
         yield buffer
 
-
 def database_output_server(values, url, index):
     url = url + "/cms-*/_msearch?timeout=0&ignore_unavailable=true"
-    print values
-    print url
-    valueslen = len(values)
-    req = urllib2.Request(url, values, {'Content-Type': 'application/json', 'Content-Length': valueslen})
-    response = urllib2.urlopen(req)
-    thePage = response.read()
-    return thePage
+    command = "curl '%s' --data-binary $'%s' --compressed -k" % (url, str(values).replace("'", "\""))
+    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out = p.communicate()
+    return out[0]
 
 _totals_json_re = re.compile(r'^/*json/totals$')
 totals_json = static_file_server("totals.json")
@@ -179,7 +178,7 @@ def history_stats(environ, start_response):
         defaultDict["gte"] = int((timeNow - (3600 * daysBefore)) * 1000)
         indexes = []
         for days in range(0, daysBefore):
-            dateval = datetime.datetime.now() - datetime.timedelta(days=days)
+            dateval = datetime.date.today() - datetime.timedelta(days=days)
             indexes.append("cms-%s" % dateval)
         defaultDict["indexes"] = indexes
         if m.groups()[3]:
