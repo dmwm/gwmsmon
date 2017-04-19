@@ -4,6 +4,7 @@ import os
 import re
 import time
 import shlex
+import json
 import urllib
 import urllib2
 import subprocess
@@ -24,8 +25,9 @@ _view = None
 QUERIES = {'exitcodes': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"ExitCode","size":10000,"order":{"_count":"desc"}}}}}\n',
            'memoryusage': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 10000,"order": {"_count": "desc"}}}}}\n',
            'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 10000, "order": { "_count": "desc"}}}}}}}\n',
-           'percentileruntime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"query":"ExitCode:0 AND %(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"percentiles":{"field":"CommittedWallClockHr","percents":[1,5,25,50,75,95,99]}}}}\n',
-           'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 10000, "min_doc_count": 1}}}}}}\n'}
+           'percentileruntime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"percentiles":{"field":"CommittedWallClockHr","percents":[1,5,25,50,75,95,99]}}}}\n',
+           'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 10000, "min_doc_count": 1}}}}}}\n',
+           'topusers': '{"index":%(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"CRAB_UserHN","size":2000,"order":{"_count":"desc"}}}}}\n'}
 
 QUERIES_OLD = {'exitcodes': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}', 
                'exitcodes1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}',
@@ -86,12 +88,33 @@ def serve_static_file(fname, environ, start_response):
             break
         yield buffer
 
+def returnCorrectOut(inputD):
+    correctOut = ""
+    if 'responses' in inputD:
+        if isinstance(inputD['responses'], list):
+            correctOut = inputD['responses'][0]
+        elif isinstance(inputD['responses'], dict):
+            correctOut = inputD['responses']
+        else:
+            correctOut = inputD['responses']
+    else:
+        if isinstance(inputD, list):
+            correctOut = inputD[0]
+        elif isinstance(inputD, dict):
+            correctOut = inputD
+    try:
+        return json.dumps(correctOut)
+    except:
+        return str(correctOut)
+
+
 def database_output_server(values, url, index):
     url = url + "/cms-*/_msearch?timeout=0&ignore_unavailable=true"
     command = "curl '%s' --data-binary $'%s' --compressed -k" % (url, str(values).replace("'", "\""))
     p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out = p.communicate()
-    return out[0]
+    d = json.loads(out[0])
+    return returnCorrectOut(d)
 
 
 def database_output_server_old(values, url, index):
@@ -175,8 +198,31 @@ def request_site_summary_json(environ, start_response):
     for result in serve_static_file(fname, environ, start_response):
         yield result
 
+
+def getInt(inpVal):
+    try:
+        return int(inpVal)
+    except:
+        return -1
+
+def topUserStats(defaultDict, url, index, regm, queryType):
+    valFrom = "*"
+    valTo = "*"
+    if regm.groups()[3]:
+        valFrom = getInt(regm.groups()[2])
+        valTo = getInt(regm.groups()[3])
+    elif regm.groups()[2]:
+        valFrom = getInt(regm.groups()[2])
+    if valFrom == -1 or valTo == -1:
+        if regm.groups()[3]:
+            return ["Provided time value is not an integer. ValueFrom %s, ValueTo %s" % (regm.groups()[2], regm.groups()[3])]
+        return ["Provided time value is not an integer. ValueFrom %s" % regm.groups()[2]]
+    defaultDict['mandkey'] = "_exists_:CRAB_UserHN AND CommittedWallClockHr: [%s TO %s]" % (valFrom, valTo)
+    return [str(database_output_server(QUERIES[queryType] % defaultDict, url, index))]
+
+
 #_history_stats_re, history_stats
-_history_stats_re = re.compile(r'^/*json/historynew/(memoryusage|exitcodes|runtime|percentileruntime|memorycpu)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$')
+_history_stats_re = re.compile(r'^/*json/historynew/(memoryusage|exitcodes|runtime|percentileruntime|memorycpu|topusers)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$')
 def history_stats(environ, start_response):
     if _view not in ['prodview', 'analysisview']:
         return not_found(environ, start_response)
@@ -192,7 +238,7 @@ def history_stats(environ, start_response):
     m = _history_stats_re.match(path)
     defaultDict = {}
     if _view == 'prodview':
-        defaultDict = {"key1": "WMAgent_RequestName", "key2": "Workflow"}
+        defaultDict = {"key1": "WMAgent_RequestName", "key2": "WMAgent_TaskType"}
     else:
         defaultDict = {"key1": "CRAB_UserHN", "key2": "CRAB_Workflow"}
     queryType = m.groups()[0]
@@ -207,16 +253,23 @@ def history_stats(environ, start_response):
             dateval = datetime.date.today() - datetime.timedelta(days=days)
             indexes.append("cms-%s" % dateval)
         defaultDict["indexes"] = indexes
+        if queryType == 'topusers':
+            if _view != 'analysisview':
+                return["Only analysisview is capable of returning top users list"]
+            return topUserStats(defaultDict, url, index, m, queryType)
         if m.groups()[3]:
             defaultDict['mandkey'] = "_exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
             defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2].lower())
-            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[3].lower())
+            if _view == 'prodview':
+                defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key2'], m.groups()[3].lower())
+            elif _view == 'analysisview':
+                defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key2'], str('\\\\"' + m.groups()[3].lower() + '\\\\"'))
         elif m.groups()[2]:
             defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
             defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2].lower())
         else:
             defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
-        return [database_output_server(QUERIES[queryType] % defaultDict, url, index)]
+        return [str(database_output_server(QUERIES[queryType] % defaultDict, url, index))]
     except OSError:
         return ['Failed to get data. Contact Experts!']
 # fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
@@ -635,3 +688,4 @@ def application(environ, start_response):
             environ['jobview.url_args'] = match.groups()
             return callback(environ, start_response)
     return not_found(environ, start_response)
+

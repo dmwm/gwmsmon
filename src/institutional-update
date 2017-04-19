@@ -36,7 +36,7 @@ class timeout:
 
 def analyzeScheddOutput(ad, workflows, taskInfo, factEntries):
     """ TODO doc """
-    keys = ["AccountingGroup", "ClusterId", "RequestMemory", "RequestCpus", "MaxWallTimeMins", "JobStatus", "JobPrio", "DESIRED_Sites", "QDate", "RemotePool", "MATCH_GLIDEIN_Entry_Name", "MATCH_GLIDEIN_CMSSite"]
+    keys = ["AccountingGroup", "Owner", "ClusterId", "RequestMemory", "RequestCpus", "MaxWallTimeMins", "JobStatus", "JobPrio", "DESIRED_Sites", "QDate", "RemotePool", "MATCH_GLIDEIN_Entry_Name", "MATCH_GLIDEIN_CMSSite"]
     jobs = []
     try:
         with timeout(seconds=20):
@@ -49,6 +49,10 @@ def analyzeScheddOutput(ad, workflows, taskInfo, factEntries):
     try:
         for job in jobs:
             mainTaskName = ""
+            if 'AccountingGroup' not in job:
+                print 'Zombie job does not have AccountingGroup...'
+                print job
+                continue
             request = re.sub('[:]', '', job['AccountingGroup'])
             try:
                 request = request.split(".")[1]
