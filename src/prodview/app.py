@@ -27,21 +27,8 @@ QUERIES = {'exitcodes': '{"index": %(indexes)s,"search_type":"count","ignore_una
            'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 10000, "order": { "_count": "desc"}}}}}}}\n',
            'percentileruntime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"percentiles":{"field":"CommittedWallClockHr","percents":[1,5,25,50,75,95,99]}}}}\n',
            'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 10000, "min_doc_count": 1}}}}}}\n',
-           'topusers': '{"index":%(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"CRAB_UserHN","size":2000,"order":{"_count":"desc"}}}}}\n'}
-
-QUERIES_OLD = {'exitcodes': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}', 
-               'exitcodes1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}',
-               'exitcodes2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "ExitCode","size": 50,"order": {"_count": "desc"}}}}}',
-               'memoryusage': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s,"lte": %(lte)s ,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
-               'memoryusage1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
-               'memoryusage2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 50,"order": {"_count": "desc"}}}}}',
-               'runtime': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
-               'runtime1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
-               'runtime2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"histogram": {"field": "CommittedTime", "interval": 30}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 200, "order": { "_count": "desc"}}}}}}}',
-               'memorycpu': '{"query": {"filtered": {"filter": {"bool": {"must": [{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1}}}}}}',
-               'memorycpu1': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2" : {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1}}}}}}',
-               'memorycpu2': '{"query": {"filtered": {"filter": {"bool": {"must": [{"query": {"match": {"%(key1)s": {"query": "%(workflow)s","type": "phrase"}}}},{"query": {"match": {"%(key2)s": {"query": "%(tasktype)s","type": "phrase"}}}},{"range": {"StartDate": {"gte": %(gte)s ,"lte": %(lte)s,"format": "epoch_millis"}}}]}}}},"size":0,"aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 200, "min_doc_count": 1 }}}}}}'}
-
+           'topusers': '{"index":%(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"CRAB_UserHN","size":2000,"order":{"_count":"desc"}}}}}\n',
+           'highio': '{"index":%(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"%(key3)s","size":1000,"order":{"3":"desc"}},"aggs":{"3":{"sum":{"field":"InputGB"}},"4":{"sum":{"field":"CoreHr"}}}}}}\n'}
 
 
 def check_initialized(environ):
@@ -116,14 +103,6 @@ def database_output_server(values, url, index):
     d = json.loads(out[0])
     return returnCorrectOut(d)
 
-
-def database_output_server_old(values, url, index):
-    url = url + "/" + index + "/_search"
-    valueslen = len(values)
-    req = urllib2.Request(url, values, {'Content-Type': 'application/json', 'Content-Length': valueslen})
-    response = urllib2.urlopen(req)
-    thePage = response.read()
-    return thePage
 
 _totals_json_re = re.compile(r'^/*json/totals$')
 totals_json = static_file_server("totals.json")
@@ -222,7 +201,7 @@ def topUserStats(defaultDict, url, index, regm, queryType):
 
 
 #_history_stats_re, history_stats
-_history_stats_re = re.compile(r'^/*json/historynew/(memoryusage|exitcodes|runtime|percentileruntime|memorycpu|topusers)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$')
+_history_stats_re = re.compile(r'^/*json/historynew/(%s)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$' % "|".join(QUERIES))
 def history_stats(environ, start_response):
     if _view not in ['prodview', 'analysisview']:
         return not_found(environ, start_response)
@@ -238,9 +217,9 @@ def history_stats(environ, start_response):
     m = _history_stats_re.match(path)
     defaultDict = {}
     if _view == 'prodview':
-        defaultDict = {"key1": "WMAgent_RequestName", "key2": "WMAgent_TaskType"}
+        defaultDict = {"key1": "WMAgent_RequestName", "key2": "WMAgent_TaskType", "key3": "WMAgent_SubTaskName"}
     else:
-        defaultDict = {"key1": "CRAB_UserHN", "key2": "CRAB_Workflow"}
+        defaultDict = {"key1": "CRAB_UserHN", "key2": "CRAB_Workflow", "key3": "CRAB_Workflow"}
     queryType = m.groups()[0]
     try:
         daysBefore = int(m.groups()[1])
@@ -271,43 +250,6 @@ def history_stats(environ, start_response):
             defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
         return [str(database_output_server(QUERIES[queryType] % defaultDict, url, index))]
     except OSError:
-        return ['Failed to get data. Contact Experts!']
-# fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
-
-
-_history_stats_old_re = re.compile(r'^/*json/history/(memoryusage|exitcodes|runtime|memorycpu)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$')
-def history_stats_old(environ, start_response):
-    if _view not in ['prodview', 'analysisview']:
-        return not_found(environ, start_response)
-    timeNow = int(time.time())
-    url = _cp.get('elasticserver', "baseurlold")
-    index = _cp.get('elasticserver', _view)
-
-    status = '200 OK'
-    headers = [('Content-type', 'application/json'),
-               ('Cache-Control', 'max-age=60, public')]
-    start_response(status, headers)
-    path = environ.get('PATH_INFO', '')
-    m = _history_stats_old_re.match(path)
-    defaultDict = {}
-    if _view == 'prodview':
-        defaultDict = {"key1": "WorkflowRAW", "key2": "TaskType"}
-    else:
-        defaultDict = {"key1": "User", "key2": "WorkflowRAW"}
-    queryType = m.groups()[0]
-    try:
-        daysBefore = int(m.groups()[1])
-        defaultDict["lte"] = int(timeNow * 1000)
-        defaultDict["gte"] = int((timeNow - (3600 * daysBefore)) * 1000)
-        if m.groups()[3]:
-            defaultDict['workflow'] = m.groups()[2]
-            defaultDict['tasktype'] = m.groups()[3]
-            queryType += '2'
-        elif m.groups()[2]:
-            defaultDict['workflow'] = m.groups()[2]
-            queryType += '1'
-        return [ database_output_server_old(QUERIES_OLD[queryType] % defaultDict, url, index) ]
-    except OSError as er:
         return ['Failed to get data. Contact Experts!']
 # fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
 
@@ -640,7 +582,6 @@ subtask_site_graph = not_found
 urls = [
     (re.compile(r'^/*$'), index),
     (_history_stats_re, history_stats),
-    (_history_stats_old_re, history_stats_old),
     (_totals_json_re, totals_json),
     (_fairshare_json_re, fairshare_json),
     (_summary_json_re, summary_json),
