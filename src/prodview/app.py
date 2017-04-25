@@ -24,11 +24,11 @@ _view = None
 # --------------------------------------------------------------------------------
 QUERIES = {'exitcodes': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"ExitCode","size":10000,"order":{"_count":"desc"}}}}}\n',
            'memoryusage': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 10000,"order": {"_count": "desc"}}}}}\n',
-           'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 10000, "order": { "_count": "desc"}}}}}}}\n',
+           'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1, "size": 10000, "order": { "_count": "desc"}}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 10000, "order": { "_count": "desc"}}}}}}}\n',
            'percentileruntime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"percentiles":{"field":"CommittedWallClockHr","percents":[1,5,25,50,75,95,99]}}}}\n',
-           'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 10000, "min_doc_count": 1}}}}}}\n',
+           'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1, "size": 10000, "order": { "_count": "desc"}}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 10000, "min_doc_count": 1, "order": { "_count": "desc"}}}}}}}\n',
            'topusers': '{"index":%(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"CRAB_UserHN","size":2000,"order":{"_count":"desc"}}}}}\n',
-           'highio': '{"index":%(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"%(key3)s","size":1000,"order":{"3":"desc"}},"aggs":{"3":{"sum":{"field":"InputGB"}},"4":{"sum":{"field":"CoreHr"}}}}}}\n'}
+           'highio': '{"index":%(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"%(key3)s","size":1000,"order":{"InputGB":"desc"}},"aggs":{"InputGB":{"sum":{"field":"InputGB"}},"RequestCpus":{"terms":{"field":"RequestCpus","size":1000,"order":{"_count":"desc"}},"aggs":{"InputGB":{"sum":{"field":"InputGB"}},"CoreHr":{"sum":{"field":"CoreHr"}},"ReadTimeHrs":{"sum":{"field":"ReadTimeHrs"}}}}}}}}\n'}
 
 
 def check_initialized(environ):
@@ -62,7 +62,17 @@ def serve_static_file(fname, environ, start_response):
     try:
         fp = open(staticFile, "r")
     except:
-        raise
+        if not os.path.isfile(staticFile):
+            status = '404 Not Found'
+            headers = [('Content-type', 'application/json'),
+                       ('Cache-control', 'max-age=60, public')]
+            start_response(status, headers)
+            return
+        status = '500 Internal Server Error'
+        headers = [('Content-type', 'application/json'),
+                   ('Cache-control', 'max-age=60, public')]
+        start_response(status, headers)
+        return
 
     status = '200 OK'
     headers = [('Content-type', 'application/json'),
@@ -201,7 +211,7 @@ def topUserStats(defaultDict, url, index, regm, queryType):
 
 
 #_history_stats_re, history_stats
-_history_stats_re = re.compile(r'^/*json/historynew/(%s)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$' % "|".join(QUERIES))
+_history_stats_re = re.compile(r'^/*json/historynew/(%s)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$' % "|".join(QUERIES.keys()))
 def history_stats(environ, start_response):
     if _view not in ['prodview', 'analysisview']:
         return not_found(environ, start_response)
@@ -209,10 +219,9 @@ def history_stats(environ, start_response):
     url = _cp.get('elasticserver', "baseurl")
     index = _cp.get('elasticserver', _view)
 
-    status = '200 OK'
     headers = [('Content-type', 'application/json'),
                ('Cache-Control', 'max-age=60, public')]
-    start_response(status, headers)
+    # start_response(status, headers)
     path = environ.get('PATH_INFO', '')
     m = _history_stats_re.match(path)
     defaultDict = {}
@@ -234,7 +243,10 @@ def history_stats(environ, start_response):
         defaultDict["indexes"] = indexes
         if queryType == 'topusers':
             if _view != 'analysisview':
-                return["Only analysisview is capable of returning top users list"]
+                status = '400 Bad Request'
+                start_response(status, headers)
+                return ["Only analysisview is capable of returning top users list"]
+            start_response('200 OK', headers)
             return topUserStats(defaultDict, url, index, m, queryType)
         if m.groups()[3]:
             defaultDict['mandkey'] = "_exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
@@ -248,8 +260,10 @@ def history_stats(environ, start_response):
             defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2].lower())
         else:
             defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
+        start_response('200 OK', headers)
         return [str(database_output_server(QUERIES[queryType] % defaultDict, url, index))]
     except OSError:
+        start_response('500 Internal Server Error', headers)
         return ['Failed to get data. Contact Experts!']
 # fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
 
@@ -627,6 +641,14 @@ def application(environ, start_response):
         match = regex.match(path)
         if match:
             environ['jobview.url_args'] = match.groups()
-            return callback(environ, start_response)
+            try:
+                return callback(environ, start_response)
+            except ValueError as er:
+                status = '404 Not Found'
+                headers = [('Content-type', 'text/html'),
+                           ('Cache-Control', 'max-age=60, public'),
+                           ('Location', '/')]
+                start_response(status, headers, er)
+                return[str(er)]
     return not_found(environ, start_response)
 

@@ -80,7 +80,6 @@
         var OriginMsg = msg;
         for (timeVal in times){
             var temOut = loadDocument(fullLink.replace('%s%', times[timeVal]));
-            debugger;
             if ('responses' in temOut){
                 temOut = temOut['responses'][0];
             }
