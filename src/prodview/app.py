@@ -24,7 +24,7 @@ _view = None
 # --------------------------------------------------------------------------------
 QUERIES = {'exitcodes': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"ExitCode","size":10000,"order":{"_count":"desc"}}}}}\n',
            'memoryusage': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, "filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 10000,"order": {"_count": "desc"}}}}}\n',
-           'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1, "size": 10000, "order": { "_count": "desc"}}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 10000, "order": { "_count": "desc"}}}}}}}\n',
+           'runtime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1, "order": { "_count": "desc"}}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 10000, "order": { "_count": "desc"}}}}}}}\n',
            'percentileruntime': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"percentiles":{"field":"CommittedWallClockHr","percents":[1,5,25,50,75,95,99]}}}}\n',
            'memorycpu': '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1, "size": 10000, "order": { "_count": "desc"}}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 10000, "min_doc_count": 1, "order": { "_count": "desc"}}}}}}}\n',
            'topusers': '{"index":%(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"CRAB_UserHN","size":2000,"order":{"_count":"desc"}}}}}\n',
@@ -194,9 +194,11 @@ def getInt(inpVal):
     except:
         return -1
 
-def topUserStats(defaultDict, url, index, regm, queryType):
+def topUserStats(defaultDict, url, index, regm, queryType, start_response):
     valFrom = "*"
     valTo = "*"
+    headers = [('Content-type', 'application/json'),
+               ('Cache-Control', 'max-age=60, public')]
     if regm.groups()[3]:
         valFrom = getInt(regm.groups()[2])
         valTo = getInt(regm.groups()[3])
@@ -204,9 +206,12 @@ def topUserStats(defaultDict, url, index, regm, queryType):
         valFrom = getInt(regm.groups()[2])
     if valFrom == -1 or valTo == -1:
         if regm.groups()[3]:
+            start_response('400 Bad Request', headers)
             return ["Provided time value is not an integer. ValueFrom %s, ValueTo %s" % (regm.groups()[2], regm.groups()[3])]
+        start_response('400 Bad Request', headers)
         return ["Provided time value is not an integer. ValueFrom %s" % regm.groups()[2]]
     defaultDict['mandkey'] = "_exists_:CRAB_UserHN AND CommittedWallClockHr: [%s TO %s]" % (valFrom, valTo)
+    start_response('200 OK', headers)
     return [str(database_output_server(QUERIES[queryType] % defaultDict, url, index))]
 
 
@@ -246,8 +251,7 @@ def history_stats(environ, start_response):
                 status = '400 Bad Request'
                 start_response(status, headers)
                 return ["Only analysisview is capable of returning top users list"]
-            start_response('200 OK', headers)
-            return topUserStats(defaultDict, url, index, m, queryType)
+            return topUserStats(defaultDict, url, index, m, queryType, start_response)
         if m.groups()[3]:
             defaultDict['mandkey'] = "_exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
             defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2].lower())
