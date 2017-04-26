@@ -3,10 +3,7 @@
 import os
 import re
 import time
-import shlex
 import json
-import urllib
-import urllib2
 import subprocess
 import datetime
 import ConfigParser
@@ -269,7 +266,6 @@ def history_stats(environ, start_response):
     except OSError:
         start_response('500 Internal Server Error', headers)
         return ['Failed to get data. Contact Experts!']
-# fname = os.path.join(_cp.get(_view, "basedir"), site, "summary.json")
 
 
 _request_graph_re = re.compile(r'^/*graphs/(scheddwarning|dagmans)?/?([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')

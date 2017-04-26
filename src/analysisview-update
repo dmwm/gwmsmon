@@ -4,12 +4,15 @@ import re
 import os
 import time
 import signal
+import datetime
 from functions import parseArgs
 from functions import dropObj
 from functions import querySchedd
 from functions import getSchedds
 from functions import rrdUpdate
 from functions import createEmptyRRD
+from functions import roundTime
+from functions import database_output_server
 
 GSTARTUP = int(time.time())
 
@@ -403,6 +406,27 @@ def main():
     if opts.analysisview:
         writeJson(workflows, sites, taskInfo, opts.analysisview, sitesview)
         writeRrds(workflows, sites, opts.analysisview, sitesview)
+
+    timeNow = int(time.time())
+    url = opts.elasticserver
+    hours = int(opts.historyhoursanal)
+    defaultDict = {"key1": "CRAB_UserHN", "key2": "CRAB_Workflow", "key3": "CRAB_Workflow"}
+    defaultDict["lte"] = int(roundTime(timeNow + 3600, 3600) * 1000)
+    defaultDict["gte"] = int(roundTime(int(timeNow - (3600 * hours)), 3600) * 1000)
+    indexes = []
+    ddays = int(round(float(hours/24.0)))
+    ddays += 1
+    for days in range(0, ddays):
+        dateval = datetime.date.today() - datetime.timedelta(days=days)
+        indexes.append("cms-%s" % dateval)
+    defaultDict["indexes"] = indexes
+    query = '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"CRAB_Workflow","size":1000000000,"order":{"1.75":"desc"}},"aggs":{"1":{"percentiles":{"field":"CommittedWallClockHr","percents":[50,75,95,99]}}}}}}\n'
+    defaultDict['mandkey'] = "_exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
+    out, failure = database_output_server(query % defaultDict, url)
+    print out, failure
+    dropObj(out, opts.analysisview, "percentile.json")
+
+
 
 if __name__ == "__main__":
     main()

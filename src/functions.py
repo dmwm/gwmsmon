@@ -42,16 +42,19 @@ def parseArgs():
     parser.add_option("-o", "--output", help="Top-level output dir", dest="output")
     parser.add_option("-t", "--type", help="Type which to execute", dest="type")
     opts, args = parser.parse_args()
-    keys = [{"key": "prodview", "subkey": "basedir", "variable": "prodview"}, {"key": "prodview", "subkey": "historydir", "variable": "prodviewhistory"},
-            {"key": "analysiscrab2view", "subkey": "basedir", "variable": "analysiscrab2view"},
-            {"key": "analysisview", "subkey": "basedir", "variable": "analysisview"}, {"key": "analysisview", "subkey": "historydir", "variable": "analysisviewhistory"},
+    keys = [{"key": "prodview", "subkey": "basedir", "variable": "prodview"},
+            {"key": "prodview", "subkey": "historyhours", "variable": "historyhoursprod"},
+            {"key": "analysisview", "subkey": "basedir", "variable": "analysisview"},
+            {"key": "analysisview", "subkey": "historyhours", "variable": "historyhoursanal"},
             {"key": "cmsconnectview", "subkey": "basedir", "variable": "cmsconnectview"},
             {"key": "institutionalview", "subkey": "basedir", "variable": "institutionalview"},
             {"key": "totalview", "subkey": "basedir", "variable": "totalview"},
             {"key": "poolview", "subkey": "basedir", "variable": "poolview"},
             {"key": "factoryview", "subkey": "basedir", "variable": "factoryview"},
-            {"key": "htcondor", "subkey": "pool", "variable": "pool"}, {"key": "htcondor", "subkey": "pool1", "variable": "pool1"},
-            {"key": "utilization", "subkey": "timespan", "variable": "utilization"}]
+            {"key": "htcondor", "subkey": "pool", "variable": "pool"},
+            {"key": "htcondor", "subkey": "pool1", "variable": "pool1"},
+            {"key": "utilization", "subkey": "timespan", "variable": "utilization"},
+            {"key": "elasticserver", "subkey": "baseurl", "variable": "elasticserver"}]
     if args:
         parser.print_help()
         print >> sys.stderr, "%s takes no arguments." % args[0]
@@ -219,3 +222,35 @@ def queryCommandLineSchedd(collector, values):
         return []
     return subList
 
+
+def returnCorrectOut(inputD):
+    correctOut = ""
+    if 'responses' in inputD:
+        if isinstance(inputD['responses'], list):
+            correctOut = inputD['responses'][0]
+        elif isinstance(inputD['responses'], dict):
+            correctOut = inputD['responses']
+        else:
+            correctOut = inputD['responses']
+    else:
+        if isinstance(inputD, list):
+            correctOut = inputD[0]
+        elif isinstance(inputD, dict):
+            correctOut = inputD
+    try:
+        return json.dumps(correctOut)
+    except:
+        return str(correctOut)
+
+
+def database_output_server(values, url):
+    url = url + "/cms-*/_msearch?timeout=0&ignore_unavailable=true"
+    command = "curl -v -XGET --compressed -k '%s' --data-binary $'%s'" % (url, str(values).replace("'", "\""))
+    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (output, err) = p.communicate()
+    p_status = p.wait()
+    try:
+        d = json.loads(output[0])
+    except ValueError:
+          return {}, err
+    return returnCorrectOut(d), False
