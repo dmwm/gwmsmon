@@ -134,6 +134,53 @@ def subtask(basedir, interval, request, subtask):
             )
     return clean_and_return(fd, pngpath)
 
+
+def subtaskHist(basedir, interval, request, subtask, hist):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, request, subtask, "subtask.rrd")
+    if not os.path.exists(fname):
+        raise ValueError("No information present (request=%s, subtask=%s)" % (request, subtask))
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "250",
+            "--start", "-%sd" % int(hist+1),
+            "--end", "-%sd" % hist,
+            "--vertical-label", "Jobs",
+            "--lower-limit", "0",
+            "--title", "Subtask %s Job Counts" % subtask,
+            "--watermark", "Produced at cms-gwmsmon.cern.ch on %s" % get_current_date(),
+            "DEF:Running=%s:Running:AVERAGE" % fname,
+            "DEF:Idle=%s:Idle:AVERAGE" % fname,
+            "DEF:CpusUse=%s:CpusUse:AVERAGE" % fname,
+            "DEF:CpusPen=%s:CpusPen:AVERAGE" % fname,
+            "LINE1:Running%s:Running" % COLORS['Running'],
+            "LINE2:Idle%s:Idle" % COLORS['Idle'],
+            "LINE3:CpusUse%s:CpusUse"% COLORS['CpusUse'],
+            "LINE4:CpusPen%s:CpusPen" % COLORS['CpusPen'],
+            "COMMENT:%s" % subtask,
+            "COMMENT:\\n",
+            "COMMENT:           max     avg     cur\\n",
+            "COMMENT:Running ",
+            "GPRINT:Running:MAX:%-6.0lf",
+            "GPRINT:Running:AVERAGE:%-6.0lf",
+            "GPRINT:Running:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:Idle    ",
+            "GPRINT:Idle:MAX:%-6.0lf",
+            "GPRINT:Idle:AVERAGE:%-6.0lf",
+            "GPRINT:Idle:LAST:%-6.0lf\\n",
+            "COMMENT:CpusUse ",
+            "GPRINT:CpusUse:MAX:%-6.0lf",
+            "GPRINT:CpusUse:AVERAGE:%-6.0lf",
+            "GPRINT:CpusUse:LAST:%-6.0lf\\n",
+            "COMMENT:CpusPen ",
+            "GPRINT:CpusPen:MAX:%-6.0lf",
+            "GPRINT:CpusPen:AVERAGE:%-6.0lf",
+            "GPRINT:CpusPen:LAST:%-6.0lf\\n",
+            )
+    return clean_and_return(fd, pngpath)
+
+
 def priority_summary_graph(basedir, interval, jobType, siteName = None):
     fd, pngpath = tempfile.mkstemp(".png")
     fname = ""

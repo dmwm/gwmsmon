@@ -237,20 +237,16 @@ def returnCorrectOut(inputD):
             correctOut = inputD[0]
         elif isinstance(inputD, dict):
             correctOut = inputD
-    try:
-        return json.dumps(correctOut)
-    except:
-        return str(correctOut)
-
+    return correctOut
 
 def database_output_server(values, url):
     url = url + "/cms-*/_msearch?timeout=0&ignore_unavailable=true"
     command = "curl -v -XGET --compressed -k '%s' --data-binary $'%s'" % (url, str(values).replace("'", "\""))
     p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (output, err) = p.communicate()
+    output = p.communicate()
     p_status = p.wait()
     try:
         d = json.loads(output[0])
-    except ValueError:
-          return {}, err
+    except ValueError as er:
+          return {}, er
     return returnCorrectOut(d), False

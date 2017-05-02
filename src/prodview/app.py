@@ -126,8 +126,29 @@ max_used = static_file_server("maxused.json")
 _max_used_cpus_json_re = re.compile(r'^/*json/maxusedcpus$')
 max_used_cpus = static_file_server("maxusedcpus.json")
 
+_percentile_json_re = re.compile(r'^/*json/tasktime/percentiles$')
+percentile_json = static_file_server("percentile.json")
+
 _site_summary_json_re = re.compile(r'^/*json/site_summary$')
 site_summary_json = static_file_server("site_summary.json")
+
+_all_dirs_json_re = re.compile(r'^/*json/allDirs/?([-_A-Za-z0-9]+)?/?$')
+def all_dirs_json(environ, start_response):
+    path = environ.get('PATH_INFO', '')
+    m = _all_dirs_json_re.match(path)
+    workflow = None
+    fullpath = _cp.get(_view, "basedir")
+    if m.groups()[0]:
+        workflow = m.groups()[0]
+        fullpath = os.path.join(_cp.get(_view, "basedir"), workflow)
+    status = '200 OK'
+    headers = [('Content-type', 'application/json'),
+               ('Cache-control', 'max-age=60, public')]
+    start_response(status, headers)
+    outPaths = [name for name in os.listdir(fullpath)
+                if os.path.isdir(os.path.join(fullpath, name))]
+    return ['|'.join(outPaths)]
+
 
 
 _site_totals_json_re = re.compile(r'^/*json/+([-_A-Za-z0-9]+)/*$')
@@ -136,7 +157,6 @@ def site_totals_json(environ, start_response):
     m = _site_totals_json_re.match(path)
     site = m.groups()[0]
     fname = os.path.join(_cp.get(_view, "basedir"), site, "totals.json")
-
     for result in serve_static_file(fname, environ, start_response):
         yield result
 
@@ -418,21 +438,29 @@ def request_joint_graph(environ, start_response):
     site, request, interval = validate_request(path, _request_joint_graph_re)
     return [rrd.request_joint(_cp.get(_view, "basedir"), interval, request, site)]
 
-_subtask_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/+([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_subtask_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/+([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?([0-9]{1,2})?$')
 def subtask_graph(environ, start_response):
-    status = '200 OK'
-    headers = [('Content-type', 'image/png'),
-               ('Cache-Control', 'max-age=60, public')]
-    start_response(status, headers)
-
     path = environ.get('PATH_INFO', '')
     m = _subtask_graph_re.match(path)
     interval = "daily"
     request = m.groups()[0]
     subtask = m.groups()[1]
+    hist = -1
     if m.groups()[2]:
         interval = m.groups()[2]
-
+    if m.groups()[3]:
+        interval = "daily"
+        hist = getInt(m.groups()[3])
+        if hist == -1 or hist < 0:
+            status = '400 Bad Request'
+            start_response(status, headers)
+            return ["Provided value is not an integer bigger than 0. Input %s" % m.groups()[3]]
+    status = '200 OK'
+    headers = [('Content-type', 'image/png'),
+               ('Cache-Control', 'max-age=60, public')]
+    start_response(status, headers)
+    if hist != -1:
+        return [rrd.subtaskHist(_cp.get(_view, "basedir"), interval, request, subtask, hist)]
     return [rrd.subtask(_cp.get(_view, "basedir"), interval, request, subtask)]
 
 
@@ -600,6 +628,8 @@ urls = [
     (_fairshare_json_re, fairshare_json),
     (_summary_json_re, summary_json),
     (_max_used_json_re, max_used),
+    (_percentile_json_re, percentile_json),
+    (_all_dirs_json_re, all_dirs_json),
     (_max_used_cpus_json_re, max_used_cpus),
     (_site_summary_json_re, site_summary_json),
     (_site_totals_json_re, site_totals_json),

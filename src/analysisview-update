@@ -55,7 +55,7 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             failedCheck = False
             for keyN in ['CRAB_UserHN', 'TaskType']:
                 if keyN not in job:
-                    print 'No idea what is this job... %s Missing Key %s' % (job, keyN)
+                    #print 'No idea what is this job... %s Missing Key %s' % (job, keyN)
 
                     failedCheck = True
             if failedCheck:
@@ -423,8 +423,19 @@ def main():
     query = '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"CRAB_Workflow","size":1000000000,"order":{"1.75":"desc"}},"aggs":{"1":{"percentiles":{"field":"CommittedWallClockHr","percents":[50,75,95,99]}}}}}}\n'
     defaultDict['mandkey'] = "_exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
     out, failure = database_output_server(query % defaultDict, url)
-    print out, failure
-    dropObj(out, opts.analysisview, "percentile.json")
+    print 'Query Done. Start to parse %s' % int(time.time())
+    newOut = {}
+    if failure:
+        print failure
+        newOut['Error'] = failure
+    else:
+        for item in out['aggregations']['2']['buckets']:
+            newOut[item['key']] = item['1']
+            newOut[item['key']]['count'] = item['doc_count']
+    print int(time.time())
+    print 'Done. Len of output %s' % len(newOut)
+    newOut['QueryTime'] = timeNow
+    dropObj(newOut, opts.analysisview, "percentile.json")
 
 
 
