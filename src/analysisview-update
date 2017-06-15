@@ -427,7 +427,7 @@ def main():
     newOut = {}
     if failure:
         print failure
-        newOut['Error'] = failure
+        newOut['Error'] = str(failure)
     else:
         for item in out['aggregations']['2']['buckets']:
             newOut[item['key']] = item['1']
@@ -435,6 +435,7 @@ def main():
     print int(time.time())
     print 'Done. Len of output %s' % len(newOut)
     newOut['QueryTime'] = timeNow
+    print newOut
     dropObj(newOut, opts.analysisview, "percentile.json")
 
 

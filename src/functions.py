@@ -240,13 +240,18 @@ def returnCorrectOut(inputD):
     return correctOut
 
 def database_output_server(values, url):
-    url = url + "/cms-*/_msearch?timeout=0&ignore_unavailable=true"
-    command = "curl -v -XGET --compressed -k '%s' --data-binary $'%s'" % (url, str(values).replace("'", "\""))
+    url = url + "/_msearch?timeout=0&ignore_unavailable=true"
+    command = "curl -v -XGET --compressed -k '%s' --data-binary $'%s\n'" % (url, str(values).replace("'", "\""))
     p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output = p.communicate()
     p_status = p.wait()
     try:
         d = json.loads(output[0])
     except ValueError as er:
-          return {}, er
+        newErr = str(er)
+        if len(output) >= 2:
+            newErr += " Error from server: %s" % output[1]
+        print newErr
+        print output
+        return {}, newErr
     return returnCorrectOut(d), False

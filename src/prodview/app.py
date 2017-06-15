@@ -103,8 +103,8 @@ def returnCorrectOut(inputD):
 
 
 def database_output_server(values, url, index):
-    url = url + "/cms-*/_msearch?timeout=0&ignore_unavailable=true"
-    command = "curl '%s' --data-binary $'%s' --compressed -k" % (url, str(values).replace("'", "\""))
+    url = url + "/_msearch?timeout=0&ignore_unavailable=true"
+    command = "curl '%s' --data-binary $'%s\n' --compressed -k" % (url, str(values).replace("'", "\""))
     p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out = p.communicate()
     d = json.loads(out[0])
