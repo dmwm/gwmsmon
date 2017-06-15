@@ -1,0 +1,2 @@
+MAILTO=""
+*/15 * * * * root /data/prodview/src/CondorMonitoring/JobCounter.sh &> /dev/null
