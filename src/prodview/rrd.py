@@ -137,15 +137,30 @@ def subtask(basedir, interval, request, subtask):
 
 def subtaskHist(basedir, interval, request, subtask, hist):
     fd, pngpath = tempfile.mkstemp(".png")
-    fname = os.path.join(basedir, request, subtask, "subtask.rrd")
+    fname = None
+    if subtask == 'daily':
+        fname = os.path.join(basedir, request, "request.rrd")
+    else:
+        fname = os.path.join(basedir, request, subtask, "subtask.rrd")
     siteOut = "Idle"
     title = "Subtask %s Job Counts" % subtask
+    if not os.path.exists(fname) and subtask == 'daily':
+        raise ValueError("File is not found...(request=%s, subtask=%s, interval=%s, hist=%s)" % (request, subtask, interval, hist))
     if not os.path.exists(fname):
         fname = os.path.join(basedir, request, "%s.rrd" % subtask)
         siteOut = "MatchingIdle"
         title = "%s Job Counts" % subtask
         if not os.path.exists(fname):
-            raise ValueError("No information present (request=%s, subtask=%s)" % (request, subtask))
+            raise ValueError("No information present (request=%s, subtask=%s, interval=%s, hist=%s)" % (request, subtask, interval, hist))
+
+    outR = rrdtool.fetch(fname, 'AVERAGE', '-s', '-%sd' % int(hist+1), '-e', '-%sd' % int(hist), '-r', '1h')
+    allNone = True
+    for item in outR[2]:
+        if item.count(None) != len(item):
+            allNone = False
+            break
+    if allNone:
+        raise ValueError("No history information present (request=%s, subtask=%s)" % (request, subtask))
     rrdtool.graph(pngpath,
             "--imgformat", "PNG",
             "--width", "250",
