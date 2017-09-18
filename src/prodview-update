@@ -201,6 +201,28 @@ def analyzePrios(workflows):
                     prioDict["LowerPrioRunning"] = lowerRunning
                     prioDict["HigherPrioIdle"] = higherIdle
 
+def getPrioName(mappings, prioToMap):
+    """ Get priority mapping """
+    name = None
+    if prioToMap in mappings:
+        name = mappings[prioToMap]
+    else:
+        if prioToMap < 63000:
+            name = 'B7'
+        elif prioToMap > 110000:
+            name = 'B0'
+        else:
+            for dictPrio in sorted(mappings):
+                if prioToMap > dictPrio:
+                    continue
+                elif prioToMap <= dictPrio:
+                    name = mappings[dictPrio]
+                    break
+            if prioToMap == 89000:
+                print prioToMap, name
+    if not name:
+        raise
+    return name
 
 def summarize(workflows, gsites, tasks):
     """ Summarize running, idle, lower, higher run/idle, prios..."""
@@ -284,10 +306,7 @@ def summarize(workflows, gsites, tasks):
                 for key in requestSites[site]:
                     name = None
                     for prio, prioDict in siteDict.items():
-                        if prio in mappings:
-                            name = mappings[prio]
-                        else:
-                            name = 'B7' if prio < 63000 else 'B0'
+                        name = getPrioName(mappings, prio)
                         sitePrioDict[site].setdefault(name, {"Running": 0, "MatchingIdle": 0, "UniquePressure": 0, "CpusInUse": 0, "CpusPending": 0})
                         requestSites[site][key] += prioDict[key]
                         sitePrioDict[site][name][key] += prioDict[key]
@@ -304,11 +323,7 @@ def summarize(workflows, gsites, tasks):
     for prio in tasks['Summary']:
         if prio == 'ScheddSummary':
             continue
-        name = None
-        if prio in mappings:
-            name = mappings[prio]
-        else:
-            name = 'B7' if prio < 63000 else 'B0'
+        name = getPrioName(mappings, prio)
         newTasksDict.setdefault(name, {"Running": 0, "Idle": 0, "CpusInUse": 0, "CpusPending": 0})
         for key in tasks['Summary'][prio]:
             newTasksDict[name][key] += tasks['Summary'][prio][key]

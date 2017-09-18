@@ -240,7 +240,6 @@ def returnCorrectOut(inputD):
     return correctOut
 
 def database_output_server(values, url):
-    url = url + "/_msearch?timeout=0&ignore_unavailable=true"
     command = "curl -v -XGET --compressed -k '%s' --data-binary $'%s\n'" % (url, str(values).replace("'", "\""))
     p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output = p.communicate()

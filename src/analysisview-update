@@ -420,7 +420,7 @@ def main():
         dateval = datetime.date.today() - datetime.timedelta(days=days)
         indexes.append("cms-%s" % dateval)
     defaultDict["indexes"] = indexes
-    query = '{"index": %(indexes)s,"search_type":"count","ignore_unavailable":true}\n{"size":0,"query":{"filtered":{"query":{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},"filter":{"bool":{"must":[{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}}},"aggs":{"2":{"terms":{"field":"CRAB_Workflow","size":1000000000,"order":{"1.75":"desc"}},"aggs":{"1":{"percentiles":{"field":"CommittedWallClockHr","percents":[50,75,95,99]}}}}}}\n'
+    query = '{"index": %(indexes)s, "ignore_unavailable":true}\n{"size":0,"query":{"bool":{"must":[{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}}, "_source":{"excludes":[]},"aggs":{"2":{"terms":{"field":"CRAB_Workflow","size":1000000000,"order":{"1.75":"desc"}},"aggs":{"1":{"percentiles":{"field":"CommittedWallClockHr","percents":[50,75,95,99]}}}}}}\n'
     defaultDict['mandkey'] = "_exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
     out, failure = database_output_server(query % defaultDict, url)
     print 'Query Done. Start to parse %s' % int(time.time())
