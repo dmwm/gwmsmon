@@ -40,8 +40,6 @@
             //setInterval(load_data, 300000);
         });
 
-        var factory_data = "";
-
         function draw_pie_chart(elID, tableVals, graphTitle, backColor){
             if (backColor == null){backColor="#eeeeee";}
             document.getElementById(elID).style.display = 'block';
@@ -128,11 +126,6 @@
                 document.getElementById("navbar-brand").innerHTML = "Institutional Overview";
             }
 
-            // currentview will be /analysisview/ or /prodview/
-
-            $.get('/poolview/json/totals', function(data){
-                factory_data = data;
-            })
             // First, get the CMS-wide totals
             $.get('json/$request/totals', function(data){
                 gotTotals(data, currentview)});
@@ -144,7 +137,8 @@
 
             // Finally, get the site summaries
             $.get('json/$request/site_summary', function(data){
-                 gotSiteSummary(data, currentview)});
+                    $.get('/poolview/json/totals', function(factory_data){
+                            gotSiteSummary(data, currentview, factory_data)})});
             if (currentview == "/prodview/" || currentview == "/analysisview/"){
                 document.getElementById("myTab").style.display = 'inline';
                 loadExitCodes(currentview.concat('/json/historynew/exitcodes%s%/$request'));
@@ -335,7 +329,7 @@
 
             dashboard.draw(table_data);
         }
-        function gotSiteSummary(data, currentview) {
+        function gotSiteSummary(data, currentview, factory_data) {
 
             var table_data = new google.visualization.DataTable();
             table_data.addColumn("string", "Site");
