@@ -224,7 +224,7 @@
                         containerId: 'running_workflows_control',
                         options: {filterColumnIndex: 0, matchType: 'any'}
                     });
-          dashboard.bind([control], [table]);
+           dashboard.bind([control], [table]);
           // I hate google table class. Sorry ;)
           google.visualization.events.addListener(table, 'ready', function(){
               $(".google-visualization-table-table").attr('class', 'table-bordered table-hover table-condensed table-striped');
@@ -255,16 +255,21 @@
         table_data.addColumn("string", "Name");
         table_data.addColumn("string", "Status");
         table_data.addColumn("string", "Type");
-        table_data.addColumn("number", "Total Running");
-        table_data.addColumn("number", "Total Idle");
-        table_data.addColumn("number", "Tasks Running");
-        table_data.addColumn("number", "Tasks Idle");
+        table_data.addColumn("number", "Running Jobs");
+        table_data.addColumn("number", "Idle Jobs");
+        table_data.addColumn("number", "Running CPUs");
+        table_data.addColumn("number", "Idle CPUs");
+        table_data.addColumn("number", "Running Tasks");
+        table_data.addColumn("number", "Idle Tasks");
         table_data.addColumn("number", "Percentage in use");
         table_data.addColumn("string", "Schedd Status");
         table_data.addColumn("string", "Dagmans Status");
-        table_data.addColumn("string", "Hourly History");
-        table_data.addColumn("string", "Daily History");
-        table_data.addColumn("string", "Weekly History");
+        table_data.addColumn("string", "Hourly Jobs History");
+        table_data.addColumn("string", "Daily Jobs History");
+        table_data.addColumn("string", "Weekly Jobs History");
+        table_data.addColumn("string", "Hourly CPUs History");
+        table_data.addColumn("string", "Daily CPUs History");
+        table_data.addColumn("string", "Weekly CPUs History");
         for (schedd_key in data){
             if (schedd_key !== "Summary" && schedd_key !== "Collector" && schedd_key !== "Negotiation" && schedd_key !== "UserSummary"){
                 schedd_data = data[schedd_key];
@@ -273,7 +278,9 @@
                 var image_htmlw = '<img src="/poolview/graphs/' + schedd_key + '/weekly"/>';
                 var image_htmls = '<img src="/poolview/graphs/scheddwarning/' + schedd_key + '/hourly"/>';
                 var image_htmldags = '<img src="/poolview/graphs/dagmans/' + schedd_key + '/daily"/>';
-
+                var image_htmlhcpus = '<img src="/poolview/graphs/cpus/' + schedd_key + '/hourly"/>';
+                var image_htmldcpus = '<img src="/poolview/graphs/cpus/' + schedd_key + '/daily"/>';
+                var image_htmlwcpus = '<img src="/poolview/graphs/cpus/' + schedd_key + '/weekly"/>';
                 var schedd_html = schedd_data.Name;
                 schedd_html += '<br/>';
                 if (schedd_data.Machine !== schedd_data.Name){
@@ -286,9 +293,9 @@
                     schedd_html += '<p>' + schedd_data.Msg + '</p>';
                 }  
                 if (schedd_data.CMSGWMS_Type !== "crabschedd"){
-                    table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, -1, -1, schedd_data.PercentageUse, image_htmls, 'N/A', image_htmlh, image_htmld, image_htmlw]);}
+                    table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.TotalRunningCpus, schedd_data.TotalIdleCpus, -1, -1, schedd_data.PercentageUse, image_htmls, 'N/A', image_htmlh, image_htmld, image_htmlw, image_htmlhcpus, image_htmldcpus, image_htmlwcpus]);}
                 else {
-                    table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.Summary.Running, schedd_data.Summary.Idle, schedd_data.PercentageUse, image_htmls, image_htmldags, image_htmlh, image_htmld, image_htmlw]);}
+                    table_data.addRow([schedd_html, schedd_data.Status, schedd_data.CMSGWMS_Type, schedd_data.TotalRunningJobs, schedd_data.TotalIdleJobs, schedd_data.TotalRunningCpus, schedd_data.TotalIdleCpus, schedd_data.Summary.Running, schedd_data.Summary.Idle, schedd_data.PercentageUse, image_htmls, image_htmldags, image_htmlh, image_htmld, image_htmlw, image_htmlhcpus, image_htmldcpus, image_htmlwcpus]);}
                 
             }
         }

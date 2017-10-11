@@ -17,6 +17,7 @@ from functions import createEmptyRRD
 from functions import roundTime
 from functions import querySchedd
 from functions import queryCommandLineSchedd
+from functions import validateInt
 from timeout import TimeoutError
 
 GSTARTUP = int(time.time())
@@ -53,6 +54,26 @@ def queryFactory(coll, output):
                 inDict = True
         if not inDict:
             output[entry['GLIDEIN_CMSSite']].append(dataAppend)
+
+
+def getcpucounts(scheddsInfo, scheddAds, warningsErrors):
+    """ """
+    for ad in scheddAds:
+        print 'Getting CPU Counts from %s' % ad['Name']
+        name = ad['Name'].replace("@", "-").replace(".", "-")
+        if name not in scheddsInfo.keys():
+            print 'WTF! Schedd is not there.... Schedd Ads: %s' % ad
+            continue
+        jobs = querySchedd(ad, "True", ['JobStatus', 'RequestCpus'])
+        scheddsInfo[name].setdefault('TotalIdleCpus', 0)
+        scheddsInfo[name].setdefault('TotalRunningCpus', 0)
+        for job in jobs:
+            requestCpus = 0 if 'RequestCpus' not in job.keys() else validateInt(job['RequestCpus'])
+            if job['JobStatus'] == 1:
+                scheddsInfo[name]['TotalIdleCpus'] += requestCpus
+            elif job['JobStatus'] == 2:
+                scheddsInfo[name]['TotalRunningCpus'] += requestCpus
+
 
 
 def summarizeSchedds(scheddsInfo, scheddAds, warningsErrors):
@@ -403,8 +424,8 @@ def writeScheddInfo(basedir, scheddsInfo):
             continue
         requestDir = os.path.join(basedir, scheddName)
         fname = os.path.join(requestDir, "request.rrd")
-        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U"]
-        tempUpdLine = "%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"])
+        tempKeys = ["DS:Running:GAUGE:360:U:U", "DS:Idle:GAUGE:360:U:U", "DS:RunningCpus:GAUGE:360:U:U", "DS:IdleCpus:GAUGE:360:U:U"]
+        tempUpdLine = "%d:%d:%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"], scheddDict["TotalRunningCpus"], scheddDict["TotalIdleCpus"])
         # keys for warnings
         warningsKeys = ["DS:OK:GAUGE:360:U:U", "DS:WARNING:GAUGE:360:U:U", "DS:CRITICAL:GAUGE:360:U:U", "DS:UNKNOWN:GAUGE:360:U:U"]
         warnings = [0, 0, 0, 0]  # 0 - is ok, 1 - is warning, 2 - is critical
@@ -416,12 +437,12 @@ def writeScheddInfo(basedir, scheddsInfo):
             warnings[2] += 1
         else:
             warnings[3] += 1
-        tempUpdLine = str("%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"])) + ":" + str(":".join(["%d"]*len(warnings)) % tuple(warnings))
+        tempUpdLine = str("%d:%d:%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"],  scheddDict["TotalRunningCpus"], scheddDict["TotalIdleCpus"])) + ":" + str(":".join(["%d"]*len(warnings)) % tuple(warnings))
         if scheddDict['CMSGWMS_Type'] == 'crabschedd':
             tempKeys.append("DS:MaxDagmans:GAUGE:360:U:U")
             tempKeys.append("DS:RunningDagmans:GAUGE:360:U:U")
             tempKeys.append("DS:IdleDagmans:GAUGE:360:U:U")
-            tempUpdLine = str("%d:%d:%d:%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"],
+            tempUpdLine = str("%d:%d:%d:%d:%d:%d:%d:%d" % (GSTARTUP, scheddDict["TotalRunningJobs"], scheddDict["TotalIdleJobs"], scheddDict["TotalRunningCpus"], scheddDict["TotalIdleCpus"],
                           scheddDict["MaxSchedulersRunning"], scheddDict['Summary']["Running"], scheddDict['Summary']["Idle"])) + ":" + \
                           str(":".join(["%d"]*len(warnings)) % tuple(warnings))
         tempKeys.extend(warningsKeys)
@@ -433,11 +454,23 @@ def writeScheddInfo(basedir, scheddsInfo):
     fname = os.path.join(basedir, 'negotiation.rrd')
     updateKeys = ["DS:NegotiationTime:GAUGE:360:U:U", "DS:NegotiationTimeT1:GAUGE:360:U:U", "DS:NegotiationTimeUS:GAUGE:360:U:U", "DS:Ideally:GAUGE:360:U:U"]
     updateLine = ""
-    for name in ['NEGOTIATOR', 'NEGOTIATORT1', 'NEGOTIATORUS']:
-        if name not in scheddsInfo['Negotiation'].keys():
+    negMappings = {"NEGOTIATOR": ["vocms0808.cern.ch", "NEGOTIATOR"],
+                   "NEGOTIATORT1": ["NEGOTIATORT1@vocms0808.cern.ch", "NEGOTIATORT1"],
+                   "NEGOTIATORUS": ["NEGOTIATORUS@vocms0808.cern.ch", "NEGOTIATORUS"]}
+    for key, negList in negMappings.items():
+        # WTF!  Make a mapping so that easily changeble next time.
+        alreadyFound = False
+        for name in negList:
+            print name, scheddsInfo['Negotiation']
+            if name in scheddsInfo['Negotiation'].keys():
+                #updateLine += ":%d" % 0
+                updateLine += ":%d" % scheddsInfo['Negotiation'][name]
+                alreadyFound = True
+                scheddsInfo['Negotiation'][key] = scheddsInfo['Negotiation'][name]
+                break
+        if not alreadyFound:
             updateLine += ":%d" % 0
-        else:
-            updateLine += ":%d" % scheddsInfo['Negotiation'][name]
+    print scheddsInfo['Negotiation']
     rrdUpdate(fname, updateKeys, "%d%s:%d" % (GSTARTUP, updateLine, 300), GSTARTUP)
     return
 
@@ -751,6 +784,7 @@ def main():
     warningErrors = queryCommandLineSchedd(opts.pool.split(":")[0], "Name isWarningReason isCriticalReason")
     if scheddAds:
         summarizeSchedds(scheddsInfo, scheddAds, warningErrors)
+        getcpucounts(scheddsInfo, scheddAds, warningErrors)
     poolDiffNeg(scheddsInfo, opts)
     writeScheddInfo(opts.poolview, scheddsInfo)
 

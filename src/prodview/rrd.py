@@ -270,6 +270,39 @@ def oldrequest(basedir, interval, request):
             )
     return clean_and_return(fd, pngpath)
 
+def cpurequest(basedir, interval, request):
+    fd, pngpath = tempfile.mkstemp(".png")
+    fname = os.path.join(basedir, request, "request.rrd")
+    if not os.path.exists(fname):
+        raise ValueError("No information present (request=%s)" % request)
+    rrdtool.graph(pngpath,
+            "--imgformat", "PNG",
+            "--width", "250",
+            "--start", "-1%s" % get_rrd_interval(interval),
+            "--vertical-label", "Cpus",
+            "--lower-limit", "0",
+            "--title", "Request %s Cpus Counts" % request,
+            "--watermark", "Produced at cms-gwmsmon.cern.ch on %s" % get_current_date(),
+            "DEF:RunningCpus=%s:RunningCpus:AVERAGE" % fname,
+            "DEF:IdleCpus=%s:IdleCpus:AVERAGE" % fname,
+            "LINE1:RunningCpus%s:RunningCpus" % COLORS['Running'],
+            "LINE2:IdleCpus%s:IdleCpus" % COLORS['Idle'],
+            "COMMENT:Request Statistics",
+            "COMMENT:\\n",
+            "COMMENT:\\n",
+            "COMMENT:           max     avg     cur\\n",
+            "COMMENT:RunningCpus ",
+            "GPRINT:RunningCpus:MAX:%-6.0lf",
+            "GPRINT:RunningCpus:AVERAGE:%-6.0lf",
+            "GPRINT:RunningCpus:LAST:%-6.0lf",
+            "COMMENT:\\n",
+            "COMMENT:IdleCpus    ",
+            "GPRINT:IdleCpus:MAX:%-6.0lf",
+            "GPRINT:IdleCpus:AVERAGE:%-6.0lf",
+            "GPRINT:IdleCpus:LAST:%-6.0lf\\n",
+            )
+    return clean_and_return(fd, pngpath)
+
 def request(basedir, interval, request):
     fd, pngpath = tempfile.mkstemp(".png")
     fname = os.path.join(basedir, request, "request.rrd")

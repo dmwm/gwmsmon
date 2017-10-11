@@ -22,7 +22,7 @@ _view = None
 QUERIES = {'exitcodes': '{"index": %(indexes)s}\n{"size":0,"query":{"bool":{"must":[{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, {"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}},"_source":{"excludes":[]},"aggs":{"2":{"terms":{"field":"ExitCode","size":10000,"order":{"_count":"desc"}}}}}\n',
         'memoryusage':  '{"index": %(indexes)s}\n{"size":0,"query":{"bool":{"must":[{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}}, {"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}},"_source":{"excludes":[]},"aggs": {"2": {"terms": {"field": "MemoryUsage","size": 10000,"order": {"_count": "desc"}}}}}\n',
         'runtime': '{"index": %(indexes)s}\n{"size":0,"query":{"bool":{"must":[{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}},"_source":{"excludes":[]},"aggs": {"2": {"histogram": {"field": "CommittedCoreHr", "interval": 1, "order": { "_count": "desc"}}, "aggs": {"3": {"terms": {"field": "ExitCode", "size": 10000, "order": { "_count": "desc"}}}}}}}\n',
-        'percentileruntime': '{"index": %(indexes)s}\n{"size":0,"query":{"bool":{"must":[{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}},"_source":{"excludes":[]},"aggs":{"2":{"percentiles":{"field":"CommittedWallClockHr","percents":[1,5,25,50,75,95,99]}}}}\n',
+        'percentileruntime': '{"index": %(indexes)s}\n{"size":0,"query":{"bool":{"must":[{"query_string":{"query":"%(mandkey)s","analyze_wildcard":true}},{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}},"_source":{"excludes":[]},"aggs":{"2":{"percentiles":{"field":"CommittedCoreHr","percents":[1,5,25,50,75,95,99]}}}}\n',
         'memorycpu': '{"index": %(indexes)s}\n{"size":0,"query":{"bool":{"must":[{"query_string": {"query":"%(mandkey)s","analyze_wildcard":true}},{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}},"_source":{"excludes":[]}, "aggs": {"2": {"terms": {"field": "MemoryUsage", "min_doc_count": 1, "size": 10000, "order": { "_count": "desc"}}, "aggs": {"3": {"terms": {"field": "RequestCpus", "size": 10000, "min_doc_count": 1, "order": { "_count": "desc"}}}}}}}\n',
         'topusers': '{"index":%(indexes)s}\n{"size":0,"query":{"bool":{"must":[{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}},"_source":{"excludes":[]},"aggs":{"2":{"terms":{"field":"CRAB_UserHN","size":2000,"order":{"_count":"desc"}}}}}\n',
         'highio': '{"index":%(indexes)s}\n{"size":0,"query":{"bool":{"must":[{"query_string":{"analyze_wildcard":true,"query":"%(mandkey)s"}},{"range":{"RecordTime":{"gte":%(gte)s,"lte":%(lte)s,"format":"epoch_millis"}}}],"must_not":[]}},"_source":{"excludes":[]},"aggs":{"2":{"terms":{"field":"%(key3)s","size":1000,"order":{"InputGB":"desc"}},"aggs":{"InputGB":{"sum":{"field":"InputGB"}},"RequestCpus":{"terms":{"field":"RequestCpus","size":1000,"order":{"_count":"desc"}},"aggs":{"InputGB":{"sum":{"field":"InputGB"}},"CoreHr":{"sum":{"field":"CoreHr"}},"ReadTimeHrs":{"sum":{"field":"ReadTimeHrs"}}}}}}}}\n'}
@@ -104,6 +104,7 @@ def returnCorrectOut(inputD):
 
 def database_output_server(values, url, index):
     command = "curl '%s' --data-binary $'%s\n' --compressed -k" % (url, str(values).replace("'", "\""))
+    #print command
     p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out = p.communicate()
     d = json.loads(out[0])
@@ -226,7 +227,7 @@ def topUserStats(defaultDict, url, index, regm, queryType, start_response):
             return ["Provided time value is not an integer. ValueFrom %s, ValueTo %s" % (regm.groups()[2], regm.groups()[3])]
         start_response('400 Bad Request', headers)
         return ["Provided time value is not an integer. ValueFrom %s" % regm.groups()[2]]
-    defaultDict['mandkey'] = "_exists_:CRAB_UserHN AND CommittedWallClockHr: [%s TO %s]" % (valFrom, valTo)
+    defaultDict['mandkey'] = "NOT JobStatus:2 AND _exists_:CRAB_UserHN AND CommittedWallClockHr: [%s TO %s]" % (valFrom, valTo)
     start_response('200 OK', headers)
     return [str(database_output_server(QUERIES[queryType] % defaultDict, url, index))]
 
@@ -269,17 +270,17 @@ def history_stats(environ, start_response):
                 return ["Only analysisview is capable of returning top users list"]
             return topUserStats(defaultDict, url, index, m, queryType, start_response)
         if m.groups()[3]:
-            defaultDict['mandkey'] = "_exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
-            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2].lower())
+            defaultDict['mandkey'] = "NOT JobStatus:2 AND _exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
+            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2])
             if _view == 'prodview':
-                defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key2'], m.groups()[3].lower())
+                defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key2'], m.groups()[3])
             elif _view == 'analysisview':
-                defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key2'], str('\\\\"' + m.groups()[3].lower() + '\\\\"'))
+                defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key2'], str('\\\\"' + m.groups()[3] + '\\\\"'))
         elif m.groups()[2]:
-            defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
-            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2].lower())
+            defaultDict['mandkey'] = "NOT JobStatus:2 AND _exists_:%s" % defaultDict['key1']
+            defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2])
         else:
-            defaultDict['mandkey'] = "_exists_:%s" % defaultDict['key1']
+            defaultDict['mandkey'] = "NOT JobStatus:2 AND _exists_:%s" % defaultDict['key1']
         start_response('200 OK', headers)
         return [str(database_output_server(QUERIES[queryType] % defaultDict, url, index))]
     except OSError:
@@ -287,7 +288,7 @@ def history_stats(environ, start_response):
         return ['Failed to get data. Contact Experts!']
 
 
-_request_graph_re = re.compile(r'^/*graphs/(scheddwarning|dagmans)?/?([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_request_graph_re = re.compile(r'^/*graphs/(scheddwarning|dagmans|cpus)?/?([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -305,6 +306,8 @@ def request_graph(environ, start_response):
             return [rrd.scheddwarning(_cp.get(_view, "basedir"), interval, request)]
         elif m.groups()[0] == 'dagmans':
             return [rrd.dagmans(_cp.get(_view, "basedir"), interval, request)]
+        elif m.groups()[0] == 'cpus':
+            return [rrd.cpurequest(_cp.get(_view, "basedir"), interval, request)]
     if _view == 'poolview':
         return [rrd.oldrequest(_cp.get(_view, "basedir"), interval, request)]
     return [rrd.request(_cp.get(_view, "basedir"), interval, request)]
