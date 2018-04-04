@@ -156,7 +156,7 @@ def hackCRAB3SchedulerJobs(scheddsInfo, ad, name):
             scheddSummary['Summary'][MAPPING[job['JobStatus']]] += 1
 
 
-def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
+def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut, ignoreT0=True):
     """ TODO """
     pilots = []
     hltHack = {}
@@ -167,6 +167,8 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut):
         print 'Got IOError %s' % er
         return
     for item in pilots:
+        if item['GLIDEIN_CMSSite'] == 'T0_CH_CERN' and ignoreT0:
+            continue
         if 'PartitionableSlot' in item:
             singularity = item['HAS_SINGULARITY'] if 'HAS_SINGULARITY' in item else 'undefined'
             reqOS = item['GLIDEIN_REQUIRED_OS'] if 'GLIDEIN_REQUIRED_OS' in item else 'undefined'
@@ -416,7 +418,6 @@ def writeScheddInfo(basedir, scheddsInfo):
     now = int(time.time())
     scheddsInfo['Summary'] = {}
     scheddsInfo['Summary']['UpdateTime'] = now
-    dropObj(scheddsInfo, basedir, 'summary.json')
     for scheddName, scheddDict in scheddsInfo.items():
         if scheddName in ['Negotiation', 'Collector']:
             continue
@@ -454,9 +455,9 @@ def writeScheddInfo(basedir, scheddsInfo):
     fname = os.path.join(basedir, 'negotiation.rrd')
     updateKeys = ["DS:NegotiationTime:GAUGE:360:U:U", "DS:NegotiationTimeT1:GAUGE:360:U:U", "DS:NegotiationTimeUS:GAUGE:360:U:U", "DS:Ideally:GAUGE:360:U:U"]
     updateLine = ""
-    negMappings = {"NEGOTIATOR": ["vocms0808.cern.ch", "NEGOTIATOR"],
-                   "NEGOTIATORT1": ["NEGOTIATORT1@vocms0808.cern.ch", "NEGOTIATORT1"],
-                   "NEGOTIATORUS": ["NEGOTIATORUS@vocms0808.cern.ch", "NEGOTIATORUS"]}
+    negMappings = {"NEGOTIATOR": ["vocms0815.cern.ch", "NEGOTIATOR"],
+                   "NEGOTIATORT1": ["NEGOTIATORT1@vocms0815.cern.ch", "NEGOTIATORT1"],
+                   "NEGOTIATORUS": ["NEGOTIATORUS@vocms0815.cern.ch", "NEGOTIATORUS"]}
     for key, negList in negMappings.items():
         # WTF!  Make a mapping so that easily changeble next time.
         alreadyFound = False
@@ -472,6 +473,7 @@ def writeScheddInfo(basedir, scheddsInfo):
             updateLine += ":%d" % 0
     print scheddsInfo['Negotiation']
     rrdUpdate(fname, updateKeys, "%d%s:%d" % (GSTARTUP, updateLine, 300), GSTARTUP)
+    dropObj(scheddsInfo, basedir, 'summary.json')
     return
 
 
@@ -799,6 +801,10 @@ def main():
     print '%s querying %s' % (int(time.time()), opts.pool1)
     pilotUsageInfo(coll2, pilotUsage, alreadyKnownPilot, factOut)
     print '%s done querying' % int(time.time())
+    print '%s querying %s' % (int(time.time()), 'T0 POOL')
+    tmpColl1, tmpColl2 = getCollectors("cmsgwms-collector-tier0.cern.ch:9618", opts.pool1, main=True)
+    pilotUsageInfo(tmpColl1, pilotUsage, alreadyKnownPilot, factOut, False)
+    print '%s done querying' % int(time.time())
     loadPoolData(totals, sites, opts.analysisview, "analysisview")
     loadPoolData(totals, sites, opts.prodview, "prodview")
     loadPoolData(totals, sites, opts.cmsconnectview, "cmsconnectview")
@@ -862,3 +868,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

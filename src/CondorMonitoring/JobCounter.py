@@ -30,7 +30,7 @@ mailingList = {'prodschedd': ['cms-comp-ops-workflow-team@cern.ch', 'justas.balc
 
 ## Job Collectors (Condor pools)
 ## Alan updated to alias on 20/Apr/2016
-global_pool = ['cmsgwms-collector-global.cern.ch:9620']
+global_pool = ['cmssrv221.fnal.gov:9620']
 
 # There is no point of querying T0 pool as schedds are also flocking to the Global pool
 # After discussions with Antonio, it was expected to run Prompt-Reco on T1s and

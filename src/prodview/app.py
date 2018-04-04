@@ -233,7 +233,7 @@ def topUserStats(defaultDict, url, index, regm, queryType, start_response):
 
 
 #_history_stats_re, history_stats
-_history_stats_re = re.compile(r'^/*json/historynew/(%s)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?$' % "|".join(QUERIES.keys()))
+_history_stats_re = re.compile(r'^/*json/historynew/(%s)([0-9]{1,3})/?([-_A-Za-z0-9]+)?/?([-_A-Za-z0-9:]+)?/?(all|failed|success)?$' % "|".join(QUERIES.keys()))
 def history_stats(environ, start_response):
     if _view not in ['prodview', 'analysisview']:
         return not_found(environ, start_response)
@@ -269,6 +269,14 @@ def history_stats(environ, start_response):
                 start_response(status, headers)
                 return ["Only analysisview is capable of returning top users list"]
             return topUserStats(defaultDict, url, index, m, queryType, start_response)
+        appendQ = ""
+        if m.groups()[4]:
+            if m.groups()[4] == 'failed':
+                appendQ = 'NOT ExitCode:0'
+            elif m.groups()[4] == 'success':
+                appendQ = 'ExitCode:0'
+            elif m.groups()[4] == 'all':
+                appendQ = ''
         if m.groups()[3]:
             defaultDict['mandkey'] = "NOT JobStatus:2 AND _exists_:%s AND _exists_:%s" % (defaultDict['key1'], defaultDict['key2'])
             defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2])
@@ -276,6 +284,8 @@ def history_stats(environ, start_response):
                 defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key2'], m.groups()[3])
             elif _view == 'analysisview':
                 defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key2'], str('\\\\"' + m.groups()[3] + '\\\\"'))
+            if appendQ:
+                defaultDict['mandkey'] += " AND %s" % appendQ
         elif m.groups()[2]:
             defaultDict['mandkey'] = "NOT JobStatus:2 AND _exists_:%s" % defaultDict['key1']
             defaultDict['mandkey'] += " AND %s:%s" % (defaultDict['key1'], m.groups()[2])
@@ -312,7 +322,7 @@ def request_graph(environ, start_response):
         return [rrd.oldrequest(_cp.get(_view, "basedir"), interval, request)]
     return [rrd.request(_cp.get(_view, "basedir"), interval, request)]
 
-_priority_summary_graph_re = re.compile(r'^/*graphs/prioritysummary(idle|running|cpusinuse|cpuspending)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_priority_summary_graph_re = re.compile(r'^/*graphs/prioritysummary(idle|running|cpusinuse|cpuspending)/?(hourly|weekly|daily|monthly|yearly)?/?(log)?$')
 def priority_summary_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -323,12 +333,19 @@ def priority_summary_graph(environ, start_response):
     m = _priority_summary_graph_re.match(path)
     interval = "daily"
     jobType = m.groups()[0].title()
+    logs = 'raw'
     if m.groups()[1]:
         interval = m.groups()[1]
+    if m.groups()[2]:
+        logs = m.groups()[2]
+    # Shit can happen as they do not specify time range....
+    if interval not in ['hourly', 'weekly', 'daily', 'monthly', 'yearly']:
+        logs = interval
+        interval = 'daily'
 
-    return [rrd.priority_summary_graph(_cp.get(_view, "basedir"), interval, jobType)]
+    return [rrd.priority_summary_graph(_cp.get(_view, "basedir"), interval, jobType, None, logs)]
 
-_priority_summary_graph_site_re = re.compile(r'^/*graphs/siteprioritysummary(idle|running|cpusinuse|cpuspending)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?$')
+_priority_summary_graph_site_re = re.compile(r'^/*graphs/siteprioritysummary(idle|running|cpusinuse|cpuspending)/([-_A-Za-z0-9]+)/?(hourly|weekly|daily|monthly|yearly)?/?(log)?$')
 def priority_summary_site_graph(environ, start_response):
     status = '200 OK'
     headers = [('Content-type', 'image/png'),
@@ -340,10 +357,16 @@ def priority_summary_site_graph(environ, start_response):
     interval = "daily"
     jobType = m.groups()[0].title()
     siteName = m.groups()[1].lower()
+    logs = 'raw'
     if m.groups()[2]:
-        interval=m.groups()[2]
+        interval = m.groups()[2]
+    if m.groups()[3]:
+        logs = m.groups()[3]
+    if interval not in ['hourly', 'weekly', 'daily', 'monthly', 'yearly']:
+        logs = interval
+        interval = 'daily'
 
-    return [rrd.priority_summary_graph(_cp.get(_view, "basedir"), interval, jobType, siteName)]
+    return [rrd.priority_summary_graph(_cp.get(_view, "basedir"), interval, jobType, siteName, logs)]
 
 _request_starvation_graph_re = re.compile(r'^/*graphs/+([-_A-Za-z0-9]+)/starvation/?(hourly|weekly|daily|monthly|yearly)?/?$')
 def request_starvation_graph(environ, start_response):

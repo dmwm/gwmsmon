@@ -202,7 +202,7 @@ def subtaskHist(basedir, interval, request, subtask, hist):
     return clean_and_return(fd, pngpath)
 
 
-def priority_summary_graph(basedir, interval, jobType, siteName = None):
+def priority_summary_graph(basedir, interval, jobType, siteName = None, logs = 'raw'):
     fd, pngpath = tempfile.mkstemp(".png")
     fname = ""
     if siteName:
@@ -210,31 +210,60 @@ def priority_summary_graph(basedir, interval, jobType, siteName = None):
     else:
         fname = os.path.join(basedir, "priorities-%s.rrd" % jobType.lower())
     if not os.path.exists(fname):
-        raise ValueError("No information present" % site)
-    rrdtool.graph(pngpath,
-                  "--imgformat", "PNG",
-                  "--width", "250",
-                  "--start", "-1%s" % get_rrd_interval(interval),
-                  "--vertical-label", "Jobs",
-                  "--lower-limit", "0",
-                  "--watermark", "Produced at cms-gwmsmon.cern.ch on %s" % get_current_date(),
-                  "--title", "%s Job Priority" % jobType if not siteName else "%s at %s" % (jobType, siteName),
-                  'DEF:R0=%s:R0:AVERAGE' % fname,
-                  'DEF:R1=%s:R1:AVERAGE' % fname,
-                  'DEF:R2=%s:R2:AVERAGE' % fname,
-                  'DEF:R3=%s:R3:AVERAGE' % fname,
-                  'DEF:R4=%s:R4:AVERAGE' % fname,
-                  'DEF:R5=%s:R5:AVERAGE' % fname,
-                  'DEF:R6=%s:R6:AVERAGE' % fname,
-                  'DEF:R7=%s:R7:AVERAGE' % fname,
-                  'AREA:R0#ff0000:High Priority',
-                  'AREA:R1#ff7f00:Block 1 (110k):STACK',
-                  'AREA:R2#ffff00:Block 2 (90k):STACK',
-                  'AREA:R3#00ff00:Block 3 (85k):STACK',
-                  'AREA:R4#0000ff:Block 4 (80k):STACK',
-                  'AREA:R5#6600ff:Block 5 (70k):STACK',
-                  'AREA:R6#8800ff:Block 6 (63k):STACK',
-                  'AREA:R7#000000:Low Priority:STACK')
+        raise ValueError("No information present for %s" % fname)
+    if logs == 'log':
+        rrdtool.graph(pngpath,
+                      "--imgformat", "PNG",
+                      "--width", "250",
+                      "--start", "-1%s" % get_rrd_interval(interval),
+                      "--vertical-label", "Jobs",
+                      "--logarithmic",
+                      "--units-exponent", "-3",
+                      "--units-length", "4",
+                      "--lower-limit", "1",
+                      "--watermark", "Produced at cms-gwmsmon.cern.ch on %s" % get_current_date(),
+                      "--title", "%s Job Priority" % jobType if not siteName else "%s at %s" % (jobType, siteName),
+                      'DEF:R0=%s:R0:AVERAGE' % fname,
+                      'DEF:R1=%s:R1:AVERAGE' % fname,
+                      'DEF:R2=%s:R2:AVERAGE' % fname,
+                      'DEF:R3=%s:R3:AVERAGE' % fname,
+                      'DEF:R4=%s:R4:AVERAGE' % fname,
+                      'DEF:R5=%s:R5:AVERAGE' % fname,
+                      'DEF:R6=%s:R6:AVERAGE' % fname,
+                      'DEF:R7=%s:R7:AVERAGE' % fname,
+                      'AREA:R0#ff0000:High Priority',
+                      'AREA:R1#ff7f00:Block 1 (110k):STACK',
+                      'AREA:R2#ffff00:Block 2 (90k):STACK',
+                      'AREA:R3#00ff00:Block 3 (85k):STACK',
+                      'AREA:R4#0000ff:Block 4 (80k):STACK',
+                      'AREA:R5#6600ff:Block 5 (70k):STACK',
+                      'AREA:R6#8800ff:Block 6 (63k):STACK',
+                      'AREA:R7#000000:Low Priority:STACK')
+    else:
+        rrdtool.graph(pngpath,
+                      "--imgformat", "PNG",
+                      "--width", "250",
+                      "--start", "-1%s" % get_rrd_interval(interval),
+                      "--vertical-label", "Jobs",
+                      "--lower-limit", "0",
+                      "--watermark", "Produced at cms-gwmsmon.cern.ch on %s" % get_current_date(),
+                      "--title", "%s Job Priority" % jobType if not siteName else "%s at %s" % (jobType, siteName),
+                      'DEF:R0=%s:R0:AVERAGE' % fname,
+                      'DEF:R1=%s:R1:AVERAGE' % fname,
+                      'DEF:R2=%s:R2:AVERAGE' % fname,
+                      'DEF:R3=%s:R3:AVERAGE' % fname,
+                      'DEF:R4=%s:R4:AVERAGE' % fname,
+                      'DEF:R5=%s:R5:AVERAGE' % fname,
+                      'DEF:R6=%s:R6:AVERAGE' % fname,
+                      'DEF:R7=%s:R7:AVERAGE' % fname,
+                      'AREA:R0#ff0000:High Priority',
+                      'AREA:R1#ff7f00:Block 1 (110k):STACK',
+                      'AREA:R2#ffff00:Block 2 (90k):STACK',
+                      'AREA:R3#00ff00:Block 3 (85k):STACK',
+                      'AREA:R4#0000ff:Block 4 (80k):STACK',
+                      'AREA:R5#6600ff:Block 5 (70k):STACK',
+                      'AREA:R6#8800ff:Block 6 (63k):STACK',
+                      'AREA:R7#000000:Low Priority:STACK')
     return clean_and_return(fd, pngpath)
 
 def oldrequest(basedir, interval, request):

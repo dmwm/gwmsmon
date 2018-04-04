@@ -321,6 +321,8 @@
                      pool_stats1['NumberOfCpusUseRetire'] = 0;
                      pool_stats1['NumberOfCpusFreeDie'] = 0;
                      pool_stats1['NumberOfCpusUseDie'] = 0;
+                     pool_stats1['NumberOfMemoryB1G'] = 0;
+                     pool_stats1['NumberOfMemoryB2G'] = 0;
                      var rowCounter = 0;
                      for (key in data['PilotUsage']['Partitionable']['Utilization']){
                        var itemvals = data['PilotUsage']['Partitionable']['Utilization'][key];
@@ -330,6 +332,15 @@
                        var dieTime = new Date(itemvals.DieTime *1000);
                        table_data_debug.addRow([itemvals.Counter, itemvals.TotalMemory, itemvals.Memory, itemvals.TotalSlotCpus, itemvals.Cpus,     retireTime.toLocaleString(), dieTime.toLocaleString()]);
                        pool_stats1['NumberOfPilots'] += itemvals.Counter;
+                       if (itemvals.Memory <= 1000)
+                       {
+                           pool_stats1['NumberOfMemoryB1G'] += (itemvals.Counter * itemvals.Cpus);
+                       }
+                       if (itemvals.Memory <= 2000)
+                       {
+                           pool_stats1['NumberOfMemoryB2G'] += (itemvals.Counter * itemvals.Cpus);
+                       }
+
                        var dieTimemili = (itemvals.DieTime - 3600) * 1000;
                        if (milliseconds > dieTimemili){
                           pool_stats1['NumberOfPilotsDie'] += itemvals.Counter;
@@ -353,6 +364,8 @@
                      pool_stats1_table.attr('id', 'pilotsdebugtext_table');
                      pool_stats1_table.append("<tr><th>Information type</th><th>Numbers</th>");
                      pool_stats1_table.append("<tr><td>Number of Total Pilots</td><td>" + pool_stats1.NumberOfPilots + "</td>");
+                     pool_stats1_table.append("<tr><td>Number of CPUs <b>not in use</b> because left memory is<b> below 1000mb</b></td><td>" + pool_stats1.NumberOfMemoryB1G + "</td>");
+                     pool_stats1_table.append("<tr><td>Number of CPUs <b>not in use</b> because left memory is<b> below 2000mb</b></td><td>" + pool_stats1.NumberOfMemoryB2G + "</td>");
                      pool_stats1_table.append("<tr><td>Number of Pilots over the Retire time</td><td>" + pool_stats1.NumberOfPilotsRetire + "</td>");
                      pool_stats1_table.append("<tr><td>Number of CPUs in use in Pilots which are over the Retire time</td><td>" + pool_stats1.NumberOfCpusUseRetire + "</td>");
                      pool_stats1_table.append("<tr><td>Number of CPUs free in Pilots which are over the Retire time</td><td>" + pool_stats1.NumberOfCpusFreeRetire + "</td>");
