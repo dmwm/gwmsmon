@@ -242,14 +242,13 @@ def pilotUsageInfo(coll, pilotUsage, alreadyKnownPilot, factOut, ignoreT0=True):
             if not inDict:
                 hltHack[item['GLIDEIN_CMSSite']].append(tmpDict)
 
-            pilotStatsN = pilotStats.setdefault(item['Name'], {'TotalSlotCpus': item['TotalSlotCpus'],
-                                                               'Cpus': item['Cpus'],
-                                                               'TotalMemory': item['Memory'],
-                                                               'Memory': item['Memory'],
-                                                               'AccountingGroup': item['AccountingGroup'] if 'AccountingGroup' in item else 'None',
-                                                               'RetireTime': item['GLIDEIN_ToRetire'],
-                                                               'DieTime': item['GLIDEIN_ToDie'],
-                                                               'PilotType': 'Static'})
+            pilotStatsN = pilotStats.setdefault(item['Name'], {'PilotType': 'Static'})
+            # inside list there is mapping: ['KeyOut', 'KeyInClassAd']
+            for outKey in [['TotalSlotCpus', 'TotalSlotCpus'], ['Cpus', 'Cpus'], ['TotalMemory', 'Memory'],
+                           ['Memory', 'Memory'], ['AccountingGroup', 'AccountingGroup'],
+                           ['RetireTime', 'GLIDEIN_ToRetire'], ['DieTime', 'GLIDEIN_ToDie']]:
+                pilotStatsN[outKey[0]] = item[outKey[1]] if outKey[1] in item else None
+
 
             if item['State'] == 'Claimed':
                 slotInfo['CpusUse'] += 1
