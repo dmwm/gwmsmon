@@ -26,11 +26,13 @@ except ImportError:
 
 # Mailing list for notifications
 mailingSender = 'noreply@cern.ch'
-mailingList = {'prodschedd': ['cms-comp-ops-workflow-team@cern.ch', 'justas.balcas@cern.ch'], 'crabschedd': ['justas.balcas@cern.ch']}
+mailingList = {'prodschedd': ['cms-comp-ops-workflow-team@cern.ch', 'justas.balcas@cern.ch'],
+               'tier0schedd': ['cms-comp-ops-workflow-team@cern.ch'],
+               'crabschedd': ['justas.balcas@cern.ch']}
 
 ## Job Collectors (Condor pools)
 ## Alan updated to alias on 20/Apr/2016
-global_pool = ['cmssrv221.fnal.gov:9620']
+global_pool = ['vocms0815.cern.ch:9620']
 
 # There is no point of querying T0 pool as schedds are also flocking to the Global pool
 # After discussions with Antonio, it was expected to run Prompt-Reco on T1s and
@@ -53,7 +55,7 @@ baseSitePledges = {}  # Site pledges list
 jobCounting = {}  # Actual job counting
 pendingCache = []  # pending jobs cache
 totalRunningSite = {}  # Total running per site
-jobs_failedTypeLogic = {"prodschedd": {}, 'crabschedd': {}}  # Jobs that failed the type logic assignment
+jobs_failedTypeLogic = {"prodschedd": {}, 'crabschedd': {}, 'tier0schedd': {}}  # Jobs that failed the type logic assignment
 output_json = "CondorMonitoring.json"  # Output json file name
 ##Counting jobs for Workflows
 overview_workflows = {}
@@ -604,8 +606,10 @@ def main():
     getSitePledge()  # Get pledges by site from SSB
     initJobDictonaries()  # Init running/pending dictionaries
     classAds = {'prodschedd': ['ClusterID', 'ProcId', 'JobStatus', 'CMS_JobType', 'WMAgent_SubTaskName', 'RequestCpus', 'DESIRED_Sites', 'MachineAttrGLIDEIN_CMSSite0'],
+                'tier0schedd': ['ClusterID', 'ProcId', 'JobStatus', 'CMS_JobType', 'WMAgent_SubTaskName', 'RequestCpus', 'DESIRED_Sites', '    MachineAttrGLIDEIN_CMSSite0'],
                 'crabschedd': ['ClusterID', 'ProcId', 'JobStatus', 'TaskType', 'CRAB_UserHN', 'CRAB_ReqName', 'RequestCpus', 'DESIRED_Sites', 'MATCH_GLIDEIN_CMSSite']}
     jobKeys = {'prodschedd': {'taskname': 'WMAgent_SubTaskName', 'sitename': 'MachineAttrGLIDEIN_CMSSite0'},
+               'tier0schedd': {'taskname': 'WMAgent_SubTaskName', 'sitename': 'MachineAttrGLIDEIN_CMSSite0'},
                'crabschedd': {'taskname': 'CRAB_ReqName', 'sitename': 'MATCH_GLIDEIN_CMSSite'}}
     # Going through each collector and process a job list for each scheduler
     all_collectors = global_pool + tier0_pool
@@ -626,8 +630,8 @@ def main():
         for schedd_name in schedds:
 
             schedd_type = schedds[schedd_name]['schedd_type']
-            if schedd_type not in ['prodschedd', 'crabschedd']:
-                print 'Skipping this scheduler: %s as its type is not prodschedd or crabschedd' % schedd_name
+            if schedd_type not in ['prodschedd', 'crabschedd', 'tier0schedd']:
+                print 'Skipping this scheduler: %s as its type is not prodschedd or tier0schedd or crabschedd' % schedd_name
                 continue
 
             print "INFO: Getting jobs from collector: %s scheduler: %s" % (collector_name, schedd_name)
@@ -653,7 +657,7 @@ def main():
                             continue
                         workflow = None
                         task = None
-                        if schedd_type == 'prodschedd':
+                        if schedd_type == 'prodschedd' or schedd_type == 'tier0schedd':
                             workflow = job['WMAgent_SubTaskName'].split('/')[1]
                             task = job['WMAgent_SubTaskName'].split('/')[-1]
                             jType = job['CMS_JobType']

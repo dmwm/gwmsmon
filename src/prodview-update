@@ -560,7 +560,7 @@ def writeRrds(workflows, gsites, output, taskInfo):
 def main():
     """ Main prodview function """
     opts, dummyargs = parseArgs()
-    scheddAds, dummycoll = getSchedds(opts, opts.pool, 'CMSGWMS_Type=?="prodschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'])
+    scheddAds, dummycoll = getSchedds(opts, opts.pool, 'CMSGWMS_Type=?="prodschedd" || CMSGWMS_Type=?="tier0schedd"', ['Name', 'MyAddress', 'ScheddIpAddr'])
 
     sites = {}
     workflows = {}
@@ -573,7 +573,7 @@ def main():
             analyzeScheddOutput(ad, workflows, taskInfo)
         except IOError:
             print 'Failed, Continue'
-    scheddAds, dummycoll = getSchedds(opts, opts.pool, 'CMSGWMS_Type=?="prodschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'], split = True)
+    scheddAds, dummycoll = getSchedds(opts, opts.pool, 'CMSGWMS_Type=?="prodschedd" || CMSGWMS_Type=?="tier0schedd"', ['Name', 'MyAddress', 'ScheddIpAddr'], split = True)
     for ad in scheddAds:
         if ad["Name"] in allSchedds:
             continue
