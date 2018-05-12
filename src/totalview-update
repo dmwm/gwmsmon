@@ -84,7 +84,7 @@ def summarizeSchedds(scheddsInfo, scheddAds, warningsErrors):
         name = ad['Name'].replace("@", "-").replace(".", "-")
         scheddsInfo[name] = {"Summary": {"Unexpanded": 0, "Idle": 0, "Running": 0, "Removed": 0, "Completed": 0, "Held": 0, "Submission_err": 0, "Unknown": 0}}
         scheddsInfo[name]['FileName'] = name
-        scheddsInfo[name]['CMSGWMS_Type'] = ad['CMSGWMS_Type'] if 'CMSGWMS_Type' in ad else 'CRAB2'
+        scheddsInfo[name]['CMSGWMS_Type'] = str(ad['CMSGWMS_Type']) if 'CMSGWMS_Type' in ad else 'CRAB2'
         if scheddsInfo[name]['CMSGWMS_Type'] == 'crabschedd':
             temp = str(ad['StartSchedulerUniverse']).split(" ")
             maxSchedulers = 0
