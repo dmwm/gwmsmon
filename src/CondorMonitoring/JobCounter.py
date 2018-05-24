@@ -49,7 +49,7 @@ jobTypes = ['Processing', 'Production', 'Skim', 'Harvest', 'Merge', 'LogCollect'
 
 ## Job counting / Condor monitoring
 baseSiteList = {}  # Site list
-baseSitePledges = {}  # Site pledges list
+baseSiteCapacity = {}  # List of sites and amount of cpu resources it provides
 jobCounting = {}  # Actual job counting
 pendingCache = []  # pending jobs cache
 totalRunningSite = {}  # Total running per site
@@ -62,8 +62,8 @@ json_name_workflows = "CondorJobs_Workflows.json"  # Output json file name
 ##SSB links
 site_link = "http://dashb-ssb.cern.ch/dashboard/templates/sitePendingRunningJobs.html?site="
 overalls_link = "http://dashb-ssb-dev.cern.ch/dashboard/templates/sitePendingRunningJobs.html?site=All%20"
-url_site_status = 'http://dashb-ssb.cern.ch/dashboard/request.py/getplotdata?columnid=158&batch=1&lastdata=1'
-url_site_pledges = 'http://dashb-ssb.cern.ch/dashboard/request.py/getplotdata?columnid=159&batch=1&lastdata=1'
+url_site_status = 'http://dashb-ssb.cern.ch/dashboard/request.py/getplotdata?columnid=237&batch=1&lastdata=1'
+url_site_capacity = 'http://dashb-ssb.cern.ch/dashboard/request.py/getplotdata?columnid=160&batch=1&lastdata=1'
 
 
 def createSiteList():
@@ -83,11 +83,11 @@ def createSiteList():
             baseSiteList[name] = status
 
 
-def getSitePledge():
+def getSiteCapacity():
     """
-    Get the expected pledge to use from Dashboard
+    Get the expected sites CPU resources from Dashboard
     """
-    sites = urllib2.urlopen(url_site_pledges).read()
+    sites = urllib2.urlopen(url_site_capacity).read()
     try:
         site_pledges = json.read(sites)['csvdata']
     except:
@@ -100,7 +100,7 @@ def getSitePledge():
         else:
             value = int(site['Value'])
         if siteName(name):
-            baseSitePledges[name] = value
+            baseSiteCapacity[name] = value
 
 
 def initJobDictonaries():
@@ -288,8 +288,8 @@ def relativePending(siteToExtract):
             running = totalRunningSite[site]
         else:
             running = 0.0
-        if site in baseSitePledges.keys():
-            pledge = baseSitePledges[site]
+        if site in baseSiteCapacity.keys():
+            pledge = baseSiteCapacity[site]
         else:
             pledge = 0.0
 
@@ -601,7 +601,7 @@ def main():
 
     # Create base dictionaries for running/pending jobs per site
     createSiteList()  # Sites from SSB
-    getSitePledge()  # Get pledges by site from SSB
+    getSiteCapacity()  # Get cpu capacity by site from SSB
     initJobDictonaries()  # Init running/pending dictionaries
     classAds = {'prodschedd': ['ClusterID', 'ProcId', 'JobStatus', 'CMS_JobType', 'WMAgent_SubTaskName', 'RequestCpus', 'DESIRED_Sites', 'MachineAttrGLIDEIN_CMSSite0'],
                 'crabschedd': ['ClusterID', 'ProcId', 'JobStatus', 'TaskType', 'CRAB_UserHN', 'CRAB_ReqName', 'RequestCpus', 'DESIRED_Sites', 'MATCH_GLIDEIN_CMSSite']}
