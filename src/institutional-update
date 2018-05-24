@@ -394,7 +394,7 @@ def main():
     """Main function for prod"""
     opts, dummyargs = parseArgs()
 
-    scheddAds, dummycoll = getSchedds(opts, opts.pool, 'CMSGWMS_Type=!="cmsconnect" && CMSGWMS_Type=!="prodschedd" && CMSGWMS_Type=!="crabschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'])
+    scheddAds, dummycoll = getSchedds(opts, opts.pool, 'CMSGWMS_Type=?="institutionalschedd"', ['Name', 'MyAddress', 'ScheddIpAddr'])
 
     sites = {}
     workflows = {}
