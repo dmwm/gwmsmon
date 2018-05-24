@@ -72,7 +72,18 @@ def createSiteList():
     """
     Creates a initial site list with the data from site status in Dashboard
     """
-    sites = urllib2.urlopen(url_site_status).read()
+    cachelocation = '/tmp/sitelist-ssb.txt'
+    sites = ""
+    try:
+        sites = urllib2.urlopen(url_site_status).read()
+        with open(cachelocation, 'w') as fd:
+            fd.write(sites)
+    except:
+        if os.path.isfile(cachelocation):
+            with open(cachelocation, 'r') as fd:
+                sites = fd.read()
+        else:
+            raise Exception('Unable to get site list and cache file does not exist')
     try:
         site_status = json.read(sites)['csvdata']
     except:
@@ -89,7 +100,18 @@ def getSiteCapacity():
     """
     Get the expected sites CPU resources from Dashboard
     """
-    sites = urllib2.urlopen(url_site_capacity).read()
+    cachelocation = '/tmp/sitecapacity-ssb.txt'
+    sites = ""
+    try:
+        sites = urllib2.urlopen(url_site_capacity).read()
+        with open(cachelocation, 'w') as fd:
+            fd.write(sites)
+    except:
+        if os.path.isfile(cachelocation):
+            with open(cachelocation, 'r') as fd:
+                sites = fd.read()
+        else:
+            raise Exception('Unable to get site list and cache file does not exist')
     try:
         site_pledges = json.read(sites)['csvdata']
     except:
