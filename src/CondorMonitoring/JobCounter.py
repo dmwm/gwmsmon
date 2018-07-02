@@ -53,7 +53,8 @@ jobTypes = ['Processing', 'Production', 'Skim', 'Harvest', 'Merge', 'LogCollect'
 baseSiteList = {}  # Site list
 baseSiteCapacity = {}  # List of sites and amount of cpu resources it provides
 jobCounting = {}  # Actual job counting
-pendingCache = []  # pending jobs cache
+pendingCache = {}  # pending jobs cache
+pendingSites = []  # Unique list of pending sites
 totalRunningSite = {}  # Total running per site
 jobs_failedTypeLogic = {"prodschedd": {}, 'crabschedd': {}, 'tier0schedd': {}}  # Jobs that failed the type logic assignment
 output_json = "CondorMonitoring.json"  # Output json file name
@@ -72,7 +73,18 @@ def createSiteList():
     """
     Creates a initial site list with the data from site status in Dashboard
     """
-    sites = urllib2.urlopen(url_site_status).read()
+    cachelocation = '/tmp/sitelist-ssb.txt'
+    sites = ""
+    try:
+        sites = urllib2.urlopen(url_site_status).read()
+        with open(cachelocation, 'w') as fd:
+            fd.write(sites)
+    except:
+        if os.path.isfile(cachelocation):
+            with open(cachelocation, 'r') as fd:
+                sites = fd.read()
+        else:
+            raise Exception('Unable to get site list and cache file does not exist')
     try:
         site_status = json.read(sites)['csvdata']
     except:
@@ -89,7 +101,18 @@ def getSiteCapacity():
     """
     Get the expected sites CPU resources from Dashboard
     """
-    sites = urllib2.urlopen(url_site_capacity).read()
+    cachelocation = '/tmp/sitecapacity-ssb.txt'
+    sites = ""
+    try:
+        sites = urllib2.urlopen(url_site_capacity).read()
+        with open(cachelocation, 'w') as fd:
+            fd.write(sites)
+    except:
+        if os.path.isfile(cachelocation):
+            with open(cachelocation, 'r') as fd:
+                sites = fd.read()
+        else:
+            raise Exception('Unable to get site list and cache file does not exist')
     try:
         site_pledges = json.read(sites)['csvdata']
     except:
@@ -725,7 +748,12 @@ def main():
                             increaseRunning(siteRunning, schedd_name, jType, cpus)
                             increaseRunningWorkflow(workflow, siteRunning, 1)
                         elif status == 1:  # Pending
-                            pendingCache.append([schedd_name, jType, cpus, siteToExtract])
+                            for penSite in siteToExtract:
+                                sitename = penSite.replace('_Disk', '')
+                                pendingCache.setdefault(schedd_name, {}).setdefault(jType, {}).setdefault(cpus, {}).setdefault(sitename, 0)
+                                pendingCache[schedd_name][jType][cpus][sitename] += 1
+                                if sitename not in pendingSites:
+                                    pendingSites.append(sitename)
                             increasePendingWorkflow(workflow, siteToExtract, 1)
                         else:  # Ignore jobs in another state
                             continue
@@ -750,20 +778,14 @@ def main():
                 for ncore in jobCounting[site][schedd][jType].keys():
                     totalRunningSite[site] += jobCounting[site][schedd][jType][ncore]['Running']
 
-    # Now process pending jobs
-    for job in pendingCache:
-        job_schedd = job[0]
-        jType = job[1]
-        cpus = job[2]
-        siteToExtract = []
-        for site in job[3]:
-            siteToExtract.append(site.replace('_Disk', ''))
-        siteToExtract = list(set(siteToExtract))  # remove duplicates
+    relative, total = relativePending(pendingSites)  # total != 0 always
+    for job_schedd, schedditem in pendingCache.items():
+        for jType, cpusitem in schedditem.items():
+            for cpus, siteitem in cpusitem.items():
+                for penSite, penCount in siteitem.items():
+                    relative_pending = (relative[penSite] / total) * penCount
+                    increasePending(penSite, job_schedd, jType, cpus, relative_pending)
 
-        relative, total = relativePending(siteToExtract)  # total != 0 always
-        for penSite in siteToExtract:
-            relative_pending = relative[penSite] / total  # calculate relative pending weight
-            increasePending(penSite, job_schedd, jType, cpus, relative_pending)
     print "INFO: Smart pending job counting is done \n"
 
     # Handling jobs that failed task extraction logic
