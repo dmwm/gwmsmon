@@ -59,20 +59,23 @@ def queryFactory(coll, output):
 def getcpucounts(scheddsInfo, scheddAds, warningsErrors):
     """ """
     for ad in scheddAds:
-        print 'Getting CPU Counts from %s' % ad['Name']
+        print '%s Getting CPU Counts from %s' % (int(time.time()), ad['Name'])
         name = ad['Name'].replace("@", "-").replace(".", "-")
+        for key in ['TotalIdleCpus', 'TotalIdleJobs', 'TotalRunningCpus', 'TotalIdleCpus']:
+            scheddsInfo[name].setdefault(key, 0)
+        if ad['Name'] == 'SUBMIT.MIT.EDU':
+            break
         if name not in scheddsInfo.keys():
             print 'WTF! Schedd is not there.... Schedd Ads: %s' % ad
             continue
         jobs = querySchedd(ad, "True", ['JobStatus', 'RequestCpus'])
-        scheddsInfo[name].setdefault('TotalIdleCpus', 0)
-        scheddsInfo[name].setdefault('TotalRunningCpus', 0)
         for job in jobs:
             requestCpus = 0 if 'RequestCpus' not in job.keys() else validateInt(job['RequestCpus'])
             if job['JobStatus'] == 1:
                 scheddsInfo[name]['TotalIdleCpus'] += requestCpus
             elif job['JobStatus'] == 2:
                 scheddsInfo[name]['TotalRunningCpus'] += requestCpus
+        print 'done'
 
 
 
@@ -418,6 +421,10 @@ def writeScheddInfo(basedir, scheddsInfo):
     scheddsInfo['Summary'] = {}
     scheddsInfo['Summary']['UpdateTime'] = now
     for scheddName, scheddDict in scheddsInfo.items():
+        print scheddName
+        print scheddDict
+        for key in ['TotalIdleCpus', 'TotalIdleJobs', 'TotalRunningCpus', 'TotalIdleCpus']:
+            scheddDict.setdefault(key, 0)
         if scheddName in ['Negotiation', 'Collector']:
             continue
         if 'Name' not in scheddDict:
@@ -739,6 +746,7 @@ def poolDiffNeg(scheddsInfo, opts):
     scheddsInfo['Collector'] = {}
     scheddsInfo['Negotiation'] = {}
     for item in [opts.pool, opts.pool1]:
+        '%s getall from collector %s ' % ((int(time.time())), item)
         entries = queryWithRetries(item.split(":")[0], htcondor.AdTypes.Any, 'State=?="Claimed"', ['Name'])
         scheddsInfo['Collector'][item] = len(entries)
     # See the diff
@@ -746,6 +754,7 @@ def poolDiffNeg(scheddsInfo, opts):
     scheddsInfo['Collector']['INFO'] = "Difference between collector total job counts: %s (%s) - %s (%s) = %s" % (scheddsInfo['Collector'][opts.pool], opts.pool, scheddsInfo['Collector'][opts.pool1], opts.pool1, scheddsInfo['Collector']['DIFF'])
     # Negotiation time
     for item in [opts.pool, opts.pool1]:
+        '%s get negotiation from collector %s ' % ((int(time.time())), item)
         entries = queryWithRetries(item.split(":")[0], htcondor.AdTypes.Negotiator, 'True', ['Name', 'LastNegotiationCycleDuration0'])
         print entries
         for ad in entries:
@@ -781,12 +790,15 @@ def main():
             print time.time()
             print er
 
-
+    print '%s querying command line' % (int(time.time()))
     warningErrors = queryCommandLineSchedd(opts.pool.split(":")[0], "Name isWarningReason isCriticalReason")
+    print '%s querying command line done' % (int(time.time()))
     if scheddAds:
         summarizeSchedds(scheddsInfo, scheddAds, warningErrors)
         getcpucounts(scheddsInfo, scheddAds, warningErrors)
+    print '%s querying pool diff' % (int(time.time()))
     poolDiffNeg(scheddsInfo, opts)
+    '%s write schedd info ' % (int(time.time()))
     writeScheddInfo(opts.poolview, scheddsInfo)
 
     pilotUsage = {}
@@ -820,8 +832,8 @@ def main():
         i += 1
     # Move this list to configuration also
     urls = [{"FNAL Factory": "http://cmssi-factory01.fnal.gov:8319/factory/monitor/"},
-            {"UCSD Factory": "http://gfactory-2.t2.ucsd.edu/factory/monitor/"},
-            {"CERN Factory": "http://vocms0206.cern.ch/monitor/"}]
+                {"UCSD Factory": "http://gfactory-2.t2.ucsd.edu/factory/monitor/"},
+                {"CERN Factory": "http://vocms0206.cern.ch/monitor/"}]
     appends = ['descript.xml', 'rrd_Status_Attributes.xml']
     errors = xmlOut.setdefault("Errors", [])
     factentries = {}
