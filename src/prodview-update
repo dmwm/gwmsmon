@@ -202,32 +202,20 @@ def analyzePrios(workflows):
                     prioDict["HigherPrioIdle"] = higherIdle
 
 def getPrioName(mappings, prioToMap):
-    """ Get priority mapping """
-    name = None
-    if prioToMap in mappings:
-        name = mappings[prioToMap]
-    else:
-        if prioToMap < 63000:
-            name = 'B7'
-        elif prioToMap > 110000:
-            name = 'B0'
-        else:
-            for dictPrio in sorted(mappings):
-                if prioToMap > dictPrio:
-                    continue
-                elif prioToMap <= dictPrio:
-                    name = mappings[dictPrio]
-                    break
-            if prioToMap == 89000:
-                print prioToMap, name
-    if not name:
-        raise
-    return name
+    """
+    Get priority block according to given mapping
+    If priority could not be found, default to Block7
+    """
+    for priority in sorted(mappings, reverse=True):
+        if prioToMap >= priority:
+            return mappings[priority]
+
+    return "B7"
 
 def summarize(workflows, gsites, tasks):
     """ Summarize running, idle, lower, higher run/idle, prios..."""
     sitePrioDict = {}
-    mappings = {63000: "B6", 70000: "B5", 80000: "B4", 85000: "B3", 90000: "B2", 110000: "B1"}
+    mappings = {63000: "B6", 70000: "B5", 80000: "B4", 85000: "B3", 90000: "B2", 110000: "B1", 130000: "B0"}
     mappingsView = {"B7": "Low Priority", "B6": "Block 6 (63k)", "B5": "Block 5 (70k)", "B4": "Block 4 (80k)", "B3": "Block 3 (85k)", "B2": "Block 2 (90k)", "B1": "Block 1 (110k)", "B0": "High Priority"}
     for request, requestDict in workflows.items():
         for subtask, subtaskDict in requestDict.items():
