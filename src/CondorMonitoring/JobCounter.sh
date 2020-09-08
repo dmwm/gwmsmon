@@ -15,7 +15,7 @@ if [ -f scriptRunning.run ];
 then
     echo "Last JobCounter.sh is currently running. Will send an email to the admin."
     SUBJECT="[Monitoring] CondorMonitoring running slowly"
-    EMAIL="cms-http-group@cern.ch"
+    EMAIL="dmytro@cern.ch"
     touch ./emailmessage.txt
     echo "Hi, Condor monitoring script is running slowly at:" > ./emailmessage.txt
     echo $location >> ./emailmessage.txt
