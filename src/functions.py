@@ -156,8 +156,15 @@ def getCollectors(pool, pool1, main=False):
         coll1 = htcondor.Collector(pool1)
         return coll, coll1
 
-def getSchedds(opts, pool, query, keys, split = False):
-    """TODO doc"""
+def getSchedds(opts, pool, query, keys, split = False, retry=True):
+    """Get list of schedulers from Collector.
+       params:
+          opts - configuration from /etc/prodview.conf
+          pool - pool hostname;
+          query - htcondor query, in htcondor world -const ''
+          keys - classads to return from htcondor output
+          split - split pool variable to hostname and port
+          retry - if pool fails to reply with list of schedds, retry on second collector"""
     scheddAds = None
     print 'Getting schedd names from: ', pool if not split else pool.split(":")[0]
     print time.time()
@@ -177,10 +184,10 @@ def getSchedds(opts, pool, query, keys, split = False):
     except TimeoutError1 as er:
         print 'Got error: %s' % er
 
-    if not scheddAds:
+    if not scheddAds and retry:
         # This should not happen, if happens, means something wrong...
         if opts.pool1:
-            scheddAds, coll = getSchedds(opts, opts.pool1, query, keys, split)
+            scheddAds, coll = getSchedds(opts, opts.pool1, query, keys, split, False)
     return scheddAds, coll
 
 
