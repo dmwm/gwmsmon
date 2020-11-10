@@ -63,10 +63,13 @@ def analyzeScheddOutput(ad, workflows, taskInfo):
             mainUserTask['Schedd'] = ad['Name']
             mainUserTask['QDate'] = job['QDate']
             mainUserTask['TaskName'] = mainTaskName
-            keysFromMainTask = ["RequestCpus", 'RequestMemory', 'MaxWallTimeMins', 'JobStatus']
+            keysFromMainTask = ['RequestCpus', 'RequestMemory', 'MaxWallTimeMins', 'JobStatus']
             for keyName in keysFromMainTask:
                 if keyName in job.keys():
-                    mainUserTask[keyName] = job[keyName]
+                    try:
+                        mainUserTask[keyName] = int(job[keyName])
+                    except ValueError:
+                        mainUserTask[keyName] = 0
 
             desiredSites = []
             try:
